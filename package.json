@@ -1,0 +1,20 @@
+{
+    "name":  "clibees",
+    "version":  "0.1.0",
+    "private":  true,
+    "type":  "module",
+    "main":  "dist/index.js",
+    "types":  "dist/index.d.ts",
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.json",
+                    "check":  "tsc -p tsconfig.json --noEmit",
+                    "test":  "npm run build \u0026\u0026 node dist/storage/file-stores.test.js \u0026\u0026 node dist/control/phase3.test.js \u0026\u0026 node dist/execution/phase4.test.js \u0026\u0026 node dist/execution/phase5.test.js \u0026\u0026 node dist/control/phase6.test.js \u0026\u0026 node dist/control/phase7.test.js \u0026\u0026 node dist/control/phase8.test.js \u0026\u0026 node dist/control/phase9.test.js \u0026\u0026 node dist/control/phase10.test.js",
+                    "cli":  "node --enable-source-maps dist/cli/main.js",
+                    "start":  "npm run cli --",
+                    "ui-api":  "node --enable-source-maps dist/ui-api/main.js"
+                },
+    "devDependencies":  {
+                            "@types/node":  "^22.10.1",
+                            "typescript":  "^5.8.2"
+                        }
+}

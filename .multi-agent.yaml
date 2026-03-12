@@ -1,0 +1,36 @@
+version: 1
+agents:
+  - id: local-default
+    command: node
+    priority: 1
+    profiles:
+      - id: default
+        label: Default
+        capabilities:
+          - planning
+        defaultArgs:
+          - -e
+          - "const prompt = process.argv[1] ?? ''; process.stdout.write(`local-default received:\\n${prompt}\\n`);"
+        defaultCwd: .
+        costTier: low
+planner:
+  mode: static
+  agentId: local-default
+routing:
+  defaultAgentId: local-default
+  preferLowCost: true
+safety:
+  approvalThreshold: high
+  blockedActions: []
+memory:
+  enabled: false
+  rootDir: .multi-agent/memory
+workspace:
+  rootDir: .
+  allowOutsideWorkspaceWrites: false
+validation:
+  defaultTimeoutMs: 60000
+  enableBuildChecks: true
+logging:
+  level: info
+  persistEvents: false

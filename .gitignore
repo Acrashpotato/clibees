@@ -1,0 +1,11 @@
+dist/
+node_modules/
+*.tsbuildinfo
+.vscode/
+.multi-agent/state/
+.multi-agent/memory/
+d4b1d89b-72c8-47ae-a08d-374b972e260b.png
+front-plan.md
+plan.md
+v1-front-tasks.md
+v1-tasks.md
