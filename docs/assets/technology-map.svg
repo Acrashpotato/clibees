@@ -1,0 +1,92 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">clibees technology map</title>
+  <desc id="desc">Technology stack diagram for interfaces, runtime, storage, and frontend layers.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f4f1ea; }
+      .group { fill: #fffdf9; stroke: #374537; stroke-width: 2.5; rx: 24; }
+      .iface { fill: #f1d8cf; stroke: #834c3a; stroke-width: 2; rx: 16; }
+      .runtime { fill: #dde9d2; stroke: #325136; stroke-width: 2; rx: 16; }
+      .storage { fill: #dfe8f3; stroke: #3c5d79; stroke-width: 2; rx: 16; }
+      .frontend { fill: #f0e3bf; stroke: #7c6424; stroke-width: 2; rx: 16; }
+      .title { font: 700 28px "Segoe UI", Arial, sans-serif; fill: #162116; }
+      .text { font: 600 20px "Segoe UI", Arial, sans-serif; fill: #1f2a1f; }
+      .small { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #2d372d; }
+      .arrow { stroke: #374537; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#374537"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="760"/>
+
+  <rect class="group" x="45" y="60" width="1185" height="130"/>
+  <text class="title" x="80" y="105">Interfaces</text>
+  <rect class="iface" x="85" y="125" width="250" height="42"/>
+  <text class="text" x="155" y="152">CLI Commands</text>
+  <rect class="iface" x="375" y="125" width="250" height="42"/>
+  <text class="text" x="437" y="152">Node UI API</text>
+  <rect class="iface" x="665" y="125" width="250" height="42"/>
+  <text class="text" x="735" y="152">Inspect Routes</text>
+  <rect class="iface" x="955" y="125" width="230" height="42"/>
+  <text class="text" x="1011" y="152">Approval Actions</text>
+
+  <rect class="group" x="45" y="225" width="760" height="480"/>
+  <text class="title" x="80" y="270">TypeScript Runtime</text>
+  <rect class="runtime" x="85" y="300" width="210" height="44"/>
+  <text class="text" x="152" y="328">createApp</text>
+  <rect class="runtime" x="315" y="300" width="210" height="44"/>
+  <text class="text" x="375" y="328">Entrypoint</text>
+  <rect class="runtime" x="545" y="300" width="220" height="44"/>
+  <text class="text" x="593" y="328">RunCoordinator</text>
+
+  <rect class="runtime" x="85" y="380" width="210" height="44"/>
+  <text class="text" x="145" y="408">Planner</text>
+  <rect class="runtime" x="315" y="380" width="210" height="44"/>
+  <text class="text" x="384" y="408">Router</text>
+  <rect class="runtime" x="545" y="380" width="220" height="44"/>
+  <text class="text" x="591" y="408">Context Assembler</text>
+
+  <rect class="runtime" x="85" y="460" width="210" height="44"/>
+  <text class="text" x="125" y="488">Execution Runtime</text>
+  <rect class="runtime" x="315" y="460" width="210" height="44"/>
+  <text class="text" x="351" y="488">Safety Manager</text>
+  <rect class="runtime" x="545" y="460" width="220" height="44"/>
+  <text class="text" x="592" y="488">Approval Manager</text>
+
+  <rect class="runtime" x="85" y="540" width="210" height="44"/>
+  <text class="text" x="142" y="568">Validator</text>
+  <rect class="runtime" x="315" y="540" width="210" height="44"/>
+  <text class="text" x="354" y="568">Graph Manager</text>
+  <rect class="runtime" x="545" y="540" width="220" height="44"/>
+  <text class="text" x="620" y="568">Scheduler</text>
+
+  <rect class="group" x="850" y="225" width="380" height="265"/>
+  <text class="title" x="885" y="270">Persistence</text>
+  <rect class="storage" x="885" y="300" width="310" height="40"/>
+  <text class="small" x="1005" y="326">Run / Graph Store</text>
+  <rect class="storage" x="885" y="352" width="310" height="40"/>
+  <text class="small" x="1018" y="378">Event Store</text>
+  <rect class="storage" x="885" y="404" width="310" height="40"/>
+  <text class="small" x="1012" y="430">Artifact Store</text>
+  <rect class="storage" x="885" y="456" width="310" height="40"/>
+  <text class="small" x="994" y="482">Blackboard Store</text>
+
+  <rect class="group" x="850" y="520" width="380" height="185"/>
+  <text class="title" x="885" y="565">Frontend</text>
+  <rect class="frontend" x="885" y="595" width="310" height="40"/>
+  <text class="small" x="1005" y="621">UI Read Models</text>
+  <rect class="frontend" x="885" y="647" width="140" height="40"/>
+  <text class="small" x="930" y="673">Vue 3</text>
+  <rect class="frontend" x="1055" y="647" width="140" height="40"/>
+  <text class="small" x="1101" y="673">Vite</text>
+
+  <path class="arrow" d="M 625 167 L 625 300"/>
+  <path class="arrow" d="M 765 322 C 820 322, 830 320, 885 320"/>
+  <path class="arrow" d="M 765 486 C 820 486, 830 445, 885 445"/>
+  <path class="arrow" d="M 1040 496 L 1040 595"/>
+  <path class="arrow" d="M 1040 635 L 1040 647"/>
+
+  <text class="small" x="98" y="640">Strict TypeScript core. Local state. Separate read model layer.</text>
+</svg>

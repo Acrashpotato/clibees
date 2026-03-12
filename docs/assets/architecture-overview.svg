@@ -1,0 +1,99 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">clibees architecture overview</title>
+  <desc id="desc">High level architecture showing users, CLI, console, UI API, RunCoordinator, orchestration services, stores, and local state.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f5ef; }
+      .panel { fill: #fffdf8; stroke: #2f3b2f; stroke-width: 2; rx: 24; }
+      .core { fill: #e7f0dd; stroke: #24422d; stroke-width: 3; rx: 24; }
+      .accent { fill: #f2e2b3; stroke: #7a5e1a; stroke-width: 2; rx: 18; }
+      .store { fill: #e4edf5; stroke: #32526b; stroke-width: 2; rx: 18; }
+      .ui { fill: #f6dfd8; stroke: #7a3d2c; stroke-width: 2; rx: 18; }
+      .text { font: 600 22px "Segoe UI", Arial, sans-serif; fill: #162116; }
+      .small { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #243024; }
+      .label { font: 700 28px "Segoe UI", Arial, sans-serif; fill: #162116; }
+      .line { stroke: #2f3b2f; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .soft { stroke: #5a6d5a; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2f3b2f"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="760"/>
+
+  <rect class="panel" x="40" y="40" width="280" height="220"/>
+  <text class="label" x="70" y="90">Control Surfaces</text>
+  <rect class="ui" x="70" y="120" width="220" height="46"/>
+  <text class="text" x="130" y="150">CLI Commands</text>
+  <rect class="ui" x="70" y="186" width="220" height="46"/>
+  <text class="text" x="132" y="216">Vue Console</text>
+
+  <rect class="panel" x="40" y="300" width="280" height="160"/>
+  <text class="label" x="70" y="350">API Layer</text>
+  <rect class="ui" x="70" y="380" width="220" height="46"/>
+  <text class="text" x="122" y="410">UI API Server</text>
+
+  <rect class="core" x="410" y="140" width="420" height="210"/>
+  <text class="label" x="515" y="195">RunCoordinator</text>
+  <text class="small" x="470" y="235">Planning, routing, approvals, execution, validation,</text>
+  <text class="small" x="480" y="265">state transitions, persistence, inspection flow</text>
+  <rect class="accent" x="455" y="290" width="150" height="36"/>
+  <text class="small" x="491" y="313">Entrypoint</text>
+  <rect class="accent" x="635" y="290" width="150" height="36"/>
+  <text class="small" x="660" y="313">Graph Manager</text>
+
+  <rect class="panel" x="380" y="400" width="480" height="280"/>
+  <text class="label" x="420" y="450">Orchestration Services</text>
+  <rect class="accent" x="420" y="485" width="180" height="44"/>
+  <text class="small" x="480" y="512">Planner</text>
+  <rect class="accent" x="630" y="485" width="180" height="44"/>
+  <text class="small" x="690" y="512">Router</text>
+  <rect class="accent" x="420" y="548" width="180" height="44"/>
+  <text class="small" x="458" y="575">Context Builder</text>
+  <rect class="accent" x="630" y="548" width="180" height="44"/>
+  <text class="small" x="660" y="575">Safety Manager</text>
+  <rect class="accent" x="420" y="611" width="180" height="44"/>
+  <text class="small" x="448" y="638">Approval Manager</text>
+  <rect class="accent" x="630" y="611" width="180" height="44"/>
+  <text class="small" x="680" y="638">Validator</text>
+
+  <rect class="panel" x="930" y="70" width="300" height="300"/>
+  <text class="label" x="975" y="120">Persistence</text>
+  <rect class="store" x="965" y="145" width="230" height="42"/>
+  <text class="small" x="1048" y="171">Run Store</text>
+  <rect class="store" x="965" y="196" width="230" height="42"/>
+  <text class="small" x="1045" y="222">Event Store</text>
+  <rect class="store" x="965" y="247" width="230" height="42"/>
+  <text class="small" x="1036" y="273">Artifact Store</text>
+  <rect class="store" x="965" y="298" width="230" height="42"/>
+  <text class="small" x="1027" y="324">Blackboard Store</text>
+
+  <rect class="panel" x="930" y="400" width="300" height="280"/>
+  <text class="label" x="965" y="450">Local Runtime Assets</text>
+  <rect class="store" x="965" y="485" width="230" height="42"/>
+  <text class="small" x="1038" y="511">Workspace State</text>
+  <rect class="store" x="965" y="536" width="230" height="42"/>
+  <text class="small" x="1041" y="562">Project Memory</text>
+  <rect class="store" x="965" y="587" width="230" height="42"/>
+  <text class="small" x="1030" y="613">Agent Adapters</text>
+  <rect class="store" x="965" y="638" width="230" height="42"/>
+  <text class="small" x="1021" y="664">.multi-agent State</text>
+
+  <path class="line" d="M 290 143 C 350 143, 360 160, 410 190"/>
+  <path class="line" d="M 290 209 C 350 209, 360 205, 410 220"/>
+  <path class="line" d="M 290 403 C 360 403, 365 250, 455 308"/>
+
+  <path class="soft" d="M 620 350 L 620 400"/>
+  <path class="line" d="M 830 220 C 885 220, 890 190, 965 190"/>
+  <path class="line" d="M 830 250 C 900 250, 900 290, 965 290"/>
+  <path class="line" d="M 810 520 C 885 520, 890 510, 965 510"/>
+  <path class="line" d="M 810 575 C 885 575, 890 560, 965 560"/>
+  <path class="line" d="M 810 635 C 885 635, 890 610, 965 610"/>
+
+  <path class="soft" d="M 1080 340 L 1080 400"/>
+  <path class="soft" d="M 1080 629 L 1080 638"/>
+
+  <text class="small" x="84" y="524">Public surfaces feed the same local control plane.</text>
+  <text class="small" x="83" y="551">State and projections remain inside the repository boundary.</text>
+</svg>
