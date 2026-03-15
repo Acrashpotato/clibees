@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from "vue";
 
 import ActionQueuePanel from "../components/ActionQueuePanel.vue";
@@ -8,23 +8,23 @@ import HealthPanel from "../components/HealthPanel.vue";
 import WorkspaceSectionShell from "../components/WorkspaceSectionShell.vue";
 import { usePreferences } from "../composables/usePreferences";
 import { useWorkspaceView } from "../composables/useWorkspaceView";
-import { getLaneConsolePath, getWorkspacePath } from "../workspace";
+import { getTaskConsolePath, getWorkspacePath } from "../workspace";
 
 const { t } = usePreferences();
-const { actionQueue, focusLane, resolvedRunId, workspace } = useWorkspaceView();
+const { actionQueue, focusTask, resolvedRunId, workspace } = useWorkspaceView();
 
 const focusIssues = computed(() =>
   workspace.value.issues.filter(
     (issue) =>
-      issue.toLowerCase().includes(focusLane.value.laneId.toLowerCase()) ||
-      issue.toLowerCase().includes(focusLane.value.role.toLowerCase())
+      issue.toLowerCase().includes(focusTask.value.taskId.toLowerCase()) ||
+      issue.toLowerCase().includes(focusTask.value.role.toLowerCase())
   )
 );
 
-const focusQueue = computed(() => actionQueue.value.filter((item) => item.laneId === focusLane.value.laneId));
+const focusQueue = computed(() => actionQueue.value.filter((item) => item.taskId === focusTask.value.taskId));
 const relatedHandoffs = computed(() =>
   workspace.value.handoffs.filter(
-    (handoff) => handoff.fromLaneId === focusLane.value.laneId || handoff.toLaneId === focusLane.value.laneId
+    (handoff) => handoff.fromTaskId === focusTask.value.taskId || handoff.toTaskId === focusTask.value.taskId
   )
 );
 </script>
@@ -41,12 +41,12 @@ const relatedHandoffs = computed(() =>
       </div>
 
       <FocusLanePanel
-        :lane="focusLane"
+        :task="focusTask"
         :run-id="workspace.runId"
-        :title="focusLane.role"
+        :title="focusTask.role"
         :description="t('workspacePage.focusDescriptionShort')"
         :primary-action-label="t('actions.openLane')"
-        :primary-action-to="getLaneConsolePath(workspace.runId, focusLane.laneId)"
+        :primary-action-to="getTaskConsolePath(workspace.runId, focusTask.taskId)"
         variant="hero"
       />
 
@@ -57,11 +57,11 @@ const relatedHandoffs = computed(() =>
           :title="t('sections.pendingForYou')"
           :description="t('workspacePage.actionQueueDescription')"
           :empty-action-label="t('actions.openLane')"
-          :empty-action-to="getLaneConsolePath(workspace.runId, focusLane.laneId)"
+          :empty-action-to="getTaskConsolePath(workspace.runId, focusTask.taskId)"
         />
         <HandoffRail
           :handoffs="relatedHandoffs"
-          :summary-items="focusLane.artifacts"
+          :summary-items="focusTask.artifacts"
           :title="t('sections.crossLaneMovement')"
           :description="t('workspacePage.handoffsDescription')"
           :empty-action-label="t('actions.reviewFlow')"
@@ -78,4 +78,3 @@ const relatedHandoffs = computed(() =>
     </div>
   </WorkspaceSectionShell>
 </template>
-

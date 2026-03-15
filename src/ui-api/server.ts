@@ -1,15 +1,24 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+﻿import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readdir } from "node:fs/promises";
 import { URL } from "node:url";
 import { createApp } from "../app/create-app.js";
 import type { RunInspection, RunRecord } from "../domain/models.js";
 import { createStateLayout, getRunStatePaths } from "../storage/state-layout.js";
 import { pathExists, readJsonFile } from "../shared/runtime.js";
+import { buildApprovalQueue, buildWorkspaceView } from "../ui-read-models/build-views.js";
 import {
-  buildApprovalQueue,
-  buildRunListItemView,
-  buildWorkspaceView,
-} from "../ui-read-models/build-views.js";
+  buildActionEnvelope,
+  buildNotSupportedResponse,
+  buildProjectionEnvelope,
+  paginateItems,
+} from "./contracts.js";
+import { buildRunListProjection } from "../ui-read-models/build-run-list-projection.js";
+import { buildWorkspaceProjection } from "../ui-read-models/build-workspace-projection.js";
+import { buildTaskBoardProjection } from "../ui-read-models/build-task-board-projection.js";
+import { buildTaskDetailProjection } from "../ui-read-models/build-task-detail-projection.js";
+import { buildSessionDetailProjection } from "../ui-read-models/build-session-detail-projection.js";
+import { buildApprovalQueueProjection } from "../ui-read-models/build-approval-queue-projection.js";
+import { buildAuditTimelineProjection } from "../ui-read-models/build-audit-timeline-projection.js";
 
 export interface UiApiServerOptions {
   host?: string;
@@ -21,18 +30,23 @@ interface JsonRequestBody {
   goal?: string;
   configPath?: string;
   actor?: string;
+  actorId?: string;
   note?: string;
   autoResume?: boolean;
+  clientRequestId?: string;
+  reasonCode?: string;
+  body?: string;
+  replyToMessageId?: string;
 }
 
 export function createUiApiServer(options: UiApiServerOptions = {}) {
   const app = createApp(options.stateRootDir ? { stateRootDir: options.stateRootDir } : {});
   const server = createServer(async (request, response) => {
     try {
-      await handleRequest(app, request, response);
+      await handleRequest(app, options, request, response);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      sendJson(response, 500, { error: message });
+      sendApiError(response, 500, "internal_error", message);
     }
   });
 
@@ -42,17 +56,29 @@ export function createUiApiServer(options: UiApiServerOptions = {}) {
       new Promise<void>((resolve) => {
         server.listen(options.port ?? 4318, options.host ?? "127.0.0.1", () => resolve());
       }),
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      }),
+    getAddress: () => server.address(),
   };
 }
 
 async function handleRequest(
   app: ReturnType<typeof createApp>,
+  options: UiApiServerOptions,
   request: IncomingMessage,
   response: ServerResponse,
 ): Promise<void> {
   setCorsHeaders(response);
   if (!request.url || !request.method) {
-    sendJson(response, 400, { error: "Missing request url." });
+    sendApiError(response, 400, "bad_request", "Missing request url.");
     return;
   }
 
@@ -67,13 +93,31 @@ async function handleRequest(
   const body = request.method === "POST" ? await readJsonBody(request) : undefined;
 
   if (request.method === "GET" && path === "/api/runs") {
-    const inspections = await loadCompleteInspections(app);
-    sendJson(response, 200, inspections.map((inspection) => buildRunListItemView(inspection)));
+    const inspections = await loadCompleteInspections(app, options.stateRootDir);
+    sendJson(response, 200, buildRunListProjection(inspections).runs);
+    return;
+  }
+
+  if (request.method === "GET" && path === "/api/projections/run-list") {
+    const inspections = await loadCompleteInspections(app, options.stateRootDir);
+    const projection = buildRunListProjection(inspections);
+    const filteredRuns = filterRunList(projection.runs, url);
+    const paged = paginateItems(filteredRuns, url.searchParams.get("cursor"), url.searchParams.get("limit"), {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+    sendJson(response, 200, {
+      ...buildProjectionEnvelope({
+        ...projection,
+        runs: paged.items,
+      }),
+      page: paged.page,
+    });
     return;
   }
 
   if (request.method === "GET" && path === "/api/approvals") {
-    const inspections = await loadCompleteInspections(app);
+    const inspections = await loadCompleteInspections(app, options.stateRootDir);
     sendJson(
       response,
       200,
@@ -82,9 +126,28 @@ async function handleRequest(
     return;
   }
 
+  if (request.method === "GET" && path === "/api/projections/approval-queue") {
+    const inspections = await loadCompleteInspections(app, options.stateRootDir);
+    const projection = buildApprovalQueueProjection(inspections);
+    const filtered = filterApprovalProjectionItems(projection.items, url);
+    const paged = paginateItems(filtered, url.searchParams.get("cursor"), url.searchParams.get("limit"), {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+    sendJson(response, 200, {
+      ...buildProjectionEnvelope({
+        ...projection,
+        summary: buildApprovalQueueSummary(filtered),
+        items: paged.items,
+      }),
+      page: paged.page,
+    });
+    return;
+  }
+
   if (request.method === "POST" && path === "/api/runs") {
     if (!body?.goal || body.goal.trim().length === 0) {
-      sendJson(response, 400, { error: "Field \"goal\" is required." });
+      sendApiError(response, 400, "bad_request", 'Field "goal" is required.');
       return;
     }
 
@@ -110,6 +173,69 @@ async function handleRequest(
     const runId = decodeURIComponent(runWorkspaceMatch[1]!);
     const inspection = await app.runCoordinator.inspectRun(runId);
     sendJson(response, 200, buildWorkspaceView(inspection));
+    return;
+  }
+
+  const workspaceProjectionMatch = path.match(/^\/api\/runs\/([^/]+)\/projections\/workspace$/);
+  if (request.method === "GET" && workspaceProjectionMatch) {
+    const runId = decodeURIComponent(workspaceProjectionMatch[1]!);
+    const inspection = await app.runCoordinator.inspectRun(runId);
+    sendJson(response, 200, buildProjectionEnvelope(buildWorkspaceProjection(inspection)));
+    return;
+  }
+
+  const taskBoardProjectionMatch = path.match(/^\/api\/runs\/([^/]+)\/projections\/task-board$/);
+  if (request.method === "GET" && taskBoardProjectionMatch) {
+    const runId = decodeURIComponent(taskBoardProjectionMatch[1]!);
+    const inspection = await app.runCoordinator.inspectRun(runId);
+    sendJson(response, 200, buildProjectionEnvelope(buildTaskBoardProjection(inspection)));
+    return;
+  }
+
+  const taskDetailProjectionMatch = path.match(/^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/projection$/);
+  if (request.method === "GET" && taskDetailProjectionMatch) {
+    const runId = decodeURIComponent(taskDetailProjectionMatch[1]!);
+    const taskId = decodeURIComponent(taskDetailProjectionMatch[2]!);
+    const inspection = await app.runCoordinator.inspectRun(runId);
+    sendJson(response, 200, buildProjectionEnvelope(buildTaskDetailProjection(inspection, taskId)));
+    return;
+  }
+
+  const sessionDetailProjectionMatch = path.match(/^\/api\/runs\/([^/]+)\/sessions\/([^/]+)\/projection$/);
+  if (request.method === "GET" && sessionDetailProjectionMatch) {
+    const runId = decodeURIComponent(sessionDetailProjectionMatch[1]!);
+    const sessionId = decodeURIComponent(sessionDetailProjectionMatch[2]!);
+    const inspection = await app.runCoordinator.inspectRun(runId);
+    sendJson(response, 200, buildProjectionEnvelope(buildSessionDetailProjection(inspection, sessionId)));
+    return;
+  }
+
+  const runApprovalQueueProjectionMatch = path.match(/^\/api\/runs\/([^/]+)\/projections\/approval-queue$/);
+  if (request.method === "GET" && runApprovalQueueProjectionMatch) {
+    const runId = decodeURIComponent(runApprovalQueueProjectionMatch[1]!);
+    const inspection = await app.runCoordinator.inspectRun(runId);
+    const projection = buildApprovalQueueProjection([inspection]);
+    const filtered = filterApprovalProjectionItems(projection.items, url);
+    const paged = paginateItems(filtered, url.searchParams.get("cursor"), url.searchParams.get("limit"), {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+    sendJson(response, 200, {
+      ...buildProjectionEnvelope({
+        ...projection,
+        summary: buildApprovalQueueSummary(filtered),
+        items: paged.items,
+      }),
+      page: paged.page,
+    });
+    return;
+  }
+
+  const auditTimelineProjectionMatch = path.match(/^\/api\/runs\/([^/]+)\/projections\/audit-timeline$/);
+  if (request.method === "GET" && auditTimelineProjectionMatch) {
+    const runId = decodeURIComponent(auditTimelineProjectionMatch[1]!);
+    const inspection = await app.runCoordinator.inspectRun(runId);
+    sendJson(response, 200, buildProjectionEnvelope(buildAuditTimelineProjection(inspection)));
     return;
   }
 
@@ -154,7 +280,7 @@ async function handleRequest(
       runId,
       requestId,
       decision,
-      body?.actor?.trim() || "console-user",
+      body?.actorId?.trim() || body?.actor?.trim() || "console-user",
       body?.note?.trim() || undefined,
       config ? { config } : {},
     );
@@ -162,13 +288,76 @@ async function handleRequest(
     return;
   }
 
-  sendJson(response, 404, { error: `Route not found: ${request.method} ${path}` });
+  const threadMessageMatch = path.match(/^\/api\/runs\/([^/]+)\/threads\/([^/]+)\/messages$/);
+  if (request.method === "POST" && threadMessageMatch) {
+    const runId = decodeURIComponent(threadMessageMatch[1]!);
+    const threadId = decodeURIComponent(threadMessageMatch[2]!);
+    sendJson(response, 501, buildNotSupportedResponse(
+      "Thread message posting is blocked until messageThread and sessionMessage persistence land.",
+      {
+        runId,
+        threadId,
+        missingEntities: ["messageThread", "sessionMessage"],
+      },
+    ));
+    return;
+  }
+
+  const sessionInteractMatch = path.match(/^\/api\/runs\/([^/]+)\/sessions\/([^/]+)\/interact$/);
+  if (request.method === "POST" && sessionInteractMatch) {
+    const runId = decodeURIComponent(sessionInteractMatch[1]!);
+    const sessionId = decodeURIComponent(sessionInteractMatch[2]!);
+    sendJson(response, 501, buildNotSupportedResponse(
+      "Session interaction is blocked until taskSession and session_primary thread persistence land.",
+      {
+        runId,
+        sessionId,
+        missingEntities: ["taskSession", "messageThread", "sessionMessage"],
+      },
+    ));
+    return;
+  }
+
+  const taskMutationMatch = path.match(/^\/api\/runs\/([^/]+)\/tasks\/([^/]+)\/(requeue|cancel)$/);
+  if (request.method === "POST" && taskMutationMatch) {
+    const runId = decodeURIComponent(taskMutationMatch[1]!);
+    const taskId = decodeURIComponent(taskMutationMatch[2]!);
+    const action = taskMutationMatch[3]!;
+    sendJson(response, 501, buildNotSupportedResponse(
+      `Task action \"${action}\" is blocked until taskSession persistence and action coordinators land.`,
+      {
+        runId,
+        taskId,
+        action,
+        missingEntities: ["taskSession"],
+      },
+    ));
+    return;
+  }
+
+  const sessionInterruptMatch = path.match(/^\/api\/runs\/([^/]+)\/sessions\/([^/]+)\/interrupt$/);
+  if (request.method === "POST" && sessionInterruptMatch) {
+    const runId = decodeURIComponent(sessionInterruptMatch[1]!);
+    const sessionId = decodeURIComponent(sessionInterruptMatch[2]!);
+    sendJson(response, 501, buildNotSupportedResponse(
+      "Session interruption is blocked until persisted taskSession binding replaces the current taskId-level runtime hook.",
+      {
+        runId,
+        sessionId,
+        missingEntities: ["taskSession"],
+      },
+    ));
+    return;
+  }
+
+  sendApiError(response, 404, "not_found", `Route not found: ${request.method} ${path}`);
 }
 
 async function loadCompleteInspections(
   app: ReturnType<typeof createApp>,
+  stateRootDir?: string,
 ): Promise<RunInspection[]> {
-  const runs = await listCompleteRuns();
+  const runs = await listCompleteRuns(stateRootDir);
   const inspections: RunInspection[] = [];
 
   for (const run of runs) {
@@ -182,8 +371,8 @@ async function loadCompleteInspections(
   return inspections.sort((left, right) => right.run.updatedAt.localeCompare(left.run.updatedAt));
 }
 
-async function listCompleteRuns(): Promise<RunRecord[]> {
-  const layout = createStateLayout();
+async function listCompleteRuns(stateRootDir?: string): Promise<RunRecord[]> {
+  const layout = createStateLayout(stateRootDir);
   if (!(await pathExists(layout.runsDir))) {
     return [];
   }
@@ -210,6 +399,49 @@ async function listCompleteRuns(): Promise<RunRecord[]> {
   return runs;
 }
 
+function filterRunList(
+  runs: ReturnType<typeof buildRunListProjection>["runs"],
+  url: URL,
+): ReturnType<typeof buildRunListProjection>["runs"] {
+  const status = url.searchParams.get("status");
+  if (!status) {
+    return runs;
+  }
+  return runs.filter((run) => run.status === status);
+}
+
+function filterApprovalProjectionItems(
+  items: ReturnType<typeof buildApprovalQueueProjection>["items"],
+  url: URL,
+): ReturnType<typeof buildApprovalQueueProjection>["items"] {
+  const state = url.searchParams.get("state");
+  const riskLevel = url.searchParams.get("riskLevel");
+
+  return items.filter((item) => {
+    if (state && item.state !== state) {
+      return false;
+    }
+    if (riskLevel && item.riskLevel !== riskLevel) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function buildApprovalQueueSummary(
+  items: ReturnType<typeof buildApprovalQueueProjection>["items"],
+): ReturnType<typeof buildApprovalQueueProjection>["summary"] {
+  return {
+    totalCount: items.length,
+    pendingCount: items.filter((item) => item.state === "pending").length,
+    approvedCount: items.filter((item) => item.state === "approved").length,
+    rejectedCount: items.filter((item) => item.state === "rejected").length,
+    highRiskCount: items.filter((item) => item.riskLevel === "high").length,
+    mediumRiskCount: items.filter((item) => item.riskLevel === "medium").length,
+    lowRiskCount: items.filter((item) => item.riskLevel === "low").length,
+  };
+}
+
 function setCorsHeaders(response: ServerResponse): void {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -220,6 +452,22 @@ function setCorsHeaders(response: ServerResponse): void {
 function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.statusCode = statusCode;
   response.end(`${JSON.stringify(body, null, 2)}\n`);
+}
+
+function sendApiError(
+  response: ServerResponse,
+  statusCode: number,
+  code: "bad_request" | "not_found" | "state_conflict" | "not_supported" | "internal_error",
+  message: string,
+  details?: Record<string, unknown>,
+): void {
+  sendJson(response, statusCode, {
+    error: {
+      code,
+      message,
+      ...(details ? { details } : {}),
+    },
+  });
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<JsonRequestBody | undefined> {

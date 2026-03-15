@@ -2,14 +2,14 @@
 import { computed } from "vue";
 
 import { usePreferences } from "../composables/usePreferences";
-import type { WorkspaceView } from "../types";
+import type { WorkspaceView } from "../view-models";
 
 const props = defineProps<{
   workspace: WorkspaceView;
 }>();
 
-const focusLane = computed(() =>
-  props.workspace.lanes.find((lane) => lane.laneId === props.workspace.focusLaneId) ?? props.workspace.lanes[0]
+const focusTask = computed(() =>
+  props.workspace.tasks.find((task) => task.taskId === props.workspace.focusTaskId) ?? props.workspace.tasks[0]
 );
 
 const { statusLabel, t, validationLabel } = usePreferences();
@@ -21,14 +21,14 @@ const { statusLabel, t, validationLabel } = usePreferences();
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ t("sections.inspector") }}</p>
-          <h2>{{ focusLane.laneId }}</h2>
+          <h2>{{ focusTask.taskId }}</h2>
         </div>
-        <span class="status-pill" :data-status="focusLane.status">{{ statusLabel(focusLane.status) }}</span>
+        <span class="status-pill" :data-status="focusTask.status">{{ statusLabel(focusTask.status) }}</span>
       </div>
-      <p class="panel-card__body">{{ focusLane.currentTaskTitle }}</p>
+      <p class="panel-card__body">{{ focusTask.currentTaskTitle }}</p>
       <div class="detail-grid">
         <div
-          v-for="validation in focusLane.validations"
+          v-for="validation in focusTask.validations"
           :key="validation.title"
           class="detail-chip"
           :data-state="validation.state"
@@ -48,7 +48,7 @@ const { statusLabel, t, validationLabel } = usePreferences();
       </div>
       <div class="approval-list">
         <article v-for="approval in workspace.approvals" :key="approval.id" class="approval-card" :data-risk="approval.riskLevel">
-          <span class="approval-card__lane">{{ approval.laneId }}</span>
+          <span class="approval-card__lane">{{ approval.taskId ?? approval.id }}</span>
           <strong>{{ approval.title }}</strong>
           <p>{{ approval.summary }}</p>
         </article>

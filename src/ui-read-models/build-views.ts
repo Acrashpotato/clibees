@@ -1,4 +1,4 @@
-import type {
+ï»¿import type {
   InspectionValidationItem,
   RunEvent,
   RunGraph,
@@ -46,11 +46,9 @@ export function buildWorkspaceView(inspection: RunInspection): WorkspaceView {
 
 export function buildRunListItemView(inspection: RunInspection): RunListItemView {
   const tasks = Object.values(inspection.graph.tasks);
-  const activeLanes = tasks.filter((task) => mapTaskStatus(task.status) === "running").length;
-  const blockedLanes = tasks.filter((task) => {
-    const mapped = mapTaskStatus(task.status);
-    return mapped === "blocked" || mapped === "failed";
-  }).length;
+  const activeTaskCount = tasks.filter((task) => isActiveTaskStatus(task.status)).length;
+  const activeSessionCount = tasks.filter((task) => isActiveSessionBackfillTaskStatus(task.status)).length;
+  const blockedTaskCount = tasks.filter((task) => task.status === "blocked").length;
 
   return {
     runId: inspection.run.runId,
@@ -59,9 +57,11 @@ export function buildRunListItemView(inspection: RunInspection): RunListItemView
     stage: buildStageLabel(inspection),
     startedAt: inspection.run.createdAt,
     updatedAt: inspection.run.updatedAt,
-    activeLanes,
-    blockedLanes,
-    pendingApprovals: inspection.summary.pendingApprovals,
+    activeTaskCount,
+    activeSessionCount,
+    blockedTaskCount,
+    pendingApprovalCount: inspection.summary.pendingApprovals,
+    sessionCountMode: "task_status_backfill",
     summary:
       inspection.summary.latestFailure ??
       inspection.summary.latestBlocker ??
@@ -273,8 +273,8 @@ function buildStageLabel(inspection: RunInspection): string {
     : undefined;
 
   return activeTask
-    ? `${status} ¡¤ ${completed}/${total} complete ¡¤ ${activeTask}`
-    : `${status} ¡¤ ${completed}/${total} complete`;
+    ? `${status} Â· ${completed}/${total} complete Â· ${activeTask}`
+    : `${status} Â· ${completed}/${total} complete`;
 }
 
 function compareLanes(left: LaneView, right: LaneView): number {
@@ -423,6 +423,21 @@ function buildHandoffHint(
   return "Monitor this lane for the next transition.";
 }
 
+function isActiveTaskStatus(status: TaskStatus): boolean {
+  return (
+    status === "routing" ||
+    status === "context_building" ||
+    status === "queued" ||
+    status === "running" ||
+    status === "awaiting_approval" ||
+    status === "validating"
+  );
+}
+
+function isActiveSessionBackfillTaskStatus(status: TaskStatus): boolean {
+  return status === "running" || status === "awaiting_approval";
+}
+
 function mapRunStatus(status: string): WorkspaceLaneStatus {
   switch (status) {
     case "waiting_approval":
@@ -514,5 +529,6 @@ function resolveApprovalRequestedAt(events: RunEvent[], requestId: string): stri
   });
   return event?.timestamp ?? "";
 }
+
 
 

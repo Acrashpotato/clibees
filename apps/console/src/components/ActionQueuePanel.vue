@@ -1,10 +1,10 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
 import { usePreferences } from "../composables/usePreferences";
-import type { ActionQueueItem } from "../types";
-import { getLaneConsolePath } from "../workspace";
+import type { ActionQueueItem } from "../view-models";
+import { getTaskConsolePath } from "../workspace";
 
 const props = defineProps<{
   items: ActionQueueItem[];
@@ -39,8 +39,8 @@ function getItemActionTo(item: ActionQueueItem): string | undefined {
     return item.actionTo;
   }
 
-  if (props.runId && item.laneId) {
-    return getLaneConsolePath(props.runId, item.laneId);
+  if (props.runId && item.taskId) {
+    return getTaskConsolePath(props.runId, item.taskId);
   }
 
   return props.emptyActionTo;

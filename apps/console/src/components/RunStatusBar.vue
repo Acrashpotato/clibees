@@ -1,9 +1,9 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from "vue";
 
 import { usePreferences } from "../composables/usePreferences";
-import type { WorkspaceView } from "../types";
-import { getFocusLane } from "../workspace";
+import type { WorkspaceView } from "../view-models";
+import { getFocusTask } from "../workspace";
 
 const props = defineProps<{
   workspace: WorkspaceView;
@@ -17,9 +17,9 @@ const emit = defineEmits<{
 
 const { statusLabel, t } = usePreferences();
 
-const focusLane = computed(() => getFocusLane(props.workspace));
+const focusTask = computed(() => getFocusTask(props.workspace));
 const pendingCount = computed(
-  () => props.workspace.approvals.length + props.workspace.lanes.filter((lane) => lane.status !== "completed").length
+  () => props.workspace.approvals.length + props.workspace.tasks.filter((task) => task.status !== "completed").length
 );
 </script>
 
@@ -46,7 +46,7 @@ const pendingCount = computed(
       </article>
       <article class="summary-card">
         <span>{{ t("fields.focus") }}</span>
-        <strong>{{ focusLane?.role ?? t("runs.noRuns") }}</strong>
+        <strong>{{ focusTask?.role ?? t("runs.noRuns") }}</strong>
       </article>
       <article class="summary-card">
         <span>{{ t("fields.pendingActions") }}</span>
@@ -54,7 +54,7 @@ const pendingCount = computed(
       </article>
       <article class="summary-card">
         <span>{{ t("fields.lastActivity") }}</span>
-        <strong>{{ focusLane?.lastActivityAt ?? workspace.updatedAt }}</strong>
+        <strong>{{ focusTask?.lastActivityAt ?? workspace.updatedAt }}</strong>
       </article>
     </div>
   </section>

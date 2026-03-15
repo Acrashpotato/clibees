@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1;
+﻿export const SCHEMA_VERSION = 1;
 
 export type TaskKind = "plan" | "execute" | "validate";
 export type RiskLevel = "low" | "medium" | "high";
@@ -479,6 +479,10 @@ export interface InspectionSummary {
   latestValidation?: string;
 }
 
+/**
+ * Transitional aggregate used to support legacy inspect/workspace-style reads
+ * while the repository migrates to dedicated page projections.
+ */
 export interface RunInspection {
   run: RunRecord;
   graph: RunGraph;
@@ -490,4 +494,5 @@ export interface RunInspection {
   approvals: InspectionApprovalItem[];
   summary: InspectionSummary;
 }
+
 

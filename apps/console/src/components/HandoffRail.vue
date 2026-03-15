@@ -2,10 +2,10 @@
 import { RouterLink } from "vue-router";
 
 import { usePreferences } from "../composables/usePreferences";
-import type { ArtifactSummary, HandoffView } from "../types";
+import type { ArtifactSummary, TaskHandoffView } from "../view-models";
 
 const props = defineProps<{
-  handoffs: HandoffView[];
+  handoffs: TaskHandoffView[];
   eyebrow?: string;
   title?: string;
   description?: string;
@@ -40,9 +40,9 @@ const { t } = usePreferences();
       <article v-for="handoff in handoffs" :key="handoff.id" class="handoff-card handoff-card--flow" :data-status="handoff.status">
         <div class="handoff-card__topline">
           <div class="handoff-card__route">
-            <span>{{ handoff.fromLaneId }}</span>
-            <span class="handoff-card__arrow">-></span>
-            <span>{{ handoff.toLaneId }}</span>
+            <span>{{ handoff.fromTaskId }}</span>
+            <span class="handoff-card__arrow">-&gt;</span>
+            <span>{{ handoff.toTaskId }}</span>
           </div>
           <span class="flow-pill" :data-status="handoff.status">{{ t(`handoffStatus.${handoff.status}`) }}</span>
         </div>

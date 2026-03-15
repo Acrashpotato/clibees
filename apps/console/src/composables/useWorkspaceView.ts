@@ -1,9 +1,9 @@
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+﻿import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import { getWorkspace, listRuns, resumeRun } from "../api";
-import type { ActionQueueItem, WorkspaceView } from "../types";
-import { createEmptyWorkspace, getActionQueue, getFocusLane } from "../workspace";
+import type { ActionQueueItem, WorkspaceView } from "../view-models";
+import { createEmptyWorkspace, getActionQueue, getFocusTask } from "../workspace";
 import { usePreferences } from "./usePreferences";
 
 export function useWorkspaceView() {
@@ -108,12 +108,12 @@ export function useWorkspaceView() {
     stopPolling();
   });
 
-  const focusLane = computed(() => getFocusLane(workspace.value));
+  const focusTask = computed(() => getFocusTask(workspace.value));
   const actionQueue = computed<ActionQueueItem[]>(() => getActionQueue(workspace.value, locale.value));
 
   return {
     workspace,
-    focusLane,
+    focusTask,
     actionQueue,
     runScopeId,
     resolvedRunId,

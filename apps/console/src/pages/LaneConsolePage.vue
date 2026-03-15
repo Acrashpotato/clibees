@@ -1,227 +1,113 @@
 ﻿<script setup lang="ts">
-import { computed } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { ref, watch } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
+import { getWorkspaceProjection } from "../api";
 import { usePreferences } from "../composables/usePreferences";
-import { useWorkspaceView } from "../composables/useWorkspaceView";
-import { getWorkspacePath } from "../workspace";
+import {
+  getSessionDetailPath,
+  getTaskDetailPath,
+  getWorkspacePath,
+} from "../workspace";
 
 const route = useRoute();
-const { riskLabel, statusLabel, t, validationLabel } = usePreferences();
-const { workspace } = useWorkspaceView();
+const router = useRouter();
+const { isZh, t } = usePreferences();
 
-const activeLaneId = computed(() => {
-  if (typeof route.params.laneId === "string" && route.params.laneId.length > 0) {
-    return route.params.laneId;
+const loading = ref(false);
+const error = ref("");
+const targetPath = ref("");
+
+function copy(zh: string, en: string): string {
+  return isZh.value ? zh : en;
+}
+
+async function resolveLegacyRoute() {
+  const runId = typeof route.params.runId === "string" ? route.params.runId : "";
+  const laneId = typeof route.params.laneId === "string" && route.params.laneId.length > 0
+    ? route.params.laneId
+    : undefined;
+
+  if (!runId) {
+    error.value = copy("缺少 runId，无法解析旧 lane 路由。", "Missing runId, so the legacy lane route cannot be resolved.");
+    return;
   }
 
-  return workspace.value.focusLaneId;
-});
+  loading.value = true;
+  error.value = "";
+  targetPath.value = "";
 
-const activeLane = computed(
-  () => workspace.value.lanes.find((lane) => lane.laneId === activeLaneId.value) ?? workspace.value.lanes[0]
-);
+  try {
+    if (laneId) {
+      targetPath.value = getTaskDetailPath(runId, laneId);
+    } else {
+      const workspace = await getWorkspaceProjection(runId);
+      if (workspace.activeSession?.sessionId) {
+        targetPath.value = getSessionDetailPath(runId, workspace.activeSession.sessionId);
+      } else if (workspace.focusTask?.taskId) {
+        targetPath.value = getTaskDetailPath(runId, workspace.focusTask.taskId);
+      } else {
+        throw new Error(
+          copy(
+            "当前 run 还没有可映射的 task 或 session 入口。",
+            "The current run does not expose a task or session entry that can receive the legacy route.",
+          ),
+        );
+      }
+    }
 
-const laneApprovals = computed(() =>
-  workspace.value.approvals.filter((approval) => approval.laneId === activeLane.value.laneId)
-);
+    await router.replace(targetPath.value);
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : String(caught);
+  } finally {
+    loading.value = false;
+  }
+}
 
-const relatedHandoffs = computed(() =>
-  workspace.value.handoffs.filter(
-    (handoff) =>
-      handoff.fromLaneId === activeLane.value.laneId || handoff.toLaneId === activeLane.value.laneId
-  )
-);
-
-const relatedIssues = computed(() =>
-  workspace.value.issues.filter(
-    (issue) =>
-      issue.toLowerCase().includes(activeLane.value.laneId.toLowerCase()) ||
-      issue.toLowerCase().includes(activeLane.value.role.toLowerCase())
-  )
+watch(
+  () => route.fullPath,
+  () => {
+    void resolveLegacyRoute();
+  },
+  { immediate: true },
 );
 </script>
 
 <template>
-  <section class="lane-console-shell">
-    <div class="lane-console-header">
+  <section class="workspace-page-stack">
+    <div class="workspace-page-header">
       <div>
-        <p class="section-eyebrow">{{ t("sections.laneConsole") }}</p>
-        <h1>{{ workspace.runId }}</h1>
-        <p class="lane-console-header__meta">
-          <span>{{ workspace.goal }}</span>
-          <span>{{ activeLane.laneId }}</span>
-          <span>{{ activeLane.role }}</span>
-        </p>
+        <p class="section-eyebrow">{{ copy("兼容路由", "Compatibility route") }}</p>
+        <h1>{{ copy("旧 lane 路由正在收敛", "Legacy lane route is converging") }}</h1>
       </div>
-      <div class="lane-console-header__actions">
-        <RouterLink class="ghost-link" :to="getWorkspacePath('overview', workspace.runId)">{{ t("actions.backToWorkspace") }}</RouterLink>
-      </div>
+      <p>
+        {{
+          copy(
+            "显式 laneId 一律按 taskId 兼容映射；空的 lane 入口优先跳到活动 session，否则回落到当前 focus task。",
+            "An explicit laneId now maps to taskId, while an empty legacy lane entry prefers the active session and otherwise falls back to the current focus task.",
+          )
+        }}
+      </p>
     </div>
 
-    <div class="lane-console-layout">
-      <aside class="lane-roster">
-        <div class="lane-roster__header">
-          <p class="section-eyebrow">{{ t("sections.lanes") }}</p>
-          <h2>{{ workspace.lanes.length }} {{ t("laneConsole.activeTracks") }}</h2>
+    <section class="panel-card">
+      <div class="panel-card__header">
+        <div>
+          <p class="section-eyebrow">{{ copy("路由解析", "Route resolution") }}</p>
+          <h2>{{ loading ? copy("正在跳转到真实详情页", "Redirecting to the real detail page") : copy("旧路由解析完成", "Legacy route resolution complete") }}</h2>
         </div>
+      </div>
 
-        <div class="lane-roster__list">
-          <RouterLink
-            v-for="lane in workspace.lanes"
-            :key="lane.laneId"
-            class="lane-roster__item"
-            :class="{ 'lane-roster__item--active': lane.laneId === activeLane.laneId }"
-            :to="`/runs/${workspace.runId}/lanes/${lane.laneId}`"
-          >
-            <div class="lane-roster__identity">
-              <strong>{{ lane.role }}</strong>
-              <span>{{ lane.laneId }}</span>
-            </div>
-            <div class="lane-roster__meta">
-              <span class="status-pill" :data-status="lane.status">{{ statusLabel(lane.status) }}</span>
-              <span>{{ lane.lastActivityAt }}</span>
-            </div>
-            <p>{{ lane.currentTaskTitle }}</p>
-          </RouterLink>
-        </div>
-      </aside>
+      <p v-if="loading" class="panel-card__body">{{ copy("正在查询当前 run 的 detail 入口。", "Resolving the detail entry for the current run.") }}</p>
+      <p v-else-if="targetPath" class="panel-card__body">{{ targetPath }}</p>
+      <p v-else-if="error" class="panel-card__body">{{ error }}</p>
+      <p v-else class="panel-card__body">{{ copy("等待跳转。", "Waiting for redirect.") }}</p>
 
-      <section class="lane-console-main">
-        <article class="lane-conversation">
-          <header class="lane-conversation__header">
-            <div>
-              <p class="lane-panel__eyebrow">{{ activeLane.laneId }}</p>
-              <h2>{{ activeLane.currentTaskTitle }}</h2>
-            </div>
-            <div class="lane-panel__badges">
-              <span class="status-pill" :data-status="activeLane.status">{{ statusLabel(activeLane.status) }}</span>
-              <span class="risk-pill" :data-risk="activeLane.riskLevel">{{ riskLabel(activeLane.riskLevel) }}</span>
-            </div>
-          </header>
-
-          <div class="lane-chat-toolbar">
-            <span>{{ activeLane.agentId }}</span>
-            <span>{{ activeLane.approvalState }}</span>
-            <span>{{ activeLane.lastActivityAt }}</span>
-          </div>
-
-          <section class="terminal lane-conversation__terminal">
-            <div class="terminal__toolbar">
-              <span class="terminal__dot"></span>
-              <span class="terminal__dot"></span>
-              <span class="terminal__dot"></span>
-              <code>{{ activeLane.role }}</code>
-            </div>
-            <pre class="terminal__body">{{ activeLane.terminalPreview.join("\n") }}</pre>
-          </section>
-
-          <footer class="lane-conversation__footer">
-            <span>{{ activeLane.handoffHint }}</span>
-            <RouterLink class="primary-link" :to="getWorkspacePath('lanes', workspace.runId)">{{ t("actions.viewBoard") }}</RouterLink>
-          </footer>
-        </article>
-      </section>
-
-      <aside class="lane-console-side">
-        <section class="panel-card">
-          <div class="panel-card__header">
-            <div>
-              <p class="section-eyebrow">{{ t("sections.laneSettings") }}</p>
-              <h2>{{ t("sections.executionProfile") }}</h2>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div class="detail-chip">
-              <span>{{ t("fields.agent") }}</span>
-              <strong>{{ activeLane.agentId }}</strong>
-            </div>
-            <div class="detail-chip">
-              <span>{{ t("fields.role") }}</span>
-              <strong>{{ activeLane.role }}</strong>
-            </div>
-            <div class="detail-chip">
-              <span>{{ t("fields.approval") }}</span>
-              <strong>{{ activeLane.approvalState }}</strong>
-            </div>
-            <div class="detail-chip">
-              <span>{{ t("fields.risk") }}</span>
-              <strong>{{ riskLabel(activeLane.riskLevel) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-card">
-          <div class="panel-card__header">
-            <div>
-              <p class="section-eyebrow">{{ t("sections.approvals") }}</p>
-              <h2>{{ t("laneConsole.laneSpecificDecisions") }}</h2>
-            </div>
-          </div>
-          <div v-if="laneApprovals.length > 0" class="approval-list">
-            <article
-              v-for="approval in laneApprovals"
-              :key="approval.id"
-              class="approval-card"
-              :data-risk="approval.riskLevel"
-            >
-              <span class="approval-card__lane">{{ approval.laneId }}</span>
-              <strong>{{ approval.title }}</strong>
-              <p>{{ approval.summary }}</p>
-            </article>
-          </div>
-          <p v-else class="panel-card__body">{{ t("laneConsole.noPendingApproval") }}</p>
-        </section>
-
-        <section class="panel-card">
-          <div class="panel-card__header">
-            <div>
-              <p class="section-eyebrow">{{ t("sections.inspect") }}</p>
-              <h2>{{ t("sections.recentChecks") }}</h2>
-            </div>
-          </div>
-          <div class="detail-grid">
-            <div
-              v-for="validation in activeLane.validations"
-              :key="validation.title"
-              class="detail-chip"
-              :data-state="validation.state"
-            >
-              <span>{{ validation.title }}</span>
-              <strong>{{ validationLabel(validation.state) }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel-card">
-          <div class="panel-card__header">
-            <div>
-              <p class="section-eyebrow">{{ t("sections.artifactsAndHandoffs") }}</p>
-              <h2>{{ t("sections.laneContext") }}</h2>
-            </div>
-          </div>
-          <div class="detail-grid lane-artifact-grid">
-            <div v-for="artifact in activeLane.artifacts" :key="artifact.label" class="detail-chip">
-              <span>{{ artifact.label }}</span>
-              <strong>{{ artifact.value }}</strong>
-            </div>
-          </div>
-          <div class="lane-related-list">
-            <article v-for="handoff in relatedHandoffs" :key="handoff.id" class="handoff-card" :data-status="handoff.status">
-              <div class="handoff-card__route">
-                <span>{{ handoff.fromLaneId }}</span>
-                <span class="handoff-card__arrow">-&gt;</span>
-                <span>{{ handoff.toLaneId }}</span>
-              </div>
-              <strong>{{ handoff.title }}</strong>
-              <p>{{ handoff.summary }}</p>
-            </article>
-            <p v-if="relatedIssues.length > 0" class="lane-related-issues">
-              {{ relatedIssues.join(" | ") }}
-            </p>
-          </div>
-        </section>
-      </aside>
-    </div>
+      <div class="run-card__actions">
+        <RouterLink class="ghost-link" :to="getWorkspacePath('overview', typeof route.params.runId === 'string' ? route.params.runId : undefined)">
+          {{ t("actions.backToWorkspace") }}
+        </RouterLink>
+      </div>
+    </section>
   </section>
 </template>

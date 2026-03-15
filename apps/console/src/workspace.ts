@@ -1,6 +1,6 @@
+﻿import type { ActionQueueItem, WorkspaceTaskCardView, WorkspaceView } from "./view-models";
 import type { Locale } from "./i18n";
 import { translate } from "./i18n";
-import type { ActionQueueItem, LaneView, WorkspaceView } from "./types";
 
 export type WorkspaceSectionKey = "overview" | "lanes" | "handoffs" | "focus";
 
@@ -18,13 +18,25 @@ export function getWorkspacePath(section: WorkspaceSectionKey, runId?: string): 
   return `${basePath}/${section}`;
 }
 
-export function getLaneConsolePath(runId: string, laneId?: string): string {
+export function getTaskDetailPath(runId: string, taskId: string): string {
+  return `/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}`;
+}
+
+export function getSessionDetailPath(runId: string, sessionId: string): string {
+  return `/runs/${encodeURIComponent(runId)}/sessions/${encodeURIComponent(sessionId)}`;
+}
+
+export function getLegacyLanePath(runId: string, laneId?: string): string {
   const basePath = `/runs/${encodeURIComponent(runId)}/lanes`;
   return laneId ? `${basePath}/${encodeURIComponent(laneId)}` : basePath;
 }
 
-export function getFocusLane(workspace: WorkspaceView): LaneView {
-  return workspace.lanes.find((lane) => lane.laneId === workspace.focusLaneId) ?? workspace.lanes[0]!;
+export function getTaskConsolePath(runId: string, taskId?: string): string {
+  return taskId ? getTaskDetailPath(runId, taskId) : getLegacyLanePath(runId);
+}
+
+export function getFocusTask(workspace: WorkspaceView): WorkspaceTaskCardView {
+  return workspace.tasks.find((task) => task.taskId === workspace.focusTaskId) ?? workspace.tasks[0]!;
 }
 
 export function getActionQueue(workspace: WorkspaceView, locale: Locale): ActionQueueItem[] {
@@ -32,30 +44,30 @@ export function getActionQueue(workspace: WorkspaceView, locale: Locale): Action
     id: approval.id,
     runId: approval.runId,
     requestId: approval.id,
-    laneId: approval.laneId,
+    ...(approval.taskId ? { taskId: approval.taskId } : {}),
     kind: "approval",
     priority: 0,
     tone: approval.riskLevel === "high" ? "danger" : "warning",
-    sourceLabel: approval.laneId,
+    sourceLabel: approval.taskId ?? approval.id,
     title: approval.title,
     summary: approval.summary,
     recommendedActionLabel: translate(locale, "actions.handleDecision"),
     actionTo: `/approvals?runId=${encodeURIComponent(approval.runId)}&requestId=${encodeURIComponent(approval.id)}`,
   }));
 
-  const blockedLanes = workspace.lanes
-    .filter((lane) => lane.status === "blocked" || lane.status === "awaiting_approval")
-    .map<ActionQueueItem>((lane) => ({
-      id: `lane-${lane.laneId}-${lane.status}`,
-      laneId: lane.laneId,
+  const blockedTasks = workspace.tasks
+    .filter((task) => task.status === "blocked" || task.status === "awaiting_approval")
+    .map<ActionQueueItem>((task) => ({
+      id: `task-${task.taskId}-${task.status}`,
+      taskId: task.taskId,
       kind: "blocked",
-      priority: lane.status === "blocked" ? 1 : 2,
-      tone: lane.status === "blocked" ? "danger" : "warning",
-      sourceLabel: lane.laneId,
-      title: lane.currentTaskTitle,
-      summary: lane.statusReason,
+      priority: task.status === "blocked" ? 1 : 2,
+      tone: task.status === "blocked" ? "danger" : "warning",
+      sourceLabel: task.taskId,
+      title: task.currentTaskTitle,
+      summary: task.statusReason,
       recommendedActionLabel: translate(locale, "actions.openLane"),
-      actionTo: getLaneConsolePath(workspace.runId, lane.laneId),
+      actionTo: getTaskDetailPath(workspace.runId, task.taskId),
     }));
 
   const issues = workspace.issues.map<ActionQueueItem>((issue, index) => ({
@@ -70,19 +82,19 @@ export function getActionQueue(workspace: WorkspaceView, locale: Locale): Action
     actionTo: getWorkspacePath("focus", workspace.runId),
   }));
 
-  return [...approvals, ...blockedLanes, ...issues].sort(
+  return [...approvals, ...blockedTasks, ...issues].sort(
     (left, right) => left.priority - right.priority || left.title.localeCompare(right.title),
   );
 }
 
 export function getWorkspaceCounts(workspace: WorkspaceView) {
   return {
-    lanes: workspace.lanes.length,
-    blocked: workspace.lanes.filter((lane) => lane.status === "blocked").length,
+    tasks: workspace.tasks.length,
+    blocked: workspace.tasks.filter((task) => task.status === "blocked").length,
     approvals: workspace.approvals.length,
     handoffs: workspace.handoffs.length,
     issues: workspace.issues.length,
-    pending: workspace.approvals.length + workspace.lanes.filter((lane) => lane.status !== "completed").length,
+    pending: workspace.approvals.length + workspace.tasks.filter((task) => task.status !== "completed").length,
   };
 }
 
@@ -93,11 +105,11 @@ export function createEmptyWorkspace(runId = "workspace"): WorkspaceView {
     runStatus: "paused",
     stage: "Open a run from the Runs page or create a new one.",
     metrics: [],
-    lanes: [
+    tasks: [
       {
-        laneId: "idle",
+        taskId: "idle",
         agentId: "system",
-        role: "Idle lane",
+        role: "Idle task",
         status: "paused",
         statusReason: "No run is loaded yet.",
         currentTaskTitle: "Open or create a run",
@@ -112,7 +124,7 @@ export function createEmptyWorkspace(runId = "workspace"): WorkspaceView {
     ],
     approvals: [],
     handoffs: [],
-    focusLaneId: "idle",
+    focusTaskId: "idle",
     issues: [],
     createdAt: "",
     updatedAt: "",

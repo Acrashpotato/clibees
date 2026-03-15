@@ -1,4 +1,4 @@
-export * from "./domain/models.js";
+﻿export * from "./domain/models.js";
 export * from "./domain/config.js";
 export * from "./config/default-config.js";
 export * from "./config/file-config-loader.js";
@@ -31,5 +31,16 @@ export * from "./storage/workspace-state-store.js";
 export * from "./adapters/structured-adapter.js";
 export * from "./adapters/configured-cli-adapter.js";
 export * from "./ui-read-models/models.js";
+export * from "./ui-read-models/audit-timeline-models.js";
+export * from "./ui-read-models/build-run-list-projection.js";
+export * from "./ui-read-models/build-workspace-projection.js";
+export * from "./ui-read-models/build-task-board-projection.js";
+export * from "./ui-read-models/build-task-detail-projection.js";
+export * from "./ui-read-models/build-session-detail-projection.js";
+export * from "./ui-read-models/build-approval-queue-projection.js";
+export * from "./ui-read-models/build-audit-timeline-projection.js";
+export * from "./ui-read-models/projection-contracts.js";
 export * from "./ui-read-models/build-views.js";
+export * from "./ui-api/contracts.js";
 export * from "./ui-api/server.js";
+

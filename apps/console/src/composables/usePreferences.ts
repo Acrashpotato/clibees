@@ -1,7 +1,7 @@
-import { computed, ref, watch } from "vue";
+﻿import { computed, ref, watch } from "vue";
 
 import { getRiskLabel, getStatusLabel, getValidationLabel, translate, type Locale } from "../i18n";
-import type { LaneStatus, RiskLevel, ValidationSummary } from "../types";
+import type { ExecutionStatus, RiskLevel, ValidationSummary } from "../view-models";
 
 type Theme = "dark" | "light";
 
@@ -72,7 +72,7 @@ export function usePreferences() {
       theme.value = theme.value === "dark" ? "light" : "dark";
     },
     t: (key: string) => translate(locale.value, key),
-    statusLabel: (status: LaneStatus | "failed") => getStatusLabel(locale.value, status),
+    statusLabel: (status: ExecutionStatus | "failed") => getStatusLabel(locale.value, status),
     riskLabel: (risk: RiskLevel) => getRiskLabel(locale.value, risk),
     validationLabel: (state: ValidationSummary["state"]) => getValidationLabel(locale.value, state)
   };

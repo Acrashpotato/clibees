@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
 import { usePreferences } from "../composables/usePreferences";
-import type { WorkspaceView } from "../types";
+import type { WorkspaceView } from "../view-models";
 import { getWorkspacePath, type WorkspaceSectionKey } from "../workspace";
 
 const props = defineProps<{
@@ -52,3 +52,4 @@ const navItems = computed(() => [
     </div>
   </section>
 </template>
+

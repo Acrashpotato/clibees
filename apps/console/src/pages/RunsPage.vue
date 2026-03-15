@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
@@ -164,9 +164,10 @@ onMounted(() => {
           </div>
 
           <div class="run-card__stats">
-            <span>{{ t("fields.activeLanes") }} {{ run.activeLanes }}</span>
-            <span>{{ t("fields.blocked") }} {{ run.blockedLanes }}</span>
-            <span>{{ t("fields.approvals") }} {{ run.pendingApprovals }}</span>
+            <span>{{ t("fields.activeTasks") }} {{ run.activeTaskCount }}</span>
+            <span>{{ t("fields.activeSessions") }} {{ run.activeSessionCount }}</span>
+            <span>{{ t("fields.blocked") }} {{ run.blockedTaskCount }}</span>
+            <span>{{ t("fields.approvals") }} {{ run.pendingApprovalCount }}</span>
           </div>
 
           <div class="run-card__actions">
@@ -183,3 +184,4 @@ onMounted(() => {
     </section>
   </section>
 </template>
+
