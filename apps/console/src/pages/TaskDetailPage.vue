@@ -1,8 +1,10 @@
-﻿<script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+<script setup lang="ts">
+import { computed, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
 import { getTaskDetailProjection } from "../api";
+import { useArtifactPreview } from "../composables/useArtifactPreview";
+import { useEntityProjection } from "../composables/useEntityProjection";
 import { usePreferences } from "../composables/usePreferences";
 import {
   createEmptyTaskDetailProjection,
@@ -11,9 +13,10 @@ import {
   type TaskDetailSessionSourceMode,
 } from "../detail-projection";
 import {
+  getRunTaskBoardPath,
+  getRunWorkspacePath,
   getSessionDetailPath,
   getTaskDetailPath,
-  getWorkspacePath,
 } from "../workspace";
 
 const route = useRoute();
@@ -21,73 +24,46 @@ const { isZh, riskLabel, statusLabel, validationLabel, t } = usePreferences();
 
 const runId = computed(() => (typeof route.params.runId === "string" ? route.params.runId : ""));
 const taskId = computed(() => (typeof route.params.taskId === "string" ? route.params.taskId : ""));
-const projection = ref<TaskDetailProjectionView>(createEmptyTaskDetailProjection(runId.value, taskId.value));
-const loading = ref(false);
-const error = ref("");
-let pollHandle: ReturnType<typeof setInterval> | undefined;
+const {
+  artifactPreviewById,
+  artifactPreviewErrorById,
+  artifactPreviewLoadingId,
+  isArtifactExpanded,
+  toggleArtifactPreview,
+  resetArtifactPreview,
+} = useArtifactPreview(() => runId.value);
 
 function copy(zh: string, en: string): string {
   return isZh.value ? zh : en;
 }
 
-function stopPolling() {
-  if (pollHandle) {
-    clearInterval(pollHandle);
-    pollHandle = undefined;
-  }
-}
-
-function startPolling() {
-  stopPolling();
-
-  if (!runId.value || !taskId.value) {
-    return;
-  }
-
-  if (projection.value.overview.status === "completed" || projection.value.overview.status === "failed") {
-    return;
-  }
-
-  pollHandle = setInterval(() => {
-    void loadProjection(false);
-  }, 2000);
-}
-
-async function loadProjection(showLoading = true) {
-  if (!runId.value || !taskId.value) {
-    error.value = copy("缺少 runId 或 taskId，无法打开任务详情。", "Missing runId or taskId, so task detail cannot be opened.");
-    projection.value = createEmptyTaskDetailProjection(runId.value || "workspace", taskId.value || "task");
-    stopPolling();
-    return;
-  }
-
-  if (showLoading) {
-    loading.value = true;
-  }
-
-  try {
-    error.value = "";
-    projection.value = await getTaskDetailProjection(runId.value, taskId.value);
-    startPolling();
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught);
-    stopPolling();
-  } finally {
-    loading.value = false;
-  }
-}
+const { projection, loading, error, loadProjection } = useEntityProjection<
+  TaskDetailProjectionView,
+  TaskDetailProjectionView["overview"]["status"]
+>({
+  getRunId: () => runId.value,
+  getEntityId: () => taskId.value,
+  createEmptyProjection: createEmptyTaskDetailProjection,
+  fetchProjection: (nextRunId, nextTaskId) => getTaskDetailProjection(nextRunId, nextTaskId),
+  getProjectionStatus: (data) => data.overview.status,
+  isTerminalStatus: (status) => status === "completed" || status === "failed",
+  getMissingParamMessage: () =>
+    copy(
+      "缺少 runId 或 taskId，无法打开任务详情。",
+      "Missing runId or taskId, so task detail cannot be opened.",
+    ),
+  emptyRunId: "workspace",
+  emptyEntityId: "task",
+});
 
 watch(
   () => `${runId.value}::${taskId.value}`,
   () => {
+    resetArtifactPreview();
     void loadProjection();
   },
   { immediate: true },
 );
-
-onBeforeUnmount(() => {
-  stopPolling();
-});
 
 const overview = computed(() => projection.value.overview);
 const requirementGroups = computed(() => [
@@ -206,11 +182,11 @@ function sessionLink(sessionId?: string): string | undefined {
 }
 
 function boardLink(): string {
-  return getWorkspacePath("lanes", projection.value.runId);
+  return getRunTaskBoardPath(projection.value.runId);
 }
 
 function workspaceLink(): string {
-  return getWorkspacePath("overview", projection.value.runId);
+  return getRunWorkspacePath(projection.value.runId);
 }
 </script>
 
@@ -224,8 +200,8 @@ function workspaceLink(): string {
       <p>
         {{
           copy(
-            "详情页现在只以真实 task 为入口，聚合依赖、会话、审批、验证和产物，不再复用旧的 lane console 视图。",
-            "The detail page now enters through a real task and aggregates dependencies, sessions, approvals, validation, and artifacts without reusing the old lane console view.",
+            "详情页基于任务图与运行事件聚合依赖、会话、审批、验证和产物，并持续刷新。",
+            "The detail page aggregates dependencies, sessions, approvals, validation, and artifacts from the run graph and run events, and refreshes continuously.",
           )
         }}
       </p>
@@ -272,7 +248,7 @@ function workspaceLink(): string {
     </div>
 
     <div class="detail-grid detail-grid--primary">
-      <section class="panel-card detail-card detail-card--wide">
+      <section class="panel-card detail-card">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ copy("任务概况", "Task overview") }}</p>
@@ -462,6 +438,22 @@ function workspaceLink(): string {
               <span class="flow-pill">{{ artifact.createdAt }}</span>
             </div>
             <p class="panel-card__body">{{ artifact.uri }}</p>
+            <button class="ghost-button detail-item-card__link" type="button" @click="toggleArtifactPreview(artifact.artifactId)">
+              {{ isArtifactExpanded(artifact.artifactId) ? copy("收起内容", "Hide content") : copy("查看内容", "View content") }}
+            </button>
+            <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewLoadingId === artifact.artifactId" class="panel-card__body">
+              {{ copy("正在加载产物内容...", "Loading artifact content...") }}
+            </p>
+            <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewErrorById[artifact.artifactId]" class="form-error">
+              {{ artifactPreviewErrorById[artifact.artifactId] }}
+            </p>
+            <template v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewById[artifact.artifactId]">
+              <p class="panel-card__body">
+                {{ artifactPreviewById[artifact.artifactId]!.source }} · {{ artifactPreviewById[artifact.artifactId]!.contentType }}
+                <span v-if="artifactPreviewById[artifact.artifactId]!.filePath"> · {{ artifactPreviewById[artifact.artifactId]!.filePath }}</span>
+              </p>
+              <pre class="detail-pre">{{ artifactPreviewById[artifact.artifactId]!.body }}</pre>
+            </template>
           </article>
         </div>
         <div v-else class="panel-card__empty-state">
@@ -471,91 +463,3 @@ function workspaceLink(): string {
     </div>
   </section>
 </template>
-
-<style scoped>
-.detail-page,
-.detail-hero,
-.detail-card,
-.detail-stack,
-.detail-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.detail-page__header,
-.detail-hero__top,
-.detail-item-card__top {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
-}
-
-.detail-summary-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.detail-grid--primary {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.detail-grid--support {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-}
-
-.detail-card--wide {
-  grid-column: 1 / -1;
-}
-
-.detail-split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.detail-subcard {
-  display: grid;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--panel-subtle);
-}
-
-.detail-stack--tight {
-  gap: 10px;
-}
-
-.detail-stack--grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.detail-item-card {
-  display: grid;
-  gap: 10px;
-}
-
-.detail-item-card__link {
-  justify-self: start;
-}
-
-@media (max-width: 1240px) {
-  .detail-summary-grid,
-  .detail-grid--primary,
-  .detail-grid--support,
-  .detail-split,
-  .detail-stack--grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .detail-page__header,
-  .detail-hero__top,
-  .detail-item-card__top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-</style>

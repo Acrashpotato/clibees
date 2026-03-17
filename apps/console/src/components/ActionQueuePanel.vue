@@ -51,7 +51,7 @@ function hasItemActionTo(item: ActionQueueItem): boolean {
 }
 
 function getItemActionHref(item: ActionQueueItem): string {
-  return getItemActionTo(item) ?? props.emptyActionTo ?? "/workspace";
+  return getItemActionTo(item) ?? props.emptyActionTo ?? "/runs";
 }
 </script>
 

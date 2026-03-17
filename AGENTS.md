@@ -17,3 +17,8 @@ Current history uses Conventional Commit style (`chore: initial commit`); contin
 
 ## Configuration & State Tips
 Local agent configuration lives in `.multi-agent.yaml`. Default workspace writes stay inside the repository, so avoid hard-coding absolute paths and do not commit generated `dist/`, `node_modules/`, or `.multi-agent/state/` contents.
+
+## Gona Wake-up Rule
+When a task says to wake or call `gona`, always use the project wrapper command `& ".\tools\gona.bat"` from the repository root.
+Do not invoke `C:\Users\sunzhsh\.codex\skills\gona\scripts\gona_launcher.bat` directly.
+The wrapper first copies the global launcher to a project-local `.bat` file, then executes the local copy to keep invocation paths consistent.

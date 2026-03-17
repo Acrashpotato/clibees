@@ -16,7 +16,18 @@ import type {
   WorkspaceLaneStatus,
 } from "./models.js";
 import { buildApprovalQueue } from "./build-views.js";
+import { buildEventSummary } from "./event-view-helpers.js";
 import { buildBackfilledSessionWindows } from "./session-backfill.js";
+import {
+  buildTaskOwnerLabel,
+  buildTaskStatusReason,
+  isActiveSessionBackfillTaskStatus,
+  isActiveTaskStatus,
+  isTaskPastPlanning,
+  mapTaskStatus,
+  resolveTaskAgentId,
+  resolveTaskId,
+} from "./task-view-helpers.js";
 
 export function buildTaskBoardProjection(inspection: RunInspection): TaskBoardProjectionView {
   const tasks = Object.values(inspection.graph.tasks);
@@ -92,7 +103,12 @@ function buildTaskNodeView(
     title: task.title,
     kind: task.kind,
     status,
-    statusReason: buildStatusReason(task, validation, approvals, inspection),
+    statusReason: buildTaskStatusReason(
+      task,
+      validation?.summary,
+      approvals[0]?.summary,
+      inspection.summary,
+    ),
     waitingReason: buildWaitingReason(task, taskEvents, validation, approvals, inspection),
     ownerLabel: buildTaskOwnerLabel(task),
     riskLevel: approvals[0]?.riskLevel ?? task.riskLevel,
@@ -123,11 +139,7 @@ function buildActiveSessionView(
 
   return {
     ...(activeWindow ? { sessionId: activeWindow.sessionId } : {}),
-    agentId:
-      task.assignedAgent ??
-      task.preferredAgent ??
-      task.requiredCapabilities[0] ??
-      "unassigned",
+    agentId: resolveTaskAgentId(task),
     status: mapTaskStatus(task.status),
     lastActivityAt: activeWindow?.events.at(-1)?.timestamp ?? lastActivityAt,
     pendingApprovalCount: approvals.length,
@@ -430,137 +442,4 @@ function latestEventSummary(taskEvents: RunEvent[], types: RunEvent["type"][]): 
     .sort((left, right) => right.timestamp.localeCompare(left.timestamp))[0];
 
   return event ? buildEventSummary(event) : undefined;
-}
-
-function buildEventSummary(event: RunEvent): string {
-  const payload = event.payload as { message?: unknown; summary?: unknown; reason?: unknown; agentId?: unknown };
-
-  if (typeof payload.summary === "string") {
-    return payload.summary;
-  }
-  if (typeof payload.reason === "string") {
-    return payload.reason;
-  }
-  if (typeof payload.message === "string") {
-    return firstNonEmptyLine(payload.message) ?? "Agent produced a new message.";
-  }
-  if (event.type === "task_started" && typeof payload.agentId === "string") {
-    return `Task started by ${payload.agentId}.`;
-  }
-  return event.type.replaceAll("_", " ");
-}
-
-function buildTaskOwnerLabel(task: TaskSpec): string {
-  if (task.assignedAgent) {
-    return task.assignedAgent;
-  }
-  if (task.preferredAgent) {
-    return task.preferredAgent;
-  }
-  if (task.requiredCapabilities.length > 0) {
-    return task.requiredCapabilities.join(", ");
-  }
-  return `${task.kind} task`;
-}
-
-function buildStatusReason(
-  task: TaskSpec,
-  validation: InspectionValidationItem | undefined,
-  approvals: ApprovalQueueItemView[],
-  inspection: RunInspection,
-): string {
-  if (approvals.length > 0) {
-    return approvals[0]!.summary;
-  }
-
-  switch (task.status) {
-    case "pending":
-      return "Waiting for dependencies before this task can be scheduled.";
-    case "ready":
-      return "Ready to resume execution.";
-    case "routing":
-      return "Selecting an agent for this task.";
-    case "context_building":
-      return "Building task context from memory, blackboard, and artifacts.";
-    case "queued":
-      return "Queued for execution.";
-    case "running":
-      return "Task process is currently running.";
-    case "validating":
-      return "Execution finished and validation is in progress.";
-    case "completed":
-      return validation?.summary ?? "Task completed successfully.";
-    case "failed_retryable":
-      return validation?.summary ?? "Task failed and can be retried.";
-    case "failed_terminal":
-      return validation?.summary ?? inspection.summary.latestFailure ?? "Task failed.";
-    case "blocked":
-      return validation?.summary ?? inspection.summary.latestBlocker ?? "Task is blocked.";
-    case "cancelled":
-      return "Task was cancelled.";
-    case "awaiting_approval":
-      return approvals[0]?.summary ?? "Waiting for approval before execution can continue.";
-    default:
-      return `Task is currently ${task.status}.`;
-  }
-}
-
-function firstNonEmptyLine(message: string): string | undefined {
-  return message.split(/\r?\n/).map((line) => line.trim()).find((line) => line.length > 0);
-}
-
-function isActiveTaskStatus(status: TaskStatus): boolean {
-  return (
-    status === "routing" ||
-    status === "context_building" ||
-    status === "queued" ||
-    status === "running" ||
-    status === "awaiting_approval" ||
-    status === "validating"
-  );
-}
-
-function isActiveSessionBackfillTaskStatus(status: TaskStatus): boolean {
-  return status === "running" || status === "awaiting_approval";
-}
-
-function isTaskPastPlanning(status: TaskStatus): boolean {
-  return (
-    status === "running" ||
-    status === "validating" ||
-    status === "completed" ||
-    status === "failed_retryable" ||
-    status === "failed_terminal" ||
-    status === "blocked" ||
-    status === "cancelled" ||
-    status === "awaiting_approval"
-  );
-}
-
-function mapTaskStatus(status: TaskStatus): WorkspaceLaneStatus {
-  switch (status) {
-    case "awaiting_approval":
-      return "awaiting_approval";
-    case "blocked":
-      return "blocked";
-    case "completed":
-      return "completed";
-    case "cancelled":
-    case "failed_retryable":
-    case "failed_terminal":
-      return "failed";
-    case "pending":
-    case "ready":
-      return "paused";
-    default:
-      return "running";
-  }
-}
-
-function resolveTaskId(event: RunEvent): string | undefined {
-  if (event.taskId) {
-    return event.taskId;
-  }
-  const payload = event.payload as { taskId?: unknown };
-  return typeof payload.taskId === "string" ? payload.taskId : undefined;
 }

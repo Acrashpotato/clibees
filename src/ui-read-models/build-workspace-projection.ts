@@ -3,8 +3,8 @@
   InspectionValidationItem,
   RunEvent,
   RunInspection,
+  SessionMessageRecord,
   TaskSpec,
-  TaskStatus,
 } from "../domain/models.js";
 import type {
   ApprovalQueueItemView,
@@ -14,7 +14,6 @@ import type {
   WorkspaceDependencySummaryView,
   WorkspaceFocusSelectionMode,
   WorkspaceFocusTaskView,
-  WorkspaceLaneStatus,
   WorkspacePendingMessageItemView,
   WorkspacePendingMessageSummaryView,
   WorkspaceProjectionView,
@@ -22,9 +21,27 @@ import type {
   WorkspaceRunSummaryView,
 } from "./models.js";
 import { buildApprovalQueue } from "./build-views.js";
+import { firstNonEmptyLine } from "./event-view-helpers.js";
 import { buildBackfilledSessionWindows } from "./session-backfill.js";
+import {
+  buildTaskOwnerLabel,
+  buildTaskStatusReason,
+  buildTerminalPreview,
+  isActiveSessionBackfillTaskStatus,
+  isActiveTaskStatus,
+  isDownstreamReadyStatus,
+  mapRunStatus,
+  mapTaskStatus,
+  resolveTaskAgentId,
+  resolveTaskId,
+} from "./task-view-helpers.js";
 
-export function buildWorkspaceProjection(inspection: RunInspection): WorkspaceProjectionView {
+export function buildWorkspaceProjection(
+  inspection: RunInspection,
+  options: {
+    threadMessages?: SessionMessageRecord[];
+  } = {},
+): WorkspaceProjectionView {
   const tasks = Object.values(inspection.graph.tasks);
   const approvals = buildApprovalQueue(inspection);
   const validationByTaskId = new Map(
@@ -47,7 +64,10 @@ export function buildWorkspaceProjection(inspection: RunInspection): WorkspacePr
     validationByTaskId,
     approvalsByTaskId,
   );
-  const pendingMessages = buildPendingMessagesSummary(inspection);
+  const pendingMessages = buildPendingMessagesSummary(
+    inspection,
+    options.threadMessages ?? [],
+  );
 
   return {
     projection: "workspace",
@@ -104,7 +124,12 @@ function buildFocusTaskView(
     taskId: task.id,
     title: task.title,
     status: mapTaskStatus(task.status),
-    statusReason: buildStatusReason(task, validation, approvals, inspection),
+    statusReason: buildTaskStatusReason(
+      task,
+      validation?.summary,
+      approvals[0]?.summary,
+      inspection.summary,
+    ),
     ownerLabel: buildTaskOwnerLabel(task),
     riskLevel: approvals[0]?.riskLevel ?? task.riskLevel,
     lastActivityAt: taskEvents.at(-1)?.timestamp ?? inspection.run.updatedAt,
@@ -141,15 +166,16 @@ function buildActiveSessionView(
     ...(activeWindow ? { sessionId: activeWindow.sessionId } : {}),
     taskId: sessionTask.id,
     taskTitle: sessionTask.title,
-    agentId:
-      sessionTask.assignedAgent ??
-      sessionTask.preferredAgent ??
-      sessionTask.requiredCapabilities[0] ??
-      "unassigned",
+    agentId: resolveTaskAgentId(sessionTask),
     status: mapTaskStatus(sessionTask.status),
-    statusReason: buildStatusReason(sessionTask, validation, approvals, inspection),
+    statusReason: buildTaskStatusReason(
+      sessionTask,
+      validation?.summary,
+      approvals[0]?.summary,
+      inspection.summary,
+    ),
     lastActivityAt: activeEvents.at(-1)?.timestamp ?? inspection.run.updatedAt,
-    terminalPreview: buildTerminalPreview(sessionTask, activeEvents, validation),
+    terminalPreview: buildTerminalPreview(sessionTask, activeEvents, validation?.summary),
     pendingApprovalCount: approvals.length,
     sourceMode: "task_status_backfill",
   };
@@ -301,7 +327,36 @@ function buildRiskSummary(
   };
 }
 
-function buildPendingMessagesSummary(inspection: RunInspection): WorkspacePendingMessageSummaryView {
+function buildPendingMessagesSummary(
+  inspection: RunInspection,
+  threadMessages: SessionMessageRecord[],
+): WorkspacePendingMessageSummaryView {
+  if (threadMessages.length > 0) {
+    const items = [...threadMessages]
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 5)
+      .map((message) => ({
+        id: message.messageId,
+        title: `${message.role} message`,
+        summary: message.body,
+        timestamp: message.createdAt,
+        source: "agent_message" as const,
+      }));
+    const distinctScopes = new Set(items.map((item) => item.id));
+
+    return {
+      pendingThreadCount: distinctScopes.size,
+      unreadMessageCount: items.length,
+      latestMessageAt: items[0]?.timestamp,
+      sourceMode: "thread_messages",
+      summary:
+        items.length > 0
+          ? `${items.length} persisted thread message(s) are available for review.`
+          : "No persisted thread message is currently highlighted for the workspace.",
+      items,
+    };
+  }
+
   const items = inspection.events
     .filter((event) => isPendingMessageEvent(event.type))
     .map((event) => buildPendingMessageItem(inspection, event))
@@ -535,19 +590,6 @@ function buildPendingMessageItem(
   }
 }
 
-function buildTaskOwnerLabel(task: TaskSpec): string {
-  if (task.assignedAgent) {
-    return task.assignedAgent;
-  }
-  if (task.preferredAgent) {
-    return task.preferredAgent;
-  }
-  if (task.requiredCapabilities.length > 0) {
-    return task.requiredCapabilities.join(", ");
-  }
-  return `${task.kind} task`;
-}
-
 function buildStageLabel(inspection: RunInspection): string {
   const completed = inspection.summary.completedTasks;
   const total = Object.keys(inspection.graph.tasks).length;
@@ -583,78 +625,6 @@ function buildDependencySummaryText(
   return `${taskTitle} currently has no outstanding dependency pressure.`;
 }
 
-function buildStatusReason(
-  task: TaskSpec,
-  validation: InspectionValidationItem | undefined,
-  approvals: ApprovalQueueItemView[],
-  inspection: RunInspection,
-): string {
-  if (approvals.length > 0) {
-    return approvals[0]!.summary;
-  }
-
-  switch (task.status) {
-    case "pending":
-      return "Waiting for dependencies before this task can be scheduled.";
-    case "ready":
-      return "Ready to resume execution.";
-    case "routing":
-      return "Selecting an agent for this task.";
-    case "context_building":
-      return "Building task context from memory, blackboard, and artifacts.";
-    case "queued":
-      return "Queued for execution.";
-    case "running":
-      return "Task process is currently running.";
-    case "validating":
-      return "Execution finished and validation is in progress.";
-    case "completed":
-      return validation?.summary ?? "Task completed successfully.";
-    case "failed_retryable":
-      return validation?.summary ?? "Task failed and can be retried.";
-    case "failed_terminal":
-      return validation?.summary ?? inspection.summary.latestFailure ?? "Task failed.";
-    case "blocked":
-      return validation?.summary ?? inspection.summary.latestBlocker ?? "Task is blocked.";
-    case "cancelled":
-      return "Task was cancelled.";
-    case "awaiting_approval":
-      return approvals[0]?.summary ?? "Waiting for approval before execution can continue.";
-    default:
-      return `Task is currently ${task.status}.`;
-  }
-}
-
-function buildTerminalPreview(
-  task: TaskSpec,
-  taskEvents: RunEvent[],
-  validation: InspectionValidationItem | undefined,
-): string[] {
-  const lines = taskEvents
-    .filter((event) => event.type === "agent_message")
-    .flatMap((event) => {
-      const payload = event.payload as { message?: unknown };
-      return typeof payload.message === "string"
-        ? payload.message.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
-        : [];
-    });
-
-  if (lines.length > 0) {
-    return lines.slice(-6);
-  }
-
-  return [
-    `$ task ${task.id}`,
-    `> ${task.title}`,
-    `> status: ${task.status}`,
-    validation?.summary ? `> ${validation.summary}` : undefined,
-  ].filter((line): line is string => Boolean(line));
-}
-
-function firstNonEmptyLine(message: string): string | undefined {
-  return message.split(/\r?\n/).map((line) => line.trim()).find((line) => line.length > 0);
-}
-
 function isPendingMessageEvent(type: RunEvent["type"]): boolean {
   return (
     type === "agent_message" ||
@@ -663,81 +633,6 @@ function isPendingMessageEvent(type: RunEvent["type"]): boolean {
     type === "task_failed" ||
     type === "validation_failed"
   );
-}
-
-function isActiveTaskStatus(status: TaskStatus): boolean {
-  return (
-    status === "routing" ||
-    status === "context_building" ||
-    status === "queued" ||
-    status === "running" ||
-    status === "awaiting_approval" ||
-    status === "validating"
-  );
-}
-
-function isActiveSessionBackfillTaskStatus(status: TaskStatus): boolean {
-  return status === "running" || status === "awaiting_approval";
-}
-
-function isDownstreamReadyStatus(status: TaskStatus): boolean {
-  return (
-    status === "ready" ||
-    status === "routing" ||
-    status === "context_building" ||
-    status === "queued" ||
-    status === "running" ||
-    status === "awaiting_approval" ||
-    status === "validating"
-  );
-}
-
-function mapRunStatus(status: string): WorkspaceLaneStatus {
-  switch (status) {
-    case "waiting_approval":
-      return "awaiting_approval";
-    case "paused":
-    case "planning":
-    case "ready":
-    case "replanning":
-    case "created":
-      return "paused";
-    case "completed":
-      return "completed";
-    case "failed":
-    case "cancelled":
-      return "failed";
-    default:
-      return "running";
-  }
-}
-
-function mapTaskStatus(status: TaskStatus): WorkspaceLaneStatus {
-  switch (status) {
-    case "awaiting_approval":
-      return "awaiting_approval";
-    case "blocked":
-      return "blocked";
-    case "completed":
-      return "completed";
-    case "cancelled":
-    case "failed_retryable":
-    case "failed_terminal":
-      return "failed";
-    case "pending":
-    case "ready":
-      return "paused";
-    default:
-      return "running";
-  }
-}
-
-function resolveTaskId(event: RunEvent): string | undefined {
-  if (event.taskId) {
-    return event.taskId;
-  }
-  const payload = event.payload as { taskId?: unknown };
-  return typeof payload.taskId === "string" ? payload.taskId : undefined;
 }
 
 function resolveHighestRiskLevel(

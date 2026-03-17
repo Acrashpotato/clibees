@@ -1,13 +1,15 @@
-﻿import type { RunRecord } from "../domain/models.js";
+import type { RunRecord } from "../domain/models.js";
 import type { AuditTimelineProjectionView } from "../ui-read-models/audit-timeline-models.js";
 import type {
   ApprovalQueueProjectionView,
+  ManagerChatProjectionView,
   SessionDetailProjectionView,
   TaskBoardProjectionView,
   TaskDetailProjectionView,
   WorkspaceProjectionView,
 } from "../ui-read-models/models.js";
 import type { RunListProjection } from "../ui-read-models/build-run-list-projection.js";
+import type { SelectedCli } from "./selected-cli.js";
 
 export type UiApiReadRouteId =
   | "run_list_projection"
@@ -16,11 +18,13 @@ export type UiApiReadRouteId =
   | "task_detail_projection"
   | "session_detail_projection"
   | "approval_queue_projection"
-  | "audit_timeline_projection";
+  | "audit_timeline_projection"
+  | "manager_chat_projection";
 
 export type UiApiActionRouteId =
   | "create_run"
   | "resume_run"
+  | "delete_run"
   | "approve_request"
   | "reject_request"
   | "post_thread_message"
@@ -37,6 +41,9 @@ export type UiApiErrorCode =
   | "internal_error";
 
 export type UiApiCursorMode = "opaque_offset";
+
+export { SELECTED_CLI_VALUES } from "./selected-cli.js";
+export type { SelectedCli } from "./selected-cli.js";
 
 export interface UiApiErrorResponse {
   error: {
@@ -95,6 +102,8 @@ export interface UiApiActionRouteDefinition {
 
 export interface CreateRunRequest {
   goal: string;
+  cli: SelectedCli;
+  allowOutsideWorkspaceWrites?: boolean;
   configPath?: string;
   autoResume?: boolean;
 }
@@ -145,7 +154,8 @@ export type UiApiProjectionDocument =
   | TaskDetailProjectionView
   | SessionDetailProjectionView
   | ApprovalQueueProjectionView
-  | AuditTimelineProjectionView;
+  | AuditTimelineProjectionView
+  | ManagerChatProjectionView;
 
 export const UI_API_READ_ROUTES: UiApiReadRouteDefinition[] = [
   {
@@ -198,6 +208,12 @@ export const UI_API_READ_ROUTES: UiApiReadRouteDefinition[] = [
     path: "/api/runs/:runId/projections/audit-timeline",
     pagination: null,
   },
+  {
+    id: "manager_chat_projection",
+    method: "GET",
+    path: "/api/runs/:runId/projections/manager-chat",
+    pagination: null,
+  },
 ];
 
 export const UI_API_ACTION_ROUTES: UiApiActionRouteDefinition[] = [
@@ -211,6 +227,12 @@ export const UI_API_ACTION_ROUTES: UiApiActionRouteDefinition[] = [
     id: "resume_run",
     method: "POST",
     path: "/api/runs/:runId/resume",
+    implementationStatus: "active",
+  },
+  {
+    id: "delete_run",
+    method: "POST",
+    path: "/api/runs/:runId/delete",
     implementationStatus: "active",
   },
   {
@@ -229,13 +251,13 @@ export const UI_API_ACTION_ROUTES: UiApiActionRouteDefinition[] = [
     id: "post_thread_message",
     method: "POST",
     path: "/api/runs/:runId/threads/:threadId/messages",
-    implementationStatus: "stubbed",
+    implementationStatus: "active",
   },
   {
     id: "interact_session",
     method: "POST",
     path: "/api/runs/:runId/sessions/:sessionId/interact",
-    implementationStatus: "stubbed",
+    implementationStatus: "active",
   },
   {
     id: "requeue_task",
@@ -360,3 +382,5 @@ export function buildNotSupportedResponse(
 export type CreateRunResponse = UiApiActionEnvelope<RunRecord>;
 export type ResumeRunResponse = UiApiActionEnvelope<RunRecord>;
 export type ApprovalDecisionResponse = UiApiActionEnvelope<RunRecord>;
+
+

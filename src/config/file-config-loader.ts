@@ -4,6 +4,7 @@ import type { ConfigLoader } from "../control/entrypoint.js";
 import {
   CONFIG_FILE_NAME,
   CONFIG_VERSION,
+  type ApprovalPolicyValue,
   type AgentConfig,
   type AgentProfileConfig,
   type LoggingConfig,
@@ -33,6 +34,13 @@ const CONFIG_MIGRATIONS = new Map<number, ConfigMigration>();
 const COST_TIERS = new Set(["low", "medium", "high"]);
 const LOG_LEVELS = new Set(["debug", "info", "warn", "error"]);
 const RISK_LEVELS = new Set<RiskLevel>(["low", "medium", "high"]);
+const APPROVAL_POLICY_VALUES = new Set<ApprovalPolicyValue>([
+  "always",
+  "never",
+  "low",
+  "medium",
+  "high",
+]);
 const PLANNER_MODES = new Set(["static", "delegated"]);
 
 interface SourceLine {
@@ -300,6 +308,12 @@ function normalizeSafety(
     blockedActions:
       optionalStringArray(rawSafety.blockedActions, "safety.blockedActions") ??
       defaults.blockedActions,
+    approvalPolicyByAction:
+      optionalApprovalPolicyByAction(
+        rawSafety.approvalPolicyByAction,
+        "safety.approvalPolicyByAction",
+      ) ??
+      defaults.approvalPolicyByAction,
   };
 }
 
@@ -711,6 +725,35 @@ function optionalStringArray(
   }
 
   return expectStringArray(value, fieldPath);
+}
+
+function optionalApprovalPolicyByAction(
+  value: JsonLike | undefined,
+  fieldPath: string,
+): Record<string, ApprovalPolicyValue> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const rawMap = expectObject(value, fieldPath);
+  const result: Record<string, ApprovalPolicyValue> = {};
+  for (const [rawKind, rawPolicy] of Object.entries(rawMap)) {
+    const kind = rawKind.trim();
+    if (!kind) {
+      throw new Error(`Config field "${fieldPath}" cannot include an empty action kind.`);
+    }
+
+    if (kind in result) {
+      throw new Error(`Config field "${fieldPath}" duplicates action kind "${kind}".`);
+    }
+
+    result[kind] = expectEnum(
+      rawPolicy,
+      `${fieldPath}.${kind}`,
+      APPROVAL_POLICY_VALUES,
+    ) as ApprovalPolicyValue;
+  }
+  return result;
 }
 
 function expectNumber(value: JsonLike | undefined, fieldPath: string): number {

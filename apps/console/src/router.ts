@@ -1,12 +1,13 @@
-﻿import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 
 import ApprovalsPage from "./pages/ApprovalsPage.vue";
 import InspectPage from "./pages/InspectPage.vue";
-import PlaceholderPage from "./pages/PlaceholderPage.vue";
-import LaneConsolePage from "./pages/LaneConsolePage.vue";
+import ManagerPage from "./pages/ManagerPage.vue";
 import RunsPage from "./pages/RunsPage.vue";
+import SettingsPage from "./pages/SettingsPage.vue";
 import SessionDetailPage from "./pages/SessionDetailPage.vue";
 import TaskDetailPage from "./pages/TaskDetailPage.vue";
+import WorkerpollPage from "./pages/WorkerpollPage.vue";
 import WorkspaceLanesPage from "./pages/WorkspaceLanesPage.vue";
 import WorkspacePage from "./pages/WorkspacePage.vue";
 
@@ -15,43 +16,49 @@ export const router = createRouter({
   routes: [
     {
       path: "/",
-      redirect: "/workspace",
+      redirect: "/runs",
     },
     {
-      path: "/workspace",
-      name: "workspace",
-      component: WorkspacePage,
+      path: "/runs",
+      name: "runs",
+      component: RunsPage,
+      children: [
+        {
+          path: ":runId/manager",
+          name: "run-manager",
+          component: ManagerPage,
+        },
+        {
+          path: ":runId/workerpoll",
+          name: "run-workerpoll",
+          component: WorkerpollPage,
+        },
+        {
+          path: ":runId/workspace",
+          name: "run-workspace",
+          component: WorkspacePage,
+        },
+        {
+          path: ":runId/tasks",
+          name: "run-task-board",
+          component: WorkspaceLanesPage,
+        },
+        {
+          path: ":runId/approvals",
+          name: "run-approvals",
+          component: ApprovalsPage,
+        },
+        {
+          path: ":runId/inspect",
+          name: "run-inspect",
+          component: InspectPage,
+        },
+      ],
     },
     {
-      path: "/workspace/lanes",
-      name: "workspace-lanes",
-      component: WorkspaceLanesPage,
-    },
-    {
-      path: "/workspace/handoffs",
-      redirect: "/workspace",
-    },
-    {
-      path: "/workspace/focus",
-      redirect: "/workspace",
-    },
-    {
-      path: "/runs/:runId/workspace",
-      name: "run-workspace",
-      component: WorkspacePage,
-    },
-    {
-      path: "/runs/:runId/workspace/lanes",
-      name: "run-workspace-lanes",
-      component: WorkspaceLanesPage,
-    },
-    {
-      path: "/runs/:runId/workspace/handoffs",
-      redirect: (to) => ({ name: "run-workspace", params: { runId: to.params.runId } }),
-    },
-    {
-      path: "/runs/:runId/workspace/focus",
-      redirect: (to) => ({ name: "run-workspace", params: { runId: to.params.runId } }),
+      path: "/runs/new",
+      name: "runs-new",
+      component: RunsPage,
     },
     {
       path: "/runs/:runId/tasks/:taskId",
@@ -64,39 +71,13 @@ export const router = createRouter({
       component: SessionDetailPage,
     },
     {
-      path: "/runs/:runId/lanes/:laneId?",
-      name: "legacy-lane-route",
-      component: LaneConsolePage,
-    },
-    {
-      path: "/runs",
-      name: "runs",
-      component: RunsPage,
-    },
-    {
-      path: "/runs/new",
-      name: "runs-new",
-      component: RunsPage,
-    },
-    {
-      path: "/approvals",
-      name: "approvals",
-      component: ApprovalsPage,
-    },
-    {
-      path: "/inspect",
-      name: "inspect",
-      component: InspectPage,
-    },
-    {
       path: "/settings",
       name: "settings",
-      component: PlaceholderPage,
-      props: {
-        eyebrowKey: "nav.settings",
-        titleKey: "placeholder.settingsTitle",
-        descriptionKey: "placeholder.settingsDescription",
-      },
+      component: SettingsPage,
+    },
+    {
+      path: "/:pathMatch(.*)*",
+      redirect: "/runs",
     },
   ],
 });

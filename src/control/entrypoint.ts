@@ -27,6 +27,9 @@ export class Entrypoint {
           configPath: command.configPath,
           metadata: {
             configVersion: config.version,
+            plannerMode: config.planner.mode,
+            plannerAgentId: config.planner.agentId,
+            agentIds: config.agents.map((agent) => agent.id),
           },
         });
       case "resume":

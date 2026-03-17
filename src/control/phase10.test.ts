@@ -20,6 +20,7 @@ import type {
 import type { Planner, PlannerInput, ReplanInput } from "../decision/planner.js";
 import type { ValidationInput, Validator } from "../decision/validator.js";
 import { createApp } from "../app/create-app.js";
+import { ConfiguredCliAdapter } from "../adapters/configured-cli-adapter.js";
 import { MemoryConsolidator } from "./memory-consolidator.js";
 import { AdapterRegistry } from "../execution/adapter-registry.js";
 import type { AgentAdapter } from "../execution/agent-adapter.js";
@@ -64,7 +65,7 @@ function buildConfig(
     version: 1,
     agents: [
       {
-        id: "local-default",
+        id: "codex",
         command: "node",
         priority: 1,
         profiles: [
@@ -81,10 +82,10 @@ function buildConfig(
     ],
     planner: {
       mode: "static",
-      agentId: "local-default",
+      agentId: "codex",
     },
     routing: {
-      defaultAgentId: "local-default",
+      defaultAgentId: "codex",
       preferLowCost: true,
     },
     safety: {
@@ -235,7 +236,7 @@ async function setupPhase10App(options: {
   const tasks = options.tasks.map((task) => ({ ...task, workingDirectory: workspaceDir }));
   const config = buildConfig(workspaceDir, options.configOverrides);
   const registry = new AdapterRegistry();
-  registry.register(new Phase10Adapter("local-default", options.actionPlansByTaskId));
+  registry.register(new Phase10Adapter("codex", options.actionPlansByTaskId));
   const eventStore = new FileEventStore(stateRootDir);
   const projectMemoryStore = new FileProjectMemoryStore(memoryRootDir);
   const validator: Validator = {
@@ -276,6 +277,103 @@ async function setupPhase10App(options: {
     projectMemoryStore,
   };
 }
+
+test("ConfiguredCliAdapter treats codex-worker ids as codex stdin invocations", async () => {
+  const workspaceDir = process.cwd();
+  const adapter = new ConfiguredCliAdapter({
+    id: "codex-worker-planning",
+    command: "codex",
+    priority: 1,
+    profiles: [
+      {
+        id: "worker",
+        label: "Worker",
+        capabilities: ["planning"],
+        defaultArgs: ["exec", "--skip-git-repo-check", "-"],
+        defaultCwd: workspaceDir,
+        costTier: "low",
+      },
+    ],
+  });
+  const task = buildTask(workspaceDir, {
+    id: "task-codex-worker-stdin",
+    title: "Delegated worker task",
+    goal: "Implement the delegated user goal end-to-end.",
+  });
+  const invocation = await adapter.planInvocation(
+    task,
+    {
+      taskBrief: "",
+      relevantFacts: [],
+      relevantDecisions: [],
+      artifactSummaries: [],
+      workspaceSummary: "",
+      transcriptRefs: [],
+      agentHints: [],
+    },
+    {
+      agentId: "codex-worker-planning",
+      profileId: "worker",
+      reason: "test",
+    },
+  );
+
+  assert.deepEqual(invocation.args, ["exec", "--skip-git-repo-check", "-"]);
+  assert.match(invocation.stdin ?? "", /Task: Delegated worker task/);
+  assert.match(invocation.stdin ?? "", /Goal: Implement the delegated user goal end-to-end\./);
+  assert.match(invocation.stdin ?? "", /Instructions:/);
+  assert.match(invocation.stdin ?? "", /Workspace Summary:\n\(none\)/);
+  assert.ok(!invocation.args.some((arg) => arg.includes("Task:")));
+  assert.deepEqual(invocation.actionPlans[0]?.args, ["exec", "--skip-git-repo-check", "-"]);
+});
+
+test("ConfiguredCliAdapter injects codex stdin sentinel and prioritizes task cwd", async () => {
+  const workspaceDir = process.cwd();
+  const profileCwd = path.join(workspaceDir, "profile-default");
+  const taskCwd = path.join(workspaceDir, "task-target");
+  const adapter = new ConfiguredCliAdapter({
+    id: "codex-worker-planning",
+    command: "codex",
+    priority: 1,
+    profiles: [
+      {
+        id: "worker",
+        label: "Worker",
+        capabilities: ["planning"],
+        defaultArgs: ["exec", "--skip-git-repo-check"],
+        defaultCwd: profileCwd,
+        costTier: "low",
+      },
+    ],
+  });
+  const task = buildTask(taskCwd, {
+    id: "task-codex-worker-cwd",
+    title: "Delegated cwd task",
+    goal: "Write output in the delegated task directory.",
+  });
+  const invocation = await adapter.planInvocation(
+    task,
+    {
+      taskBrief: "",
+      relevantFacts: [],
+      relevantDecisions: [],
+      artifactSummaries: [],
+      workspaceSummary: "",
+      transcriptRefs: [],
+      agentHints: [],
+    },
+    {
+      agentId: "codex-worker-planning",
+      profileId: "worker",
+      reason: "test",
+    },
+  );
+
+  assert.deepEqual(invocation.args, ["exec", "--skip-git-repo-check", "-"]);
+  assert.equal(invocation.cwd, taskCwd);
+  assert.equal(invocation.actionPlans[0]?.cwd, taskCwd);
+  assert.match(invocation.stdin ?? "", /Task: Delegated cwd task/);
+});
 
 test("Phase 10 project memory recall filters by scope, tags, and text", async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), "clibees-phase10-memory-"));

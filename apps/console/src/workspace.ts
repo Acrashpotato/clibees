@@ -2,20 +2,20 @@
 import type { Locale } from "./i18n";
 import { translate } from "./i18n";
 
-export type WorkspaceSectionKey = "overview" | "lanes" | "handoffs" | "focus";
-
-export function getWorkspaceBasePath(runId?: string): string {
-  return runId ? `/runs/${encodeURIComponent(runId)}/workspace` : "/workspace";
+export function getRunWorkspacePath(runId?: string): string {
+  return runId ? `/runs/${encodeURIComponent(runId)}/workspace` : "/runs";
 }
 
-export function getWorkspacePath(section: WorkspaceSectionKey, runId?: string): string {
-  const basePath = getWorkspaceBasePath(runId);
+export function getRunTaskBoardPath(runId?: string): string {
+  return runId ? `/runs/${encodeURIComponent(runId)}/tasks` : "/runs";
+}
 
-  if (section === "overview") {
-    return basePath;
-  }
+export function getRunApprovalsPath(runId?: string): string {
+  return runId ? `/runs/${encodeURIComponent(runId)}/approvals` : "/runs";
+}
 
-  return `${basePath}/${section}`;
+export function getRunInspectPath(runId?: string): string {
+  return runId ? `/runs/${encodeURIComponent(runId)}/inspect` : "/runs";
 }
 
 export function getTaskDetailPath(runId: string, taskId: string): string {
@@ -26,13 +26,8 @@ export function getSessionDetailPath(runId: string, sessionId: string): string {
   return `/runs/${encodeURIComponent(runId)}/sessions/${encodeURIComponent(sessionId)}`;
 }
 
-export function getLegacyLanePath(runId: string, laneId?: string): string {
-  const basePath = `/runs/${encodeURIComponent(runId)}/lanes`;
-  return laneId ? `${basePath}/${encodeURIComponent(laneId)}` : basePath;
-}
-
 export function getTaskConsolePath(runId: string, taskId?: string): string {
-  return taskId ? getTaskDetailPath(runId, taskId) : getLegacyLanePath(runId);
+  return taskId ? getTaskDetailPath(runId, taskId) : getRunTaskBoardPath(runId);
 }
 
 export function getFocusTask(workspace: WorkspaceView): WorkspaceTaskCardView {
@@ -52,7 +47,7 @@ export function getActionQueue(workspace: WorkspaceView, locale: Locale): Action
     title: approval.title,
     summary: approval.summary,
     recommendedActionLabel: translate(locale, "actions.handleDecision"),
-    actionTo: `/approvals?runId=${encodeURIComponent(approval.runId)}&requestId=${encodeURIComponent(approval.id)}`,
+    actionTo: `${getRunApprovalsPath(approval.runId)}?requestId=${encodeURIComponent(approval.id)}`,
   }));
 
   const blockedTasks = workspace.tasks
@@ -79,7 +74,7 @@ export function getActionQueue(workspace: WorkspaceView, locale: Locale): Action
     title: issue,
     summary: workspace.stage,
     recommendedActionLabel: translate(locale, "actions.viewFocus"),
-    actionTo: getWorkspacePath("focus", workspace.runId),
+    actionTo: getRunWorkspacePath(workspace.runId),
   }));
 
   return [...approvals, ...blockedTasks, ...issues].sort(
@@ -131,3 +126,4 @@ export function createEmptyWorkspace(runId = "workspace"): WorkspaceView {
     canResume: false,
   };
 }
+

@@ -37,6 +37,7 @@ export function createDefaultConfig(
     safety: {
       approvalThreshold: "high",
       blockedActions: [],
+      approvalPolicyByAction: {},
     },
     memory: {
       enabled: false,

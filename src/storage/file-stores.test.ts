@@ -5,7 +5,15 @@ import os from "node:os";
 import path from "node:path";
 import { FileEventStore } from "./event-store.js";
 import { FileRunStore } from "./run-store.js";
-import type { RunEvent, RunGraph, RunRecord, TaskSpec } from "../domain/models.js";
+import { FileSessionStore } from "./session-store.js";
+import type {
+  MessageThreadRecord,
+  RunEvent,
+  RunGraph,
+  RunRecord,
+  TaskSessionRecord,
+  TaskSpec,
+} from "../domain/models.js";
 import { SCHEMA_VERSION } from "../domain/models.js";
 
 const WORKSPACE_PATH = process.cwd().replace(/\\/g, "/");
@@ -191,4 +199,75 @@ test("FileEventStore tolerates empty directories and fails clearly on corrupt JS
     () => store.list("broken-run"),
     /Failed to parse events for run "broken-run" at line 2/,
   );
+});
+
+test("FileSessionStore persists sessions, threads, and deduplicates by clientRequestId", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "clibees-session-store-"));
+  const store = new FileSessionStore(tempDir);
+  const runId = "run-session-001";
+  const sessionId = "manager_primary";
+  const threadId = "manager_primary";
+
+  const session: TaskSessionRecord = {
+    schemaVersion: SCHEMA_VERSION,
+    sessionId,
+    runId,
+    scope: "manager_primary",
+    role: "manager",
+    threadId,
+    createdAt: "2026-03-16T10:00:00.000Z",
+    updatedAt: "2026-03-16T10:00:00.000Z",
+    metadata: {},
+  };
+  const thread: MessageThreadRecord = {
+    schemaVersion: SCHEMA_VERSION,
+    threadId,
+    runId,
+    scope: "manager_primary",
+    sessionId,
+    createdAt: "2026-03-16T10:00:00.000Z",
+    updatedAt: "2026-03-16T10:00:00.000Z",
+    metadata: {},
+  };
+
+  await store.upsertSession(session);
+  await store.upsertThread(thread);
+  const first = await store.appendMessage({
+    runId,
+    threadId,
+    sessionId,
+    role: "user",
+    actorId: "console-user",
+    body: "hello manager",
+    clientRequestId: "request-001",
+  });
+  const duplicate = await store.appendMessage({
+    runId,
+    threadId,
+    sessionId,
+    role: "user",
+    actorId: "console-user",
+    body: "hello manager",
+    clientRequestId: "request-001",
+  });
+  await store.appendMessage({
+    runId,
+    threadId,
+    sessionId,
+    role: "manager",
+    actorId: "manager",
+    body: "ack",
+    clientRequestId: "request-002",
+  });
+
+  const sessions = await store.listSessions(runId);
+  const threads = await store.listThreads(runId);
+  const messages = await store.listMessages(runId, threadId);
+  const runMessages = await store.listRunMessages(runId);
+
+  assert.equal(first.messageId, duplicate.messageId);
+  assert.equal(sessions.length, 1);
+  assert.equal(threads.length, 1);
+  assert.equal(messages.length, 2);
+  assert.equal(runMessages.length, 2);
 });

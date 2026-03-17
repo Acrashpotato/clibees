@@ -560,3 +560,113 @@ export interface ApprovalQueueProjectionView {
   summary: ApprovalQueueSummaryView;
   items: ApprovalQueueItemDetailView[];
 }
+
+export interface ManagerChatRunSummaryView {
+  runId: string;
+  goal: string;
+  status: WorkspaceLaneStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagerChatSessionBindingView {
+  sessionId: string;
+  threadId: string;
+  sourceMode: "task_session" | "run_event_backfill";
+}
+
+export interface ManagerChatMessageView {
+  messageId: string;
+  threadId: string;
+  sessionId?: string;
+  role: "user" | "manager" | "worker" | "system";
+  actorId: string;
+  body: string;
+  createdAt: string;
+  replyToMessageId?: string;
+  sourceMode: "session_message" | "run_event_backfill";
+}
+
+export interface ManagerWorkerQueueItemView {
+  taskId: string;
+  title: string;
+  status: WorkspaceLaneStatus;
+  agentId: string;
+  lastActivityAt: string;
+  sessionId?: string;
+}
+
+export interface ManagerPendingApprovalView {
+  requestId: string;
+  taskId?: string;
+  summary: string;
+  riskLevel: RiskLevel | "none";
+  requestedAt?: string;
+}
+
+export interface ManagerChatProjectionView {
+  projection: "manager_chat";
+  generatedAt: string;
+  run: ManagerChatRunSummaryView;
+  managerSession?: ManagerChatSessionBindingView;
+  timeline: ManagerChatMessageView[];
+  workerQueue: ManagerWorkerQueueItemView[];
+  pendingApprovals: ManagerPendingApprovalView[];
+}
+
+export type WorkerpollTaskMatchStatus =
+  | "matched"
+  | "mismatched"
+  | "unassigned"
+  | "capability_gap";
+
+export interface WorkerpollRunSummaryView {
+  runId: string;
+  goal: string;
+  status: WorkspaceLaneStatus;
+  plannerAgentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkerpollSummaryView {
+  taskCount: number;
+  workerCount: number;
+  dynamicWorkerCount: number;
+  uncoveredTaskCount: number;
+}
+
+export interface WorkerpollWorkerView {
+  agentId: string;
+  source: "configured" | "dynamic" | "metadata";
+  command?: string;
+  profileIds: string[];
+  capabilities: string[];
+  isPlanner: boolean;
+  priority?: number;
+}
+
+export interface WorkerpollTaskView {
+  taskId: string;
+  title: string;
+  kind: "plan" | "execute" | "validate";
+  status: WorkspaceLaneStatus;
+  requiredCapabilities: string[];
+  compatibleWorkers: string[];
+  missingCapabilities: string[];
+  preferredAgent?: string;
+  assignedAgent?: string;
+  selectedWorker?: string;
+  dependsOn: string[];
+  matchStatus: WorkerpollTaskMatchStatus;
+  lastActivityAt: string;
+}
+
+export interface WorkerpollProjectionView {
+  projection: "workerpoll";
+  generatedAt: string;
+  run: WorkerpollRunSummaryView;
+  summary: WorkerpollSummaryView;
+  workers: WorkerpollWorkerView[];
+  tasks: WorkerpollTaskView[];
+}

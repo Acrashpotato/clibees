@@ -12,6 +12,9 @@ export interface RunStatePaths {
   graphFile: string;
   eventsFile: string;
   approvalsFile: string;
+  sessionsDir: string;
+  threadsDir: string;
+  threadMessagesDir: string;
   blackboardDir: string;
   artifactsDir: string;
   workspaceDir: string;
@@ -38,6 +41,9 @@ export function getRunStatePaths(
     graphFile: path.join(runDir, "graph.json"),
     eventsFile: path.join(runDir, "events.jsonl"),
     approvalsFile: path.join(runDir, "approvals.json"),
+    sessionsDir: path.join(runDir, "sessions"),
+    threadsDir: path.join(runDir, "threads"),
+    threadMessagesDir: path.join(runDir, "thread-messages"),
     blackboardDir: path.join(runDir, "blackboard"),
     artifactsDir: path.join(runDir, "artifacts"),
     workspaceDir: path.join(runDir, "workspace"),
@@ -97,5 +103,38 @@ export function getWorkspaceSnapshotPath(
   return path.join(
     getRunStatePaths(layout, runId).workspaceDir,
     `${encodeURIComponent(snapshotId)}.json`,
+  );
+}
+
+export function getTaskSessionPath(
+  layout: StateLayout,
+  runId: string,
+  sessionId: string,
+): string {
+  return path.join(
+    getRunStatePaths(layout, runId).sessionsDir,
+    `${encodeURIComponent(sessionId)}.json`,
+  );
+}
+
+export function getMessageThreadPath(
+  layout: StateLayout,
+  runId: string,
+  threadId: string,
+): string {
+  return path.join(
+    getRunStatePaths(layout, runId).threadsDir,
+    `${encodeURIComponent(threadId)}.json`,
+  );
+}
+
+export function getThreadMessagesPath(
+  layout: StateLayout,
+  runId: string,
+  threadId: string,
+): string {
+  return path.join(
+    getRunStatePaths(layout, runId).threadMessagesDir,
+    `${encodeURIComponent(threadId)}.jsonl`,
   );
 }

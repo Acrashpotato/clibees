@@ -61,12 +61,19 @@ export class ConfiguredCliAdapter extends StructuredAdapter {
   ): Promise<InvocationPlan> {
     const profile = this.getProfile(selection.profileId);
     const prompt = compilePrompt(task, context);
-    const args = [prompt];
-    const cwd = profile.defaultCwd ?? task.workingDirectory;
-    const commandArgs = [...(profile.defaultArgs ?? []), ...args];
+    const profileArgs = profile.defaultArgs ?? [];
+    const useStdinPrompt = shouldPassPromptViaStdin(this.agent.command);
+    const stdinSentinelArgs =
+      useStdinPrompt && !profileArgs.some((arg) => arg.trim() === "-")
+        ? ["-"]
+        : [];
+    const args = useStdinPrompt ? stdinSentinelArgs : [prompt];
+    const cwd = task.workingDirectory || profile.defaultCwd || process.cwd();
+    const commandArgs = [...profileArgs, ...args];
 
     return this.createInvocationPlan(task, selection, {
       args,
+      ...(useStdinPrompt ? { stdin: prompt } : {}),
       cwd,
       actionPlans: [
         this.createCommandActionPlan(
@@ -84,16 +91,24 @@ export class ConfiguredCliAdapter extends StructuredAdapter {
 
   async *run(runId: string, invocation: InvocationPlan): AsyncIterable<RunEvent> {
     const queue = new AsyncEventQueue<RunEvent>();
-    const child = this.spawnProcess(invocation.command, invocation.args, {
-      cwd: invocation.cwd,
-      env: {
-        ...process.env,
-        ...invocation.env,
+    const child = spawnWithWindowsShellFallback(
+      this.spawnProcess,
+      invocation.command,
+      invocation.args,
+      {
+        cwd: invocation.cwd,
+        env: {
+          ...process.env,
+          ...invocation.env,
+        },
+        stdio: [typeof invocation.stdin === "string" ? "pipe" : "ignore", "pipe", "pipe"],
       },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    );
     const executionKey = getExecutionKey(runId, invocation.taskId);
     this.runningProcesses.set(executionKey, child);
+    if (typeof invocation.stdin === "string") {
+      child.stdin?.end(invocation.stdin);
+    }
 
     let settled = false;
     const finish = (event: RunEvent): void => {
@@ -250,6 +265,20 @@ function compilePrompt(task: TaskSpec, context: ContextBundle): string {
   return sections.join("\n\n");
 }
 
+function shouldPassPromptViaStdin(command: string): boolean {
+  return isCodexCommand(command);
+}
+
+function isCodexCommand(command: string): boolean {
+  const executable = path.basename(command).toLowerCase();
+  return (
+    executable === "codex" ||
+    executable === "codex.exe" ||
+    executable === "codex.cmd" ||
+    executable === "codex.bat"
+  );
+}
+
 function renderListSection(title: string, values: string[]): string {
   if (values.length === 0) {
     return "";
@@ -311,6 +340,58 @@ function appendExtensions(command: string, extensions: string[]): string[] {
   }
 
   return [command, ...extensions.map((suffix) => `${command}${suffix.toLowerCase()}`)];
+}
+
+function spawnWithWindowsShellFallback(
+  spawnProcess: typeof spawn,
+  command: string,
+  args: string[],
+  options: NonNullable<Parameters<typeof spawn>[2]>,
+): ChildProcess {
+  if (shouldForceWindowsShell(command)) {
+    return spawnProcess(command, args, {
+      ...options,
+      shell: true,
+    });
+  }
+
+  try {
+    return spawnProcess(command, args, options);
+  } catch (error) {
+    if (!shouldRetryWithWindowsShell(error)) {
+      throw error;
+    }
+
+    return spawnProcess(command, args, {
+      ...options,
+      shell: true,
+    });
+  }
+}
+
+function shouldRetryWithWindowsShell(error: unknown): boolean {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === "EPERM" || code === "EACCES" || code === "ENOENT";
+}
+
+function shouldForceWindowsShell(command: string): boolean {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const hasPathSegment =
+    command.includes(path.sep) || command.includes(path.posix.sep);
+  if (hasPathSegment) {
+    const ext = path.extname(command).toLowerCase();
+    return ext === ".cmd" || ext === ".bat";
+  }
+
+  const ext = path.extname(command).toLowerCase();
+  return ext.length === 0 || ext === ".cmd" || ext === ".bat";
 }
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {

@@ -5,7 +5,11 @@ import type {
   SessionDetailProjectionView,
   TaskDetailProjectionView,
 } from "./detail-projection";
+import type { ManagerChatProjectionView } from "./manager-projection";
+import type { WorkerpollProjectionView } from "./workerpoll-projection";
+import type { TaskBoardProjectionView } from "./task-board-projection";
 import type { UiProjectionEnvelope, WorkspaceProjectionView } from "./workspace-projection";
+import type { SelectedCli } from "../../../src/ui-api/selected-cli.js";
 
 interface LegacyApprovalItem {
   id: string;
@@ -66,6 +70,47 @@ class ApiError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
   }
+}
+
+export type { SelectedCli };
+
+export interface CreateRunPayload {
+  goal: string;
+  cli: SelectedCli;
+  allowOutsideWorkspaceWrites?: boolean;
+  autoResume?: boolean;
+}
+
+export interface PostThreadMessagePayload {
+  actorId?: string;
+  body: string;
+  clientRequestId?: string;
+  note?: string;
+  replyToMessageId?: string;
+}
+
+export interface StartSessionTerminalPayload {
+  cols?: number;
+  rows?: number;
+  launchCli?: boolean;
+  launchCodex?: boolean;
+}
+
+export interface SessionTerminalBootstrap {
+  terminalSessionId: string;
+  wsPath: string;
+}
+
+export interface ArtifactContentPreview {
+  artifactId: string;
+  kind: string;
+  uri: string;
+  summary: string;
+  source: "workspace_file" | "artifact_metadata";
+  contentType: "text/plain" | "application/json";
+  body: string;
+  truncated: boolean;
+  filePath?: string;
 }
 
 async function request<T>(input: string, init?: RequestInit): Promise<T> {
@@ -211,6 +256,28 @@ export async function getAuditTimelineProjection(runId: string) {
   );
   return response.data;
 }
+
+export async function getTaskBoardProjection(runId: string) {
+  const response = await request<UiProjectionEnvelope<TaskBoardProjectionView>>(
+    `/api/runs/${encodeURIComponent(runId)}/projections/task-board`,
+  );
+  return response.data;
+}
+
+export async function getManagerChatProjection(runId: string) {
+  const response = await request<UiProjectionEnvelope<ManagerChatProjectionView>>(
+    `/api/runs/${encodeURIComponent(runId)}/projections/manager-chat`,
+  );
+  return response.data;
+}
+
+export async function getWorkerpollProjection(runId: string) {
+  const response = await request<UiProjectionEnvelope<WorkerpollProjectionView>>(
+    `/api/runs/${encodeURIComponent(runId)}/projections/workerpoll`,
+  );
+  return response.data;
+}
+
 export async function listApprovals(runId?: string) {
   const raw = await request<LegacyApprovalItem[]>(
     runId ? `/api/runs/${encodeURIComponent(runId)}/approvals` : "/api/approvals",
@@ -222,10 +289,10 @@ export function getInspect(runId: string) {
   return request<InspectView>(`/api/runs/${encodeURIComponent(runId)}/inspect`);
 }
 
-export function createRun(goal: string, options: { autoResume?: boolean } = {}) {
+export function createRun(requestBody: CreateRunPayload) {
   return request<{ runId: string }>("/api/runs", {
     method: "POST",
-    body: JSON.stringify({ goal, autoResume: options.autoResume ?? false }),
+    body: JSON.stringify(requestBody),
   });
 }
 
@@ -234,6 +301,47 @@ export function resumeRun(runId: string) {
     method: "POST",
     body: JSON.stringify({}),
   });
+}
+
+function isRouteNotFoundError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 404 &&
+    error.message.startsWith("Route not found:")
+  );
+}
+
+export async function deleteRun(runId: string) {
+  const encodedRunId = encodeURIComponent(runId);
+  const endpoints: Array<{ path: string; method: "POST" | "DELETE"; withBody: boolean }> = [
+    {
+      path: `/api/runs/${encodedRunId}/delete`,
+      method: "POST",
+      withBody: true,
+    },
+    {
+      path: `/api/runs/${encodedRunId}`,
+      method: "DELETE",
+      withBody: false,
+    },
+  ];
+
+  let lastError: unknown;
+  for (const endpoint of endpoints) {
+    try {
+      return await request<{ runId: string; deleted: boolean }>(endpoint.path, {
+        method: endpoint.method,
+        ...(endpoint.withBody ? { body: JSON.stringify({}) } : {}),
+      });
+    } catch (caught) {
+      if (!isRouteNotFoundError(caught)) {
+        throw caught;
+      }
+      lastError = caught;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 export function approveRequest(runId: string, requestId: string, note?: string) {
@@ -256,4 +364,96 @@ export function rejectRequest(runId: string, requestId: string, note?: string) {
   );
 }
 
+export function startSessionTerminal(
+  runId: string,
+  sessionId: string,
+  payload: StartSessionTerminalPayload = {},
+) {
+  return request<SessionTerminalBootstrap>(
+    `/api/runs/${encodeURIComponent(runId)}/sessions/${encodeURIComponent(sessionId)}/terminal`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function getArtifactContent(runId: string, artifactId: string) {
+  return request<ArtifactContentPreview>(
+    `/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}/content`,
+  );
+}
+
+export async function postThreadMessage(
+  runId: string,
+  threadId: string,
+  payload: PostThreadMessagePayload,
+) {
+  return request<{
+    action: "post_thread_message";
+    data: {
+      runId: string;
+      threadId: string;
+      runStatus: string;
+      resumed: boolean;
+      message: {
+        messageId: string;
+        body: string;
+        role: string;
+        actorId: string;
+        createdAt: string;
+      };
+    };
+  }>(
+    `/api/runs/${encodeURIComponent(runId)}/threads/${encodeURIComponent(threadId)}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        actorId: payload.actorId ?? "console-user",
+        body: payload.body,
+        clientRequestId: payload.clientRequestId,
+        note: payload.note,
+        replyToMessageId: payload.replyToMessageId,
+      }),
+    },
+  );
+}
+
+export async function interactSession(
+  runId: string,
+  sessionId: string,
+  payload: PostThreadMessagePayload,
+) {
+  return request<{
+    action: "interact_session";
+    data: {
+      runId: string;
+      sessionId: string;
+      threadId: string;
+      runStatus: string;
+      resumed: boolean;
+      message: {
+        messageId: string;
+        body: string;
+        role: string;
+        actorId: string;
+        createdAt: string;
+      };
+    };
+  }>(
+    `/api/runs/${encodeURIComponent(runId)}/sessions/${encodeURIComponent(sessionId)}/interact`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        actorId: payload.actorId ?? "console-user",
+        body: payload.body,
+        clientRequestId: payload.clientRequestId,
+        note: payload.note,
+        replyToMessageId: payload.replyToMessageId,
+      }),
+    },
+  );
+}
+
 export { ApiError };
+

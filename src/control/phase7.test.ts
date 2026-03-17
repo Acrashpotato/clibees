@@ -55,7 +55,7 @@ function buildConfig(
     version: 1,
     agents: [
       {
-        id: "local-default",
+        id: "codex",
         command: "node",
         priority: 1,
         profiles: [
@@ -72,10 +72,10 @@ function buildConfig(
     ],
     planner: {
       mode: "static",
-      agentId: "local-default",
+      agentId: "codex",
     },
     routing: {
-      defaultAgentId: "local-default",
+      defaultAgentId: "codex",
       preferLowCost: true,
     },
     safety,
@@ -222,7 +222,7 @@ async function setupPhase7App(options: {
   const config = buildConfig(workspaceDir, options.safety);
   const task = buildTask(workspaceDir, options.taskOverrides);
   const registry = new AdapterRegistry();
-  registry.register(new ApprovalTestAdapter("local-default", options.actionPlans));
+  registry.register(new ApprovalTestAdapter("codex", options.actionPlans));
   const eventStore = new FileEventStore(stateRootDir);
   const executionCounter = { count: 0 };
   const app = createApp({
@@ -426,5 +426,82 @@ test("Phase 7 reject command blocks the task and terminates the run", async () =
     ],
   );
   assert.equal(inspected.graph.tasks["task-phase7"]?.status, "blocked");
+});
+
+test("Phase 7 approval policy can force approval for medium-risk command actions", async () => {
+  const { app, executionCounter } = await setupPhase7App({
+    safety: {
+      approvalThreshold: "high",
+      blockedActions: [],
+      approvalPolicyByAction: {
+        command: "medium",
+      },
+    },
+    actionPlans: [
+      {
+        id: "action-phase7-policy-force",
+        kind: "command",
+        command: "node",
+        args: ["-e", "process.stdout.write('policy-force');"],
+        cwd: process.cwd(),
+        riskLevel: "medium",
+        requiresApproval: false,
+        reason: "Run medium-risk shell work.",
+      },
+    ],
+  });
+
+  const started = (await app.entrypoint.handle(["run", "Phase", "7", "policy-force"])) as RunRecord;
+  const paused = (await app.entrypoint.handle(["resume", started.runId])) as RunRecord;
+  assert.equal(paused.status, "waiting_approval");
+  assert.equal(executionCounter.count, 0);
+
+  const pending = (await app.entrypoint.handle(["approvals", started.runId])) as Array<{ id: string }>;
+  assert.equal(pending.length, 1);
+
+  const approved = (await app.entrypoint.handle([
+    "approve",
+    started.runId,
+    pending[0]!.id,
+    "--actor",
+    "reviewer",
+  ])) as RunRecord;
+  assert.equal(approved.status, "completed");
+  assert.equal(executionCounter.count, 1);
+});
+
+test("Phase 7 approval policy can bypass adapter-level approval hints", async () => {
+  const { app, executionCounter } = await setupPhase7App({
+    safety: {
+      approvalThreshold: "high",
+      blockedActions: [],
+      approvalPolicyByAction: {
+        command: "never",
+      },
+    },
+    actionPlans: [
+      {
+        id: "action-phase7-policy-never",
+        kind: "command",
+        command: "node",
+        args: ["-e", "process.stdout.write('policy-never');"],
+        cwd: process.cwd(),
+        riskLevel: "high",
+        requiresApproval: true,
+        reason: "Simulate adapter requesting approval for command action.",
+      },
+    ],
+  });
+
+  const started = (await app.entrypoint.handle(["run", "Phase", "7", "policy-never"])) as RunRecord;
+  const resumed = (await app.entrypoint.handle(["resume", started.runId])) as RunRecord;
+  assert.equal(resumed.status, "completed");
+  assert.equal(executionCounter.count, 1);
+
+  const pending = (await app.entrypoint.handle(["approvals", started.runId])) as Array<{ id: string }>;
+  assert.equal(pending.length, 0);
+
+  const inspected = (await app.entrypoint.handle(["inspect", started.runId])) as RunInspection;
+  assert.equal(inspected.events.some((event) => event.type === "approval_requested"), false);
 });
 

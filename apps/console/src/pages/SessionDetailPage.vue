@@ -1,92 +1,110 @@
 ﻿<script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import "@xterm/xterm/css/xterm.css";
+import { computed, onBeforeUnmount, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
 import { getSessionDetailProjection } from "../api";
+import { useArtifactPreview } from "../composables/useArtifactPreview";
+import { useEntityProjection } from "../composables/useEntityProjection";
 import { usePreferences } from "../composables/usePreferences";
 import {
   createEmptySessionDetailProjection,
   type SessionDetailApprovalItemView,
   type SessionDetailProjectionView,
 } from "../detail-projection";
-import {
-  getTaskDetailPath,
-  getWorkspacePath,
-} from "../workspace";
+import SessionSupportPanels from "./session-detail/comp/SessionSupportPanels.vue";
+import { useLiveSessionTerminal } from "./session-detail/comp/useLiveSessionTerminal";
+import { getRunWorkspacePath, getTaskDetailPath } from "../workspace";
 
 const route = useRoute();
 const { isZh, riskLabel, statusLabel, validationLabel, t } = usePreferences();
 
 const runId = computed(() => (typeof route.params.runId === "string" ? route.params.runId : ""));
 const sessionId = computed(() => (typeof route.params.sessionId === "string" ? route.params.sessionId : ""));
-const projection = ref<SessionDetailProjectionView>(
-  createEmptySessionDetailProjection(runId.value, sessionId.value),
+const initialPromptFromRoute = computed(() =>
+  typeof route.query.initialPrompt === "string" ? route.query.initialPrompt : "",
 );
-const loading = ref(false);
-const error = ref("");
-let pollHandle: ReturnType<typeof setInterval> | undefined;
 
 function copy(zh: string, en: string): string {
   return isZh.value ? zh : en;
 }
 
-function stopPolling() {
-  if (pollHandle) {
-    clearInterval(pollHandle);
-    pollHandle = undefined;
-  }
-}
+const {
+  artifactPreviewById,
+  artifactPreviewErrorById,
+  artifactPreviewLoadingId,
+  isArtifactExpanded,
+  toggleArtifactPreview,
+  resetArtifactPreview,
+} = useArtifactPreview(() => runId.value);
 
-function startPolling() {
-  stopPolling();
+const { projection, loading, error, loadProjection, stopPolling } = useEntityProjection<
+  SessionDetailProjectionView,
+  SessionDetailProjectionView["overview"]["status"]
+>({
+  getRunId: () => runId.value,
+  getEntityId: () => sessionId.value,
+  createEmptyProjection: createEmptySessionDetailProjection,
+  fetchProjection: (nextRunId, nextSessionId) =>
+    getSessionDetailProjection(nextRunId, nextSessionId),
+  getProjectionStatus: (data) => data.overview.status,
+  isTerminalStatus: (status) => status === "completed" || status === "failed",
+  getMissingParamMessage: () =>
+    copy(
+      "缺少 runId 或 sessionId，无法打开会话详情。",
+      "Missing runId or sessionId, so session detail cannot be opened.",
+    ),
+  emptyRunId: "workspace",
+  emptyEntityId: "session",
+});
 
-  if (!runId.value || !sessionId.value) {
-    return;
-  }
-
-  if (projection.value.overview.status === "completed" || projection.value.overview.status === "failed") {
-    return;
-  }
-
-  pollHandle = setInterval(() => {
-    void loadProjection(false);
-  }, 2000);
-}
-
-async function loadProjection(showLoading = true) {
-  if (!runId.value || !sessionId.value) {
-    error.value = copy("缺少 runId 或 sessionId，无法打开会话详情。", "Missing runId or sessionId, so session detail cannot be opened.");
-    projection.value = createEmptySessionDetailProjection(runId.value || "workspace", sessionId.value || "session");
-    stopPolling();
-    return;
-  }
-
-  if (showLoading) {
-    loading.value = true;
-  }
-
-  try {
-    error.value = "";
-    projection.value = await getSessionDetailProjection(runId.value, sessionId.value);
-    startPolling();
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught);
-    stopPolling();
-  } finally {
-    loading.value = false;
-  }
-}
+const {
+  liveTerminalMount,
+  liveTerminalStatus,
+  liveTerminalError,
+  liveTerminalConnecting,
+  liveTerminalAutoConnectKey,
+  chatInput,
+  liveWorkspaceTimeline,
+  connectLiveTerminal,
+  disconnectLiveTerminal,
+  sendChatInput,
+  onChatInputKeydown,
+  liveStatusLabel,
+  resetForContext,
+  dispose,
+} = useLiveSessionTerminal({
+  getRunId: () => runId.value,
+  getSessionId: () => sessionId.value,
+  getAgentMessages: () => projection.value.messages,
+  copy,
+});
 
 watch(
-  () => `${runId.value}::${sessionId.value}`,
+  () => `${runId.value}::${sessionId.value}::${initialPromptFromRoute.value}`,
   () => {
-    void loadProjection();
+    const currentKey = `${runId.value}::${sessionId.value}::${initialPromptFromRoute.value}`;
+    resetForContext(initialPromptFromRoute.value);
+    resetArtifactPreview();
+
+    void (async () => {
+      await loadProjection();
+      if (`${runId.value}::${sessionId.value}::${initialPromptFromRoute.value}` !== currentKey || error.value) {
+        return;
+      }
+      if (liveTerminalAutoConnectKey.value === currentKey) {
+        return;
+      }
+      liveTerminalAutoConnectKey.value = currentKey;
+      await connectLiveTerminal();
+    })();
   },
   { immediate: true },
 );
 
 onBeforeUnmount(() => {
   stopPolling();
+  dispose();
 });
 
 const overview = computed(() => projection.value.overview);
@@ -170,7 +188,7 @@ function taskLink(): string {
 }
 
 function workspaceLink(): string {
-  return getWorkspacePath("overview", projection.value.runId);
+  return getRunWorkspacePath(projection.value.runId);
 }
 </script>
 
@@ -184,8 +202,8 @@ function workspaceLink(): string {
       <p>
         {{
           copy(
-            "详情页现在只以真实 session 为入口，承载消息流、工具调用、审批、验证和 terminal preview。",
-            "The detail page now enters through a real session and carries the message stream, tool calls, approvals, validation, and terminal preview.",
+            "详情页以真实 session 为入口，直接展示 CLI 实时工作窗口和 Agent 事件流。",
+            "The detail page enters from a real session and shows the live CLI workspace with agent events.",
           )
         }}
       </p>
@@ -232,230 +250,115 @@ function workspaceLink(): string {
       <section class="panel-card detail-card detail-card--wide">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("消息流", "Messages") }}</p>
-            <h2>{{ copy("会话消息时间线", "Session message timeline") }}</h2>
+            <p class="section-eyebrow">CLI Workspace</p>
+            <h2>{{ copy("实时 CLI 工作窗口", "Live CLI workspace") }}</h2>
           </div>
-          <span class="panel-chip">{{ projection.messages.length }}</span>
+          <div class="detail-terminal-actions">
+            <span class="panel-chip">{{ liveStatusLabel() }}</span>
+            <button class="ghost-button" type="button" :disabled="liveTerminalConnecting" @click="connectLiveTerminal">
+              {{ liveTerminalConnecting ? copy("连接中...", "Connecting...") : copy("启动实时终端", "Start live terminal") }}
+            </button>
+            <button
+              class="ghost-button"
+              type="button"
+              :disabled="liveTerminalStatus !== 'connected' && liveTerminalStatus !== 'connecting'"
+              @click="disconnectLiveTerminal"
+            >
+              {{ copy("断开", "Disconnect") }}
+            </button>
+          </div>
         </div>
 
-        <div v-if="projection.messages.length > 0" class="detail-stack">
-          <article v-for="message in projection.messages" :key="message.messageId" class="approval-card detail-item-card">
-            <div class="detail-item-card__top">
-              <div>
-                <span class="approval-card__lane">{{ message.senderLabel }}</span>
-                <strong>{{ message.timestamp }}</strong>
+        <div class="live-workspace">
+          <div class="live-workspace__terminal">
+            <div class="terminal workspace-v3-terminal">
+              <div class="terminal__toolbar">
+                <span class="terminal__dot"></span>
+                <span class="terminal__dot"></span>
+                <span class="terminal__dot"></span>
+                <span>{{ overview.sessionId }}</span>
               </div>
-              <span class="flow-pill">{{ message.stream }}</span>
+              <div ref="liveTerminalMount" class="live-terminal-host"></div>
             </div>
-            <p class="panel-card__body">{{ sourceModeLabel(message.sourceMode) }}</p>
-            <pre class="detail-pre">{{ message.text }}</pre>
-          </article>
-        </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前没有可展示的消息流。", "No message stream is available to display.") }}</p>
-        </div>
-      </section>
 
-      <section class="panel-card detail-card detail-card--wide">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">Terminal</p>
-            <h2>{{ copy("会话终端预览", "Session terminal preview") }}</h2>
-          </div>
-          <span class="panel-chip">{{ sourceModeLabel(projection.terminalPreview.sourceMode) }}</span>
-        </div>
+            <p v-if="liveTerminalError" class="form-error">{{ liveTerminalError }}</p>
 
-        <div class="terminal workspace-v3-terminal">
-          <div class="terminal__toolbar">
-            <span class="terminal__dot"></span>
-            <span class="terminal__dot"></span>
-            <span class="terminal__dot"></span>
-            <span>{{ overview.sessionId }}</span>
+            <div class="chat-composer">
+              <textarea
+                v-model="chatInput"
+                class="text-input text-input--textarea"
+                rows="3"
+                :placeholder="copy('输入消息，回车发送（Shift+Enter 换行）', 'Type a message. Press Enter to send (Shift+Enter for newline).')"
+                @keydown="onChatInputKeydown"
+              ></textarea>
+              <div class="chat-composer__actions">
+                <button
+                  class="primary-button"
+                  type="button"
+                  :disabled="liveTerminalStatus !== 'connected' || chatInput.trim().length === 0"
+                  @click="sendChatInput"
+                >
+                  {{ copy("发送到会话", "Send to session") }}
+                </button>
+                <span class="form-hint">
+                  {{
+                    liveTerminalStatus === "connected"
+                      ? copy("消息会实时写入当前 CLI 终端。", "Messages are sent to the live CLI terminal.")
+                      : copy("先连接实时终端，再发送消息。", "Connect the live terminal before sending messages.")
+                  }}
+                </span>
+              </div>
+            </div>
           </div>
-          <pre class="terminal__body">{{ projection.terminalPreview.lines.join("\n") }}</pre>
+
+          <section class="live-workspace__events">
+            <div class="live-workspace__events-header">
+              <div>
+                <p class="section-eyebrow">{{ copy("Agent 事件消息", "Agent event messages") }}</p>
+                <h3>{{ copy("正在做的事情", "What the CLI worker is doing") }}</h3>
+              </div>
+              <span class="panel-chip">{{ liveWorkspaceTimeline.length }}</span>
+            </div>
+
+            <div v-if="liveWorkspaceTimeline.length > 0" class="live-workspace__events-list">
+              <article
+                v-for="message in liveWorkspaceTimeline"
+                :key="message.id"
+                class="approval-card detail-item-card chat-item"
+                :data-role="message.role"
+              >
+                <div class="detail-item-card__top chat-item__meta">
+                  <div>
+                    <span class="approval-card__lane">{{ message.senderLabel }}</span>
+                    <strong>{{ message.timestamp }}</strong>
+                  </div>
+                  <span class="flow-pill">{{ message.stream }}</span>
+                </div>
+                <p class="panel-card__body">{{ sourceModeLabel(message.sourceMode) }}</p>
+                <pre class="detail-pre">{{ message.text }}</pre>
+              </article>
+            </div>
+            <div v-else class="panel-card__empty-state">
+              <p class="panel-card__body">{{ copy("当前没有可展示的事件消息。", "No event messages are available to display.") }}</p>
+            </div>
+          </section>
         </div>
       </section>
     </div>
 
-    <div class="detail-grid detail-grid--support">
-      <section class="panel-card detail-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ copy("工具调用", "Tool calls") }}</p>
-            <h2>{{ copy("调用与结果", "Invocations and results") }}</h2>
-          </div>
-          <span class="panel-chip">{{ projection.toolCalls.length }}</span>
-        </div>
-
-        <div v-if="projection.toolCalls.length > 0" class="detail-stack">
-          <article v-for="tool in projection.toolCalls" :key="tool.toolCallId" class="approval-card detail-item-card">
-            <div class="detail-item-card__top">
-              <div>
-                <span class="approval-card__lane">{{ tool.label }}</span>
-                <strong>{{ tool.command }}</strong>
-              </div>
-              <span class="status-pill" :data-status="tool.status === 'completed' ? 'completed' : tool.status === 'failed' ? 'failed' : 'running'">
-                {{ tool.status }}
-              </span>
-            </div>
-            <p class="panel-card__body" v-if="tool.args.length > 0">{{ tool.args.join(" ") }}</p>
-            <p class="panel-card__body" v-if="tool.cwd">cwd: {{ tool.cwd }}</p>
-            <p>{{ tool.summary }}</p>
-            <p class="panel-card__body">{{ sourceModeLabel(tool.sourceMode) }}</p>
-          </article>
-        </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前没有可展示的工具调用。", "No tool calls are available to display.") }}</p>
-        </div>
-      </section>
-
-      <section class="panel-card detail-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ t("sections.approvals") }}</p>
-            <h2>{{ copy("会话审批记录", "Session approvals") }}</h2>
-          </div>
-          <span class="panel-chip">{{ projection.approvals.length }}</span>
-        </div>
-
-        <div v-if="projection.approvals.length > 0" class="detail-stack">
-          <article v-for="approval in projection.approvals" :key="approval.requestId" class="approval-card detail-item-card" :data-risk="approval.riskLevel === 'none' ? 'low' : approval.riskLevel">
-            <div class="detail-item-card__top">
-              <div>
-                <span class="approval-card__lane">{{ approval.requestId }}</span>
-                <strong>{{ approvalStateLabel(approval) }}</strong>
-              </div>
-              <span class="risk-pill" :data-risk="approval.riskLevel === 'none' ? 'low' : approval.riskLevel">
-                {{ approval.riskLevel === "none" ? copy("无", "None") : riskLabel(approval.riskLevel) }}
-              </span>
-            </div>
-            <p>{{ approval.summary }}</p>
-            <p class="panel-card__body">{{ sourceModeLabel(approval.sourceMode) }}</p>
-            <p class="panel-card__body" v-if="approval.requestedAt">{{ copy("请求时间", "Requested") }}: {{ approval.requestedAt }}</p>
-            <p class="panel-card__body" v-if="approval.decidedAt">{{ copy("决策时间", "Decided") }}: {{ approval.decidedAt }}</p>
-          </article>
-        </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前没有会话级审批记录。", "No session-level approvals are available.") }}</p>
-        </div>
-      </section>
-
-      <section class="panel-card detail-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ copy("验证摘要", "Validation") }}</p>
-            <h2>{{ copy("会话验证状态", "Session validation state") }}</h2>
-          </div>
-          <span class="status-pill" :data-status="projection.validation.state === 'fail' ? 'failed' : projection.validation.state === 'pass' ? 'completed' : 'awaiting_approval'">
-            {{ validationLabel(projection.validation.state) }}
-          </span>
-        </div>
-
-        <div class="detail-stack">
-          <div class="focus-panel__status-block">
-            <strong class="focus-panel__status">{{ projection.validation.summary }}</strong>
-            <p class="panel-card__body">{{ sourceModeLabel(projection.validation.sourceMode) }}</p>
-          </div>
-          <ul v-if="projection.validation.details.length > 0" class="health-list">
-            <li v-for="detail in projection.validation.details" :key="detail">{{ detail }}</li>
-          </ul>
-          <p v-if="projection.validation.updatedAt" class="panel-card__body">
-            {{ copy("更新时间", "Updated") }}: {{ projection.validation.updatedAt }}
-          </p>
-        </div>
-      </section>
-
-      <section class="panel-card detail-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ copy("产物摘要", "Artifacts") }}</p>
-            <h2>{{ copy("会话产物", "Session artifacts") }}</h2>
-          </div>
-          <span class="panel-chip">{{ projection.artifacts.totalCount }}</span>
-        </div>
-
-        <div v-if="projection.artifacts.items.length > 0" class="detail-stack">
-          <article v-for="artifact in projection.artifacts.items" :key="artifact.artifactId" class="approval-card detail-item-card">
-            <div class="detail-item-card__top">
-              <div>
-                <span class="approval-card__lane">{{ artifact.kind }}</span>
-                <strong>{{ artifact.summary }}</strong>
-              </div>
-              <span class="flow-pill">{{ artifact.createdAt }}</span>
-            </div>
-            <p class="panel-card__body">{{ artifact.uri }}</p>
-          </article>
-        </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前没有会话级产物。", "No session artifacts are available yet.") }}</p>
-        </div>
-      </section>
-    </div>
+    <SessionSupportPanels
+      :projection="projection"
+      :copy="copy"
+      :t="t"
+      :risk-label="riskLabel"
+      :validation-label="validationLabel"
+      :source-mode-label="sourceModeLabel"
+      :approval-state-label="approvalStateLabel"
+      :is-artifact-expanded="isArtifactExpanded"
+      :toggle-artifact-preview="toggleArtifactPreview"
+      :artifact-preview-loading-id="artifactPreviewLoadingId"
+      :artifact-preview-error-by-id="artifactPreviewErrorById"
+      :artifact-preview-by-id="artifactPreviewById"
+    />
   </section>
 </template>
-
-<style scoped>
-.detail-page,
-.detail-hero,
-.detail-card,
-.detail-stack,
-.detail-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.detail-page__header,
-.detail-hero__top,
-.detail-item-card__top {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
-}
-
-.detail-summary-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.detail-grid--primary,
-.detail-grid--support {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-}
-
-.detail-card--wide {
-  grid-column: 1 / -1;
-}
-
-.detail-item-card {
-  display: grid;
-  gap: 10px;
-}
-
-.detail-pre {
-  margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
-  white-space: pre-wrap;
-  line-height: 1.6;
-}
-
-@media (max-width: 1240px) {
-  .detail-summary-grid,
-  .detail-grid--primary,
-  .detail-grid--support {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .detail-page__header,
-  .detail-hero__top,
-  .detail-item-card__top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-</style>

@@ -1,15 +1,7 @@
 import type {
   GraphPatch,
-  MemoryRecord,
-  RunEvent,
-  RunGraph,
-  RunRecord,
   TaskSpec,
-  TaskRecord,
-  TaskStatus,
-  ValidationResult,
 } from "../domain/models.js";
-import { SCHEMA_VERSION, assertTaskStatusTransition } from "../domain/models.js";
 import { FileConfigLoader } from "../config/file-config-loader.js";
 import type { Planner, PlannerInput, ReplanInput } from "../decision/planner.js";
 import type { ConfigLoader } from "../control/entrypoint.js";
@@ -19,12 +11,12 @@ import {
   RunCoordinator,
   type RunCoordinatorDependencies,
 } from "../control/run-coordinator.js";
-import { FileEventStore, type EventStore } from "../storage/event-store.js";
+import { FileEventStore } from "../storage/event-store.js";
 import {
   FileProjectMemoryStore,
-  type ProjectMemoryStore,
 } from "../storage/project-memory-store.js";
-import { FileRunStore, type RunStore, type TaskRecordPatch } from "../storage/run-store.js";
+import { FileRunStore } from "../storage/run-store.js";
+import { FileSessionStore } from "../storage/session-store.js";
 import { createId, resolvePath } from "../shared/runtime.js";
 
 export interface AppDependencies extends RunCoordinatorDependencies {
@@ -46,6 +38,7 @@ export function createApp(
   const stateRootDir = overrides.stateRootDir ?? resolvePath(".multi-agent/state");
   const runStore = overrides.runStore ?? new FileRunStore(stateRootDir);
   const eventStore = overrides.eventStore ?? new FileEventStore(stateRootDir);
+  const sessionStore = overrides.sessionStore ?? new FileSessionStore(stateRootDir);
   const projectMemoryStore =
     overrides.projectMemoryStore ??
     new FileProjectMemoryStore(resolvePath(".multi-agent/memory"));
@@ -58,6 +51,7 @@ export function createApp(
     graphManager,
     runStore,
     eventStore,
+    sessionStore,
     projectMemoryStore,
   };
 
@@ -71,25 +65,65 @@ export function createApp(
   };
 }
 
-function clone<T>(value: T): T {
-  return structuredClone(value);
+function normalizeGoal(goal: string): string {
+  const trimmed = goal.trim();
+  return trimmed.length > 0 ? trimmed : "Complete the requested task.";
+}
+
+function buildInitialTaskTitle(goal: string): string {
+  const compact = goal.replace(/\s+/g, " ").trim();
+  if (compact.length <= 72) {
+    return compact;
+  }
+  return `${compact.slice(0, 69)}...`;
+}
+
+function inferExpectedArtifacts(goal: string): string[] {
+  const normalized = goal.toLowerCase();
+  if (normalized.includes("poem") || normalized.includes("诗")) {
+    return ["Poem text output (plain text)."];
+  }
+  if (
+    normalized.includes("readme") ||
+    normalized.includes("document") ||
+    normalized.includes("文档")
+  ) {
+    return ["Documentation update that addresses the requested goal."];
+  }
+  if (
+    normalized.includes("code") ||
+    normalized.includes("fix") ||
+    normalized.includes("代码")
+  ) {
+    return ["Implementation output with the requested code changes."];
+  }
+  return ["Deliverable output that directly completes the requested goal."];
 }
 
 export class StaticPlanner implements Planner {
   async createInitialPlan(input: PlannerInput): Promise<TaskSpec[]> {
+    const normalizedGoal = normalizeGoal(input.goal);
+    const taskTitle = buildInitialTaskTitle(normalizedGoal);
+
     return [
       {
         id: createId("task"),
-        title: `Bootstrap task for ${input.goal}`,
-        kind: "plan",
-        goal: input.goal,
-        instructions: [`Clarify and execute goal: ${input.goal}`],
-        inputs: [],
+        title: taskTitle,
+        kind: "execute",
+        goal: normalizedGoal,
+        instructions: [
+          `Deliver the requested outcome directly: ${normalizedGoal}`,
+          "Keep the output concrete and ready to use instead of returning only a plan.",
+        ],
+        inputs: [`User goal: ${normalizedGoal}`],
         dependsOn: [],
         requiredCapabilities: ["planning"],
         workingDirectory: input.workspacePath,
-        expectedArtifacts: [],
-        acceptanceCriteria: ["Initial task graph created."],
+        expectedArtifacts: inferExpectedArtifacts(normalizedGoal),
+        acceptanceCriteria: [
+          `The final output directly satisfies the user goal: ${normalizedGoal}`,
+          "The response is complete and actionable without requiring follow-up placeholders.",
+        ],
         validator: {
           mode: "none",
         },
@@ -115,143 +149,6 @@ export class StaticPlanner implements Planner {
       reason: "Static planner does not provide replanning yet.",
       tasks: [],
     };
-  }
-}
-
-class InMemoryRunStore implements RunStore {
-  private readonly runs = new Map<string, RunRecord>();
-  private readonly graphs = new Map<string, RunGraph>();
-
-  async createRun(record: RunRecord): Promise<void> {
-    this.runs.set(record.runId, clone(record));
-  }
-
-  async updateRun(record: RunRecord): Promise<void> {
-    this.runs.set(record.runId, clone(record));
-  }
-
-  async getRun(runId: string): Promise<RunRecord | null> {
-    return this.runs.has(runId) ? clone(this.runs.get(runId)!) : null;
-  }
-
-  async saveGraph(runId: string, graph: RunGraph): Promise<void> {
-    this.graphs.set(runId, clone(graph));
-  }
-
-  async getGraph(runId: string): Promise<RunGraph | null> {
-    return this.graphs.has(runId) ? clone(this.graphs.get(runId)!) : null;
-  }
-
-  async updateTaskStatus(
-    runId: string,
-    taskId: string,
-    update: TaskStatus | TaskRecordPatch,
-  ): Promise<TaskRecord> {
-    const graph = this.graphs.get(runId);
-    if (!graph) {
-      throw new Error(`Run graph "${runId}" was not found.`);
-    }
-
-    const task = graph.tasks[taskId];
-    if (!task) {
-      throw new Error(`Task "${taskId}" was not found in run "${runId}".`);
-    }
-
-    const patch = typeof update === "string" ? { status: update } : update;
-    const nextStatus = patch.status ?? task.status;
-    if (nextStatus !== task.status) {
-      assertTaskStatusTransition(task.status, nextStatus);
-    }
-
-    graph.tasks[taskId] = {
-      ...task,
-      status: nextStatus,
-    };
-
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      runId,
-      taskId,
-      status: nextStatus,
-      attempts: patch.attempts ?? 0,
-      ...(patch.startedAt === null
-        ? {}
-        : { startedAt: patch.startedAt }),
-      ...(patch.finishedAt === null
-        ? {}
-        : { finishedAt: patch.finishedAt }),
-    };
-  }
-
-  async getTaskRecord(runId: string, taskId: string): Promise<TaskRecord | null> {
-    const graph = this.graphs.get(runId);
-    const task = graph?.tasks[taskId];
-    if (!task) {
-      return null;
-    }
-
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      runId,
-      taskId,
-      status: task.status,
-      attempts: 0,
-    };
-  }
-}
-
-class InMemoryEventStore implements EventStore {
-  private readonly eventsByRunId = new Map<string, RunEvent[]>();
-
-  async append(event: RunEvent): Promise<void> {
-    const events = this.eventsByRunId.get(event.runId) ?? [];
-    events.push(clone(event));
-    this.eventsByRunId.set(event.runId, events);
-  }
-
-  async list(runId: string): Promise<RunEvent[]> {
-    return clone(this.eventsByRunId.get(runId) ?? []);
-  }
-
-  async last(runId: string): Promise<RunEvent | null> {
-    const events = this.eventsByRunId.get(runId) ?? [];
-    const event = events.at(-1);
-    return event ? clone(event) : null;
-  }
-
-  async getLastConsistentState(runId: string) {
-    const lastEvent = await this.last(runId);
-    if (!lastEvent) {
-      return null;
-    }
-
-    return {
-      runId,
-      lastEventId: lastEvent.id,
-      lastEventType: lastEvent.type,
-      lastTimestamp: lastEvent.timestamp,
-      completedTaskIds: [],
-      failedTaskIds: [],
-      blockedTaskIds: [],
-      taskCheckpoints: {},
-    };
-  }
-}
-
-class InMemoryProjectMemoryStore implements ProjectMemoryStore {
-  private readonly records: MemoryRecord[] = [];
-
-  async recall(_query: { text: string; scope: string; tags?: string[] }): Promise<MemoryRecord[]> {
-    return clone(this.records);
-  }
-
-  async persist(records: MemoryRecord[]): Promise<void> {
-    this.records.push(
-      ...clone(records).map((record) => ({
-        ...record,
-        schemaVersion: record.schemaVersion ?? SCHEMA_VERSION,
-      })),
-    );
   }
 }
 

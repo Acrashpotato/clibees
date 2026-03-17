@@ -9,7 +9,7 @@ const LOCALE_KEY = "clibees.console.locale";
 const THEME_KEY = "clibees.console.theme";
 
 const locale = ref<Locale>("zh-CN");
-const theme = ref<Theme>("dark");
+const theme = ref<Theme>("light");
 
 let initialized = false;
 

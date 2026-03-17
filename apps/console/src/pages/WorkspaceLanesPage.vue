@@ -1,214 +1,44 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
-import { listRuns, resumeRun } from "../api";
+import { getTaskBoardProjection } from "../api";
 import { usePreferences } from "../composables/usePreferences";
+import { useRunScopedResource } from "../composables/useRunScopedResource";
+import {
+  createEmptyTaskBoardProjection,
+  type TaskBoardDependencyState,
+  type TaskBoardProjectionView,
+  type TaskBoardRetrySourceMode,
+  type TaskBoardSessionSourceMode,
+  type TaskBoardTaskNode,
+} from "../task-board-projection";
 import { getTaskConsolePath } from "../workspace";
-
-type TaskBoardProjectionStatus =
-  | "running"
-  | "awaiting_approval"
-  | "blocked"
-  | "paused"
-  | "completed"
-  | "failed";
-
-type TaskBoardProjectionRiskLevel = "low" | "medium" | "high";
-type TaskBoardSessionSourceMode = "task_session" | "task_status_backfill";
-type TaskBoardRetrySourceMode = "task_record" | "status_event_backfill";
-type TaskBoardDependencyState = "satisfied" | "active" | "waiting" | "blocked";
-
-interface TaskBoardGraphSummary {
-  totalTaskCount: number;
-  completedTaskCount: number;
-  activeTaskCount: number;
-  blockedTaskCount: number;
-  failedTaskCount: number;
-  pendingApprovalCount: number;
-  activeSessionCount: number;
-  dependencyEdgeCount: number;
-}
-
-interface TaskBoardActiveSession {
-  sessionId?: string;
-  agentId: string;
-  status: TaskBoardProjectionStatus;
-  lastActivityAt: string;
-  pendingApprovalCount: number;
-  sourceMode: TaskBoardSessionSourceMode;
-}
-
-interface TaskBoardRetrySummary {
-  attempts?: number;
-  maxAttempts: number;
-  retryable: boolean;
-  requeueRecommended: boolean;
-  sourceMode: TaskBoardRetrySourceMode;
-  lastFailureAt?: string;
-  summary: string;
-}
-
-interface TaskBoardTaskNode {
-  taskId: string;
-  title: string;
-  kind: string;
-  status: TaskBoardProjectionStatus;
-  statusReason: string;
-  waitingReason?: string;
-  ownerLabel: string;
-  riskLevel: TaskBoardProjectionRiskLevel;
-  dependsOn: string[];
-  downstreamTaskIds: string[];
-  depth: number;
-  latestActivityAt: string;
-  latestActivitySummary: string;
-  activeSession?: TaskBoardActiveSession;
-  retry: TaskBoardRetrySummary;
-}
-
-interface TaskBoardDependencyEdge {
-  edgeId: string;
-  fromTaskId: string;
-  toTaskId: string;
-  state: TaskBoardDependencyState;
-  summary: string;
-}
-
-interface TaskBoardProjectionView {
-  projection: "task_board";
-  generatedAt: string;
-  runId: string;
-  graphRevision: number;
-  currentTaskId?: string;
-  summary: TaskBoardGraphSummary;
-  tasks: TaskBoardTaskNode[];
-  edges: TaskBoardDependencyEdge[];
-}
-
-interface UiProjectionEnvelope<TProjection> {
-  data: TProjection;
-}
-
-function createEmptyTaskBoardProjection(runId = "workspace"): TaskBoardProjectionView {
-  return {
-    projection: "task_board",
-    generatedAt: "",
-    runId,
-    graphRevision: 0,
-    summary: {
-      totalTaskCount: 0,
-      completedTaskCount: 0,
-      activeTaskCount: 0,
-      blockedTaskCount: 0,
-      failedTaskCount: 0,
-      pendingApprovalCount: 0,
-      activeSessionCount: 0,
-      dependencyEdgeCount: 0,
-    },
-    tasks: [],
-    edges: [],
-  };
-}
-
-async function getTaskBoardProjection(runId: string): Promise<TaskBoardProjectionView> {
-  const response = await fetch(`/api/runs/${encodeURIComponent(runId)}/projections/task-board`, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string | { message?: string };
-    };
-    const message =
-      typeof payload.error === "string"
-        ? payload.error
-        : payload.error?.message ?? `Request failed with status ${response.status}.`;
-    throw new Error(message);
-  }
-
-  const payload = (await response.json()) as UiProjectionEnvelope<TaskBoardProjectionView>;
-  return payload.data;
-}
 
 const route = useRoute();
 const { riskLabel, statusLabel, t } = usePreferences();
 
 const runScopeId = computed(() => (typeof route.params.runId === "string" ? route.params.runId : undefined));
-const resolvedRunId = ref<string | undefined>(runScopeId.value);
-const projection = ref<TaskBoardProjectionView>(createEmptyTaskBoardProjection(runScopeId.value));
-const loading = ref(false);
-const error = ref("");
-const mutating = ref(false);
-let pollHandle: ReturnType<typeof setInterval> | undefined;
-
-function stopPolling() {
-  if (pollHandle) {
-    clearInterval(pollHandle);
-    pollHandle = undefined;
-  }
-}
-
-function startPolling() {
-  stopPolling();
-
-  if (!resolvedRunId.value) {
-    return;
-  }
-
-  pollHandle = setInterval(() => {
-    void loadProjection(false);
-  }, 2000);
-}
-
-async function resolveRunId(): Promise<string | undefined> {
-  if (runScopeId.value) {
-    return runScopeId.value;
-  }
-
-  const runs = await listRuns();
-  return runs[0]?.runId;
-}
+const resource = useRunScopedResource<TaskBoardProjectionView, boolean>({
+  getRunScopeId: () => runScopeId.value,
+  createEmpty: (runId) => createEmptyTaskBoardProjection(runId),
+  fetchData: (runId) => getTaskBoardProjection(runId),
+  getStatus: () => false,
+  isTerminalStatus: (status) => status,
+  getPollIntervalMs: () => 2000,
+});
+const projection = resource.data;
+const resolvedRunId = resource.resolvedRunId;
+const loading = resource.loading;
+const error = resource.error;
+const mutating = resource.mutating;
 
 async function loadProjection(showLoading = true): Promise<void> {
-  if (showLoading) {
-    loading.value = true;
-  }
-
-  try {
-    error.value = "";
-    resolvedRunId.value = await resolveRunId();
-
-    if (!resolvedRunId.value) {
-      projection.value = createEmptyTaskBoardProjection();
-      stopPolling();
-      return;
-    }
-
-    projection.value = await getTaskBoardProjection(resolvedRunId.value);
-    startPolling();
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : String(caught);
-    stopPolling();
-  } finally {
-    loading.value = false;
-  }
+  await resource.load(showLoading);
 }
 
 async function handleResume(): Promise<void> {
-  if (!resolvedRunId.value || mutating.value) {
-    return;
-  }
-
-  mutating.value = true;
-  try {
-    await resumeRun(resolvedRunId.value);
-    await loadProjection(false);
-  } finally {
-    mutating.value = false;
-  }
+  await resource.resumeScopedRun();
 }
 
 watch(
@@ -218,10 +48,6 @@ watch(
   },
   { immediate: true },
 );
-
-onBeforeUnmount(() => {
-  stopPolling();
-});
 
 const runId = computed(() => resolvedRunId.value ?? projection.value.runId);
 const currentTaskId = computed(() => projection.value.currentTaskId);
@@ -563,135 +389,3 @@ function taskPath(taskId: string): string | undefined {
     </template>
   </section>
 </template>
-
-<style scoped>
-.task-board-page,
-.task-board-hero,
-.task-board-intro,
-.task-board-column,
-.task-node-card,
-.task-board-edges {
-  display: grid;
-  gap: 16px;
-}
-
-.task-board-hero__top,
-.task-node-card__top,
-.task-node-card__section-header,
-.task-node-card__footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: start;
-}
-
-.task-board-summary-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.task-board-columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-  align-items: start;
-}
-
-.task-node-card {
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.task-node-card[data-current="true"] {
-  border-color: rgba(87, 215, 210, 0.34);
-  background: rgba(87, 215, 210, 0.08);
-}
-
-.task-node-card h3 {
-  margin: 0;
-  line-height: 1.35;
-}
-
-.task-node-card__meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.task-node-card__section {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--panel-subtle);
-}
-
-.task-node-card__section strong,
-.task-node-card__section p {
-  margin: 0;
-}
-
-.task-node-card__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.task-node-card__pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--text-secondary);
-  font-size: 0.84rem;
-}
-
-.task-node-card__reason {
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.task-board-edge-list {
-  display: grid;
-  gap: 10px;
-}
-
-.task-board-edge {
-  display: grid;
-  gap: 8px;
-}
-
-.task-board-edge[data-state="satisfied"] {
-  border-color: rgba(117, 240, 174, 0.24);
-}
-
-.task-board-edge[data-state="active"] {
-  border-color: rgba(87, 215, 210, 0.28);
-}
-
-.task-board-edge[data-state="blocked"] {
-  border-color: rgba(255, 123, 112, 0.28);
-}
-
-@media (max-width: 1240px) {
-  .task-board-summary-grid,
-  .task-node-card__meta {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .task-board-hero__top,
-  .task-node-card__top,
-  .task-node-card__section-header,
-  .task-node-card__footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-</style>

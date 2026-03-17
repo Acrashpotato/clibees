@@ -59,7 +59,7 @@ function buildConfig(
     version: 1,
     agents: [
       {
-        id: "local-default",
+        id: "codex",
         command: "node",
         priority: 1,
         profiles: [
@@ -76,10 +76,10 @@ function buildConfig(
     ],
     planner: {
       mode: "static",
-      agentId: "local-default",
+      agentId: "codex",
     },
     routing: {
-      defaultAgentId: "local-default",
+      defaultAgentId: "codex",
       preferLowCost: true,
     },
     safety: {
@@ -259,7 +259,7 @@ async function setupPhase9App(options: {
   );
   const registry = new AdapterRegistry();
   registry.register(
-    new Phase9Adapter("local-default", options.actionPlansByTaskId),
+    new Phase9Adapter("codex", options.actionPlansByTaskId),
   );
   const eventStore = new FileEventStore(stateRootDir);
   const executionCounter = { count: 0 };

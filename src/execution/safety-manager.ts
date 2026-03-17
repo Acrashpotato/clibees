@@ -5,10 +5,12 @@ import type {
   RiskLevel,
   TaskSpec,
 } from "../domain/models.js";
+import type { ApprovalPolicyValue } from "../domain/config.js";
 
 export interface SafetyRuleSet {
   approvalThreshold: RiskLevel;
   blockedActions: string[];
+  approvalPolicyByAction?: Record<string, ApprovalPolicyValue>;
 }
 
 export interface ReviewedAction {
@@ -53,9 +55,8 @@ export class SafetyManager {
     const policy = policies.find((candidate) => candidate.kind === action.kind);
     const blockedByPolicy = policy?.allow === false;
     const blockedByRule = this.rules.blockedActions.includes(action.kind);
-    const requiresApproval =
-      action.requiresApproval ||
-      RISK_ORDER[action.riskLevel] >= RISK_ORDER[this.rules.approvalThreshold];
+    const approvalPolicy = this.resolveApprovalPolicy(action.kind);
+    const requiresApproval = this.requiresApproval(action, approvalPolicy);
 
     if (blockedByPolicy) {
       reasons.push(`Action "${action.kind}" is not allowed by task policy.`);
@@ -66,7 +67,11 @@ export class SafetyManager {
     }
 
     if (requiresApproval) {
-      reasons.push(`Action "${action.kind}" requires approval.`);
+      reasons.push(
+        approvalPolicy
+          ? `Action "${action.kind}" requires approval by policy "${approvalPolicy}".`
+          : `Action "${action.kind}" requires approval.`,
+      );
     }
 
     return {
@@ -75,5 +80,36 @@ export class SafetyManager {
       requiresApproval,
       reasons,
     };
+  }
+
+  private requiresApproval(
+    action: ActionPlan,
+    approvalPolicy: ApprovalPolicyValue | undefined,
+  ): boolean {
+    if (approvalPolicy === "always") {
+      return true;
+    }
+
+    if (approvalPolicy === "never") {
+      return false;
+    }
+
+    if (approvalPolicy) {
+      return RISK_ORDER[action.riskLevel] >= RISK_ORDER[approvalPolicy];
+    }
+
+    return (
+      action.requiresApproval ||
+      RISK_ORDER[action.riskLevel] >= RISK_ORDER[this.rules.approvalThreshold]
+    );
+  }
+
+  private resolveApprovalPolicy(actionKind: string): ApprovalPolicyValue | undefined {
+    const mappedPolicies = this.rules.approvalPolicyByAction;
+    if (!mappedPolicies) {
+      return undefined;
+    }
+
+    return mappedPolicies[actionKind] ?? mappedPolicies["*"];
   }
 }

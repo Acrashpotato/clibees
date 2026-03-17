@@ -18,7 +18,15 @@ import type {
   TaskDetailValidationSummaryView,
   WorkspaceLaneStatus,
 } from "./models.js";
+import { buildEventSummary } from "./event-view-helpers.js";
 import { buildBackfilledSessionWindows } from "./session-backfill.js";
+import {
+  buildTaskOwnerLabel,
+  buildTaskStatusReason,
+  mapTaskStatus,
+  mapValidationState,
+  resolveTaskId,
+} from "./task-view-helpers.js";
 
 export function buildTaskDetailProjection(
   inspection: RunInspection,
@@ -43,6 +51,7 @@ export function buildTaskDetailProjection(
   const pendingApprovals = pendingApprovalsByTaskId.get(taskId) ?? [];
   const latestActivity = buildLatestActivity(task, taskEvents, validation, inspection);
   const sessions = buildTaskSessionSummaries(task, taskEvents, inspection.approvals);
+  const runtimeContract = synthesizeRuntimeContract(task, taskEvents, taskArtifacts, validation);
 
   return {
     projection: "task_detail",
@@ -59,6 +68,7 @@ export function buildTaskDetailProjection(
       validation,
       pendingApprovals,
       inspection,
+      runtimeContract,
     ),
     upstream: buildDependencyViews(
       task.dependsOn
@@ -95,19 +105,25 @@ function buildOverview(
   validation: InspectionValidationItem | undefined,
   pendingApprovals: InspectionApprovalItem[],
   inspection: RunInspection,
+  runtimeContract: RuntimeContractSynthesis,
 ): TaskDetailOverviewView {
   return {
     taskId: task.id,
     title: task.title,
     kind: task.kind,
-    goal: task.goal,
+    goal: runtimeContract.goal,
     status: mapTaskStatus(task.status),
-    statusReason: buildStatusReason(task, validation, pendingApprovals, inspection),
+    statusReason: buildTaskStatusReason(
+      task,
+      validation?.summary,
+      pendingApprovals[0]?.summary,
+      inspection.summary,
+    ),
     ownerLabel: buildTaskOwnerLabel(task),
     riskLevel: pendingApprovals[0]?.riskLevel ?? task.riskLevel,
-    inputs: [...task.inputs],
-    acceptanceCriteria: [...task.acceptanceCriteria],
-    expectedArtifacts: [...task.expectedArtifacts],
+    inputs: runtimeContract.inputs,
+    acceptanceCriteria: runtimeContract.acceptanceCriteria,
+    expectedArtifacts: runtimeContract.expectedArtifacts,
     latestActivityAt: latestActivity.timestamp,
     latestActivitySummary: latestActivity.summary,
     sessionCount: sessions.length,
@@ -117,6 +133,13 @@ function buildOverview(
     pendingApprovalCount,
     artifactCount,
   };
+}
+
+interface RuntimeContractSynthesis {
+  goal: string;
+  inputs: string[];
+  acceptanceCriteria: string[];
+  expectedArtifacts: string[];
 }
 
 function buildDependencyViews(
@@ -140,11 +163,11 @@ function buildDependencyViews(
         title: task.title,
         kind: task.kind,
         status: mapTaskStatus(task.status),
-        statusReason: buildStatusReason(
+        statusReason: buildTaskStatusReason(
           task,
-          validationByTaskId.get(task.id),
-          pendingApprovalsByTaskId.get(task.id) ?? [],
-          inspection,
+          validationByTaskId.get(task.id)?.summary,
+          pendingApprovalsByTaskId.get(task.id)?.[0]?.summary,
+          inspection.summary,
         ),
         ownerLabel: buildTaskOwnerLabel(task),
         latestActivityAt: latestActivity.timestamp,
@@ -328,6 +351,136 @@ function buildLatestActivity(
   };
 }
 
+function synthesizeRuntimeContract(
+  task: TaskSpec,
+  taskEvents: RunEvent[],
+  taskArtifacts: InspectionArtifactItem[],
+  validation: InspectionValidationItem | undefined,
+): RuntimeContractSynthesis {
+  const latestCommandResult = [...taskArtifacts]
+    .filter((artifact) => artifact.kind === "command_result")
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+  const invocationMeta = latestCommandResult?.metadata as {
+    invocation?: {
+      stdin?: unknown;
+      command?: unknown;
+      args?: unknown;
+      cwd?: unknown;
+    };
+    payload?: {
+      exitCode?: unknown;
+    };
+  } | undefined;
+
+  const runtimePrompt = extractRuntimePrompt(invocationMeta?.invocation?.stdin);
+  const goal = runtimePrompt ?? task.goal;
+
+  const latestTaskStart = [...taskEvents]
+    .filter((event) => event.type === "task_started")
+    .sort((left, right) => right.timestamp.localeCompare(left.timestamp))[0];
+  const latestAgentId = (latestTaskStart?.payload as { agentId?: unknown } | undefined)?.agentId;
+  const command = typeof invocationMeta?.invocation?.command === "string"
+    ? invocationMeta.invocation.command
+    : undefined;
+  const args = Array.isArray(invocationMeta?.invocation?.args)
+    ? invocationMeta?.invocation?.args.filter((value): value is string => typeof value === "string")
+    : [];
+  const cwd = typeof invocationMeta?.invocation?.cwd === "string"
+    ? invocationMeta.invocation.cwd
+    : undefined;
+  const exitCode = typeof invocationMeta?.payload?.exitCode === "number"
+    ? invocationMeta.payload.exitCode
+    : undefined;
+
+  const inputs = uniqueLimited([
+    ...task.inputs,
+    ...(runtimePrompt ? [`Runtime prompt: ${clipLine(runtimePrompt)}`] : []),
+    ...(typeof latestAgentId === "string" ? [`Agent: ${latestAgentId}`] : []),
+    ...(command ? [`Invocation: ${command}${args.length > 0 ? ` ${args.join(" ")}` : ""}`] : []),
+    ...(cwd ? [`Working directory: ${cwd}`] : []),
+  ], 8);
+
+  const acceptanceCriteria = uniqueLimited([
+    ...task.acceptanceCriteria,
+    ...(validation?.summary ? [`Validation: ${validation.summary}`] : []),
+    ...(typeof exitCode === "number" ? [`Latest command exited with code ${exitCode}.`] : []),
+    ...(task.status === "completed" ? ["Task reaches completed status."] : []),
+  ], 8);
+
+  const expectedArtifacts = uniqueLimited([
+    ...task.expectedArtifacts,
+    ...deriveExpectedArtifactHints(taskArtifacts),
+  ], 8);
+
+  return {
+    goal,
+    inputs,
+    acceptanceCriteria,
+    expectedArtifacts,
+  };
+}
+
+function deriveExpectedArtifactHints(artifacts: InspectionArtifactItem[]): string[] {
+  const hints: string[] = [];
+  const kinds = new Set(artifacts.map((artifact) => artifact.kind));
+  if (kinds.has("command_result")) {
+    hints.push("Command execution result record.");
+  }
+  if (kinds.has("file_change")) {
+    hints.push("Workspace file change output.");
+  }
+  if (kinds.has("structured_output")) {
+    hints.push("Structured output payload.");
+  }
+  if (kinds.has("validation_result")) {
+    hints.push("Validation result summary.");
+  }
+  if (kinds.has("approval_record")) {
+    hints.push("Approval request/decision record.");
+  }
+  return hints;
+}
+
+function extractRuntimePrompt(stdin: unknown): string | undefined {
+  if (typeof stdin !== "string") {
+    return undefined;
+  }
+  const normalized = stdin
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join(" ");
+  if (normalized.length === 0) {
+    return undefined;
+  }
+  return clipLine(normalized, 240);
+}
+
+function uniqueLimited(values: string[], maxItems: number): string[] {
+  const next: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (next.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
+      continue;
+    }
+    next.push(trimmed);
+    if (next.length >= maxItems) {
+      break;
+    }
+  }
+  return next;
+}
+
+function clipLine(value: string, maxLength = 160): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength - 3)}...`;
+}
+
 function compareDependencyItems(
   left: TaskDetailDependencyItemView,
   right: TaskDetailDependencyItemView,
@@ -399,104 +552,6 @@ function resolveAgentId(event: RunEvent | undefined, task: TaskSpec): string {
   return "unassigned";
 }
 
-function buildTaskOwnerLabel(task: TaskSpec): string {
-  if (task.assignedAgent) {
-    return task.assignedAgent;
-  }
-  if (task.preferredAgent) {
-    return task.preferredAgent;
-  }
-  if (task.requiredCapabilities.length > 0) {
-    return task.requiredCapabilities.join(", ");
-  }
-  return `${task.kind} task`;
-}
-
-function buildStatusReason(
-  task: TaskSpec,
-  validation: InspectionValidationItem | undefined,
-  approvals: InspectionApprovalItem[],
-  inspection: RunInspection,
-): string {
-  if (approvals.length > 0) {
-    return approvals[0]!.summary;
-  }
-
-  switch (task.status) {
-    case "pending":
-      return "Waiting for dependencies before this task can be scheduled.";
-    case "ready":
-      return "Ready to resume execution.";
-    case "routing":
-      return "Selecting an agent for this task.";
-    case "context_building":
-      return "Building task context from memory, blackboard, and artifacts.";
-    case "queued":
-      return "Queued for execution.";
-    case "running":
-      return "Task process is currently running.";
-    case "validating":
-      return "Execution finished and validation is in progress.";
-    case "completed":
-      return validation?.summary ?? "Task completed successfully.";
-    case "failed_retryable":
-      return validation?.summary ?? "Task failed and can be retried.";
-    case "failed_terminal":
-      return validation?.summary ?? inspection.summary.latestFailure ?? "Task failed.";
-    case "blocked":
-      return validation?.summary ?? inspection.summary.latestBlocker ?? "Task is blocked.";
-    case "cancelled":
-      return "Task was cancelled.";
-    case "awaiting_approval":
-      return approvals[0]?.summary ?? "Waiting for approval before execution can continue.";
-    default:
-      return `Task is currently ${task.status}.`;
-  }
-}
-
-function buildEventSummary(event: RunEvent): string {
-  const payload = event.payload as {
-    message?: unknown;
-    summary?: unknown;
-    reason?: unknown;
-    agentId?: unknown;
-  };
-
-  if (typeof payload.summary === "string") {
-    return payload.summary;
-  }
-  if (typeof payload.reason === "string") {
-    return payload.reason;
-  }
-  if (typeof payload.message === "string") {
-    return firstNonEmptyLine(payload.message) ?? "Agent produced a new message.";
-  }
-  if (event.type === "task_started" && typeof payload.agentId === "string") {
-    return `Task started by ${payload.agentId}.`;
-  }
-  return event.type.replaceAll("_", " ");
-}
-
-function mapValidationState(
-  outcome: InspectionValidationItem["outcome"],
-  taskStatus: TaskStatus,
-): TaskDetailValidationSummaryView["state"] {
-  if (outcome === "pass" || taskStatus === "completed") {
-    return "pass";
-  }
-  if (
-    outcome === "fail_retryable" ||
-    outcome === "fail_replan_needed" ||
-    outcome === "blocked" ||
-    taskStatus === "failed_retryable" ||
-    taskStatus === "failed_terminal" ||
-    taskStatus === "blocked"
-  ) {
-    return "fail";
-  }
-  return "warn";
-}
-
 function inferValidationStateFromTaskStatus(
   status: TaskStatus,
 ): TaskDetailValidationSummaryView["state"] {
@@ -531,30 +586,6 @@ function buildValidationFallbackSummary(status: TaskStatus): string {
   }
 }
 
-function firstNonEmptyLine(message: string): string | undefined {
-  return message.split(/\r?\n/).map((line) => line.trim()).find((line) => line.length > 0);
-}
-
-function mapTaskStatus(status: TaskStatus): WorkspaceLaneStatus {
-  switch (status) {
-    case "awaiting_approval":
-      return "awaiting_approval";
-    case "blocked":
-      return "blocked";
-    case "completed":
-      return "completed";
-    case "cancelled":
-    case "failed_retryable":
-    case "failed_terminal":
-      return "failed";
-    case "pending":
-    case "ready":
-      return "paused";
-    default:
-      return "running";
-  }
-}
-
 function resolveApprovalRequestedAt(
   events: RunEvent[],
   requestId: string,
@@ -568,13 +599,5 @@ function resolveApprovalRequestedAt(
   });
 
   return event?.timestamp;
-}
-
-function resolveTaskId(event: RunEvent): string | undefined {
-  if (event.taskId) {
-    return event.taskId;
-  }
-  const payload = event.payload as { taskId?: unknown };
-  return typeof payload.taskId === "string" ? payload.taskId : undefined;
 }
 

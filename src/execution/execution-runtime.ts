@@ -61,23 +61,33 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
     await ensureDirectory(path.dirname(transcriptPath));
 
     const queue = new AsyncEventQueue<RunEvent>();
-    const child = this.spawnProcess(invocation.command, invocation.args, {
-      cwd: invocation.cwd,
-      env: {
-        ...process.env,
-        ...invocation.env,
+    const child = spawnWithWindowsShellFallback(
+      this.spawnProcess,
+      invocation.command,
+      invocation.args,
+      {
+        cwd: invocation.cwd,
+        env: {
+          ...process.env,
+          ...invocation.env,
+        },
+        stdio: [typeof invocation.stdin === "string" ? "pipe" : "ignore", "pipe", "pipe"],
       },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    );
     const activeExecution: ActiveExecution = {
       child,
     };
     this.activeExecutions.set(executionKey, activeExecution);
+    if (typeof invocation.stdin === "string") {
+      child.stdin?.end(invocation.stdin);
+    }
 
     let settled = false;
     let timedOut = false;
     let transcriptError: string | undefined;
     let transcriptWrites = Promise.resolve();
+    let stdoutOutput = "";
+    let stderrOutput = "";
 
     const appendTranscript = (stream: TranscriptStream, chunk: string): void => {
       transcriptWrites = transcriptWrites
@@ -128,6 +138,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
 
     child.stdout?.on("data", (chunk: Buffer | string) => {
       const message = normalizeChunk(chunk);
+      stdoutOutput += message;
       appendTranscript("stdout", message);
       enqueue(
         this.createEvent("agent_message", runId, invocation.taskId, {
@@ -140,6 +151,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
 
     child.stderr?.on("data", (chunk: Buffer | string) => {
       const message = normalizeChunk(chunk);
+      stderrOutput += message;
       appendTranscript("stderr", message);
       enqueue(
         this.createEvent("agent_message", runId, invocation.taskId, {
@@ -155,6 +167,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
         this.createEvent("task_failed", runId, invocation.taskId, {
           agentId: invocation.agentId,
           error: error.message,
+          ...buildOutputPayload(stdoutOutput, stderrOutput),
           transcriptPath,
           ...(transcriptError ? { transcriptError } : {}),
         }),
@@ -170,6 +183,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
             timeoutMs: task.timeoutMs,
             exitCode,
             signal,
+            ...buildOutputPayload(stdoutOutput, stderrOutput),
             transcriptPath,
             ...(transcriptError ? { transcriptError } : {}),
           }),
@@ -183,6 +197,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
             agentId: invocation.agentId,
             exitCode,
             signal,
+            ...buildOutputPayload(stdoutOutput, stderrOutput),
             transcriptPath,
             ...(transcriptError ? { transcriptError } : {}),
           }),
@@ -195,6 +210,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
           agentId: invocation.agentId,
           exitCode,
           signal,
+          ...buildOutputPayload(stdoutOutput, stderrOutput),
           transcriptPath,
           ...(transcriptError ? { transcriptError } : {}),
         }),
@@ -280,6 +296,126 @@ function stripAnsi(value: string): string {
     /[\u001B\u009B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><])/g,
     "",
   );
+}
+
+function buildOutputPayload(
+  stdoutOutput: string,
+  stderrOutput: string,
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  const output = stripAnsi(stdoutOutput);
+  const stderr = stripAnsi(stderrOutput);
+  if (output.length > 0) {
+    payload.output = output;
+  }
+  if (stderr.length > 0) {
+    payload.stderr = stderr;
+  }
+
+  const structuredOutput = parseStructuredOutput(output);
+  if (structuredOutput !== undefined) {
+    payload.structuredOutput = structuredOutput;
+  }
+
+  return payload;
+}
+
+function parseStructuredOutput(output: string): unknown {
+  const trimmed = output.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const direct = tryParseJson(trimmed);
+  if (direct !== undefined) {
+    return direct;
+  }
+
+  const fenced = trimmed.match(/```json\s*([\s\S]*?)\s*```/i)?.[1];
+  if (fenced) {
+    const parsedFence = tryParseJson(fenced.trim());
+    if (parsedFence !== undefined) {
+      return parsedFence;
+    }
+  }
+
+  const objectMatch = trimmed.match(/(\{[\s\S]*\})/);
+  if (objectMatch?.[1]) {
+    const parsedObject = tryParseJson(objectMatch[1]);
+    if (parsedObject !== undefined) {
+      return parsedObject;
+    }
+  }
+
+  const arrayMatch = trimmed.match(/(\[[\s\S]*\])/);
+  if (arrayMatch?.[1]) {
+    const parsedArray = tryParseJson(arrayMatch[1]);
+    if (parsedArray !== undefined) {
+      return parsedArray;
+    }
+  }
+
+  return undefined;
+}
+
+function tryParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function spawnWithWindowsShellFallback(
+  spawnProcess: typeof spawn,
+  command: string,
+  args: string[],
+  options: NonNullable<Parameters<typeof spawn>[2]>,
+): ChildProcess {
+  if (shouldForceWindowsShell(command)) {
+    return spawnProcess(command, args, {
+      ...options,
+      shell: true,
+    });
+  }
+
+  try {
+    return spawnProcess(command, args, options);
+  } catch (error) {
+    if (!shouldRetryWithWindowsShell(error)) {
+      throw error;
+    }
+
+    return spawnProcess(command, args, {
+      ...options,
+      shell: true,
+    });
+  }
+}
+
+function shouldRetryWithWindowsShell(error: unknown): boolean {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return code === "EPERM" || code === "EACCES" || code === "ENOENT";
+}
+
+function shouldForceWindowsShell(command: string): boolean {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const hasPathSegment =
+    command.includes(path.sep) || command.includes(path.posix.sep);
+  if (hasPathSegment) {
+    const ext = path.extname(command).toLowerCase();
+    return ext === ".cmd" || ext === ".bat";
+  }
+
+  const ext = path.extname(command).toLowerCase();
+  return ext.length === 0 || ext === ".cmd" || ext === ".bat";
 }
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {

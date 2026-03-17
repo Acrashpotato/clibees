@@ -4,7 +4,6 @@
   RunGraph,
   RunInspection,
   TaskSpec,
-  TaskStatus,
 } from "../domain/models.js";
 import type {
   ApprovalQueueItemView,
@@ -15,6 +14,18 @@ import type {
   WorkspaceMetricView,
   WorkspaceView,
 } from "./models.js";
+import {
+  buildTaskOwnerLabel,
+  buildTaskStatusReason,
+  buildTerminalPreview,
+  isActiveSessionBackfillTaskStatus,
+  isActiveTaskStatus,
+  mapRunStatus,
+  mapTaskStatus,
+  mapValidationState,
+  resolveTaskAgentId,
+  resolveTaskId,
+} from "./task-view-helpers.js";
 
 export function buildWorkspaceView(inspection: RunInspection): WorkspaceView {
   const approvals = buildApprovalQueue(inspection);
@@ -152,15 +163,20 @@ function buildLanes(
 
       return {
         laneId: task.id,
-        agentId: task.assignedAgent ?? task.preferredAgent ?? task.requiredCapabilities[0] ?? "unassigned",
-        role: buildLaneRole(task),
+        agentId: resolveTaskAgentId(task),
+        role: buildTaskOwnerLabel(task, "lane"),
         status: mappedStatus,
-        statusReason: buildStatusReason(task, validation, taskApprovals, inspection),
+        statusReason: buildTaskStatusReason(
+          task,
+          validation?.summary,
+          taskApprovals[0]?.summary,
+          inspection.summary,
+        ),
         currentTaskTitle: task.title,
         lastActivityAt,
         approvalState: buildApprovalState(mappedStatus, taskApprovals),
         riskLevel: taskApprovals[0]?.riskLevel ?? task.riskLevel,
-        terminalPreview: buildTerminalPreview(task, taskEvents, validation),
+        terminalPreview: buildTerminalPreview(task, taskEvents, validation?.summary),
         handoffHint: buildHandoffHint(task, mappedStatus, inspection.graph),
         artifacts: [
           { label: "Artifacts", value: String(artifactGroup?.artifacts.length ?? 0).padStart(2, "0") },
@@ -302,61 +318,6 @@ function getLanePriority(status: WorkspaceLaneStatus): number {
   }
 }
 
-function buildLaneRole(task: TaskSpec): string {
-  if (task.assignedAgent) {
-    return task.assignedAgent;
-  }
-  if (task.preferredAgent) {
-    return task.preferredAgent;
-  }
-  if (task.requiredCapabilities.length > 0) {
-    return task.requiredCapabilities.join(", ");
-  }
-  return `${task.kind} lane`;
-}
-
-function buildStatusReason(
-  task: TaskSpec,
-  validation: InspectionValidationItem | undefined,
-  approvals: ApprovalQueueItemView[],
-  inspection: RunInspection,
-): string {
-  if (approvals.length > 0) {
-    return approvals[0]!.summary;
-  }
-
-  switch (task.status) {
-    case "pending":
-      return "Waiting for dependencies before this task can be scheduled.";
-    case "ready":
-      return "Ready to resume execution.";
-    case "routing":
-      return "Selecting an agent for this task.";
-    case "context_building":
-      return "Building task context from memory, blackboard, and artifacts.";
-    case "queued":
-      return "Queued for execution.";
-    case "running":
-      return "Task process is currently running.";
-    case "validating":
-      return "Execution finished and validation is in progress.";
-    case "completed":
-      return validation?.summary ?? "Task completed successfully.";
-    case "failed_retryable":
-      return validation?.summary ?? "Task failed and can be retried.";
-    case "failed_terminal":
-      return validation?.summary ?? inspection.summary.latestFailure ?? "Task failed.";
-    case "blocked":
-      return validation?.summary ?? inspection.summary.latestBlocker ?? "Task is blocked.";
-    case "cancelled":
-      return "Task was cancelled.";
-    case "awaiting_approval":
-      return approvals[0]?.summary ?? "Waiting for approval before execution can continue.";
-    default:
-      return `Task is currently ${task.status}.`;
-  }
-}
-
 function buildApprovalState(
   status: WorkspaceLaneStatus,
   approvals: ApprovalQueueItemView[],
@@ -368,34 +329,6 @@ function buildApprovalState(
     return "Blocked";
   }
   return "No pending approval";
-}
-
-function buildTerminalPreview(
-  task: TaskSpec,
-  taskEvents: RunEvent[],
-  validation: InspectionValidationItem | undefined,
-): string[] {
-  const lines = taskEvents
-    .filter((event) => event.type === "agent_message")
-    .flatMap((event) => {
-      const payload = event.payload as { message?: unknown };
-      return typeof payload.message === "string"
-        ? payload.message.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
-        : [];
-    });
-
-  if (lines.length > 0) {
-    return lines.slice(-6);
-  }
-
-  const fallback = [
-    `$ task ${task.id}`,
-    `> ${task.title}`,
-    `> status: ${task.status}`,
-    validation?.summary ? `> ${validation.summary}` : undefined,
-  ].filter((line): line is string => Boolean(line));
-
-  return fallback.length > 0 ? fallback : ["No terminal output recorded yet."];
 }
 
 function buildHandoffHint(
@@ -423,81 +356,6 @@ function buildHandoffHint(
   return "Monitor this lane for the next transition.";
 }
 
-function isActiveTaskStatus(status: TaskStatus): boolean {
-  return (
-    status === "routing" ||
-    status === "context_building" ||
-    status === "queued" ||
-    status === "running" ||
-    status === "awaiting_approval" ||
-    status === "validating"
-  );
-}
-
-function isActiveSessionBackfillTaskStatus(status: TaskStatus): boolean {
-  return status === "running" || status === "awaiting_approval";
-}
-
-function mapRunStatus(status: string): WorkspaceLaneStatus {
-  switch (status) {
-    case "waiting_approval":
-      return "awaiting_approval";
-    case "paused":
-    case "planning":
-    case "ready":
-    case "replanning":
-    case "created":
-      return "paused";
-    case "completed":
-      return "completed";
-    case "failed":
-    case "cancelled":
-      return "failed";
-    default:
-      return "running";
-  }
-}
-
-function mapTaskStatus(status: TaskStatus): WorkspaceLaneStatus {
-  switch (status) {
-    case "awaiting_approval":
-      return "awaiting_approval";
-    case "blocked":
-      return "blocked";
-    case "completed":
-      return "completed";
-    case "cancelled":
-    case "failed_retryable":
-    case "failed_terminal":
-      return "failed";
-    case "pending":
-    case "ready":
-      return "paused";
-    default:
-      return "running";
-  }
-}
-
-function mapValidationState(
-  outcome: InspectionValidationItem["outcome"] | undefined,
-  taskStatus: TaskStatus,
-): "pass" | "warn" | "fail" {
-  if (outcome === "pass" || taskStatus === "completed") {
-    return "pass";
-  }
-  if (
-    outcome === "fail_retryable" ||
-    outcome === "fail_replan_needed" ||
-    outcome === "blocked" ||
-    taskStatus === "blocked" ||
-    taskStatus === "failed_retryable" ||
-    taskStatus === "failed_terminal"
-  ) {
-    return "fail";
-  }
-  return "warn";
-}
-
 function resolveHandoffStatus(
   fromStatus: WorkspaceLaneStatus | undefined,
   toStatus: WorkspaceLaneStatus | undefined,
@@ -509,14 +367,6 @@ function resolveHandoffStatus(
     return "in_progress";
   }
   return "queued";
-}
-
-function resolveTaskId(event: RunEvent): string | undefined {
-  if (event.taskId) {
-    return event.taskId;
-  }
-  const payload = event.payload as { taskId?: unknown };
-  return typeof payload.taskId === "string" ? payload.taskId : undefined;
 }
 
 function resolveApprovalRequestedAt(events: RunEvent[], requestId: string): string {

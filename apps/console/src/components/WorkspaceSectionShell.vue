@@ -1,25 +1,14 @@
-﻿<script setup lang="ts">
-import { computed } from "vue";
-import { RouterLink } from "vue-router";
-
+<script setup lang="ts">
 import { usePreferences } from "../composables/usePreferences";
 import type { WorkspaceView } from "../view-models";
-import { getWorkspacePath, type WorkspaceSectionKey } from "../workspace";
 
-const props = defineProps<{
+defineProps<{
   workspace: WorkspaceView;
-  current: WorkspaceSectionKey;
+  current?: string;
   runScopeId?: string;
 }>();
 
 const { t } = usePreferences();
-
-const navItems = computed(() => [
-  { key: "overview" as const, to: getWorkspacePath("overview", props.runScopeId), label: t("workspaceNav.overview") },
-  { key: "lanes" as const, to: getWorkspacePath("lanes", props.runScopeId), label: t("workspaceNav.lanes") },
-  { key: "handoffs" as const, to: getWorkspacePath("handoffs", props.runScopeId), label: t("workspaceNav.handoffs") },
-  { key: "focus" as const, to: getWorkspacePath("focus", props.runScopeId), label: t("workspaceNav.focus") }
-]);
 </script>
 
 <template>
@@ -33,18 +22,6 @@ const navItems = computed(() => [
 
         <p class="workspace-section-shell__summary">{{ workspace.stage }}</p>
       </div>
-
-      <nav class="workspace-tabs">
-        <RouterLink
-          v-for="item in navItems"
-          :key="item.key"
-          :to="item.to"
-          class="workspace-tabs__link"
-          :class="{ 'workspace-tabs__link--active': item.key === current }"
-        >
-          {{ item.label }}
-        </RouterLink>
-      </nav>
     </div>
 
     <div class="workspace-section-shell__content">
@@ -52,4 +29,3 @@ const navItems = computed(() => [
     </div>
   </section>
 </template>
-

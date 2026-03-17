@@ -1,0 +1,57 @@
+﻿version: 1
+agents:
+  - id: codex
+    command: codex
+    priority: 1
+    profiles:
+      - id: manager
+        label: Manager
+        capabilities:
+          - planning
+          - delegation
+        defaultArgs:
+          - exec
+          - --skip-git-repo-check
+          - "-"
+        defaultCwd: .
+        costTier: low
+  - id: codex-worker
+    command: codex
+    priority: 2
+    profiles:
+      - id: worker
+        label: Worker
+        capabilities:
+          - planning
+        defaultArgs:
+          - exec
+          - --skip-git-repo-check
+        defaultCwd: .
+        costTier: low
+planner:
+  mode: delegated
+  agentId: codex
+routing:
+  defaultAgentId: codex-worker
+  preferLowCost: true
+safety:
+  approvalThreshold: high
+  blockedActions: []
+  approvalPolicyByAction:
+    git_push: always
+    package_publish: always
+    delete_file: high
+    command: high
+memory:
+  enabled: false
+  rootDir: .multi-agent/memory
+workspace:
+  rootDir: .
+  allowOutsideWorkspaceWrites: true
+validation:
+  defaultTimeoutMs: 60000
+  enableBuildChecks: true
+logging:
+  level: info
+  persistEvents: false
+

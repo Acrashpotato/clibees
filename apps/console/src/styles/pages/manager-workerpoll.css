@@ -1,0 +1,187 @@
+.manager-toolbar,
+.workerpoll-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.manager-run-select,
+.workerpoll-run-select {
+  min-width: 320px;
+}
+
+.manager-error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.manager-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
+  gap: 12px;
+}
+
+.manager-chat-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.manager-chat-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.manager-chat-panel__header h2,
+.manager-side-card h2 {
+  margin: 0;
+}
+
+.manager-chat-panel__timeline {
+  display: grid;
+  gap: 8px;
+  max-height: 56vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.manager-message {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--panel-subtle);
+}
+
+.manager-message header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.manager-message header strong {
+  color: var(--text);
+}
+
+.manager-message p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.manager-message[data-role="user"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.manager-message[data-role="manager"] {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--line));
+}
+
+.manager-message[data-role="worker"] {
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--line));
+}
+
+.manager-chat-panel__composer {
+  display: grid;
+  gap: 8px;
+}
+
+.manager-chat-panel__composer textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-subtle);
+  color: var(--text);
+  padding: 10px;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.manager-side {
+  display: grid;
+  gap: 12px;
+}
+
+.manager-side-card {
+  display: grid;
+  gap: 10px;
+}
+
+.manager-queue-list,
+.manager-approval-list,
+.workerpoll-list {
+  display: grid;
+  gap: 8px;
+}
+
+.manager-queue-item,
+.manager-approval-list article {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--panel-subtle);
+}
+
+.manager-queue-item header,
+.manager-approval-list header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.manager-queue-item p,
+.manager-approval-list p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.manager-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.manager-shortcuts .ghost-link {
+  width: 100%;
+}
+
+.workerpoll-page {
+  display: grid;
+  gap: 12px;
+}
+
+.workerpoll-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.workerpoll-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+@media (max-width: 1120px) {
+  .manager-layout,
+  .workerpoll-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .manager-run-select,
+  .workerpoll-run-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .manager-shortcuts {
+    grid-template-columns: 1fr;
+  }
+}

@@ -29,9 +29,12 @@ export interface RoutingConfig {
   preferLowCost: boolean;
 }
 
+export type ApprovalPolicyValue = RiskLevel | "always" | "never";
+
 export interface SafetyConfig {
   approvalThreshold: RiskLevel;
   blockedActions: string[];
+  approvalPolicyByAction?: Record<string, ApprovalPolicyValue>;
 }
 
 export interface MemoryConfig {

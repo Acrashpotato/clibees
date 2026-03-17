@@ -1,0 +1,129 @@
+.task-board-page,
+.task-board-hero,
+.task-board-intro,
+.task-board-column,
+.task-node-card,
+.task-board-edges {
+  display: grid;
+  gap: 16px;
+}
+
+.task-board-hero__top,
+.task-node-card__top,
+.task-node-card__section-header,
+.task-node-card__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.task-board-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.task-board-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.task-node-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel-subtle);
+}
+
+.task-node-card[data-current="true"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.task-node-card h3 {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.task-node-card__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.task-node-card__section {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel-subtle);
+}
+
+.task-node-card__section strong,
+.task-node-card__section p {
+  margin: 0;
+}
+
+.task-node-card__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-node-card__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.task-node-card__reason {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.task-board-edge-list {
+  display: grid;
+  gap: 10px;
+}
+
+.task-board-edge {
+  display: grid;
+  gap: 8px;
+}
+
+.task-board-edge[data-state="satisfied"] {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--line));
+}
+
+.task-board-edge[data-state="active"] {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.task-board-edge[data-state="blocked"] {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+}
+
+@media (max-width: 1240px) {
+  .task-board-summary-grid,
+  .task-node-card__meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .task-board-hero__top,
+  .task-node-card__top,
+  .task-node-card__section-header,
+  .task-node-card__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

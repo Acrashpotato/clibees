@@ -6,7 +6,7 @@ import WorkspaceSectionShell from "../components/WorkspaceSectionShell.vue";
 import { usePreferences } from "../composables/usePreferences";
 import { useWorkspaceView } from "../composables/useWorkspaceView";
 import type { ArtifactSummary } from "../types";
-import { getWorkspacePath } from "../workspace";
+import { getRunWorkspacePath } from "../workspace";
 
 const { t } = usePreferences();
 const { resolvedRunId, workspace } = useWorkspaceView();
@@ -43,7 +43,7 @@ const handoffStats = computed<ArtifactSummary[]>(() => [
         :summary-items="handoffStats"
         :description="t('workspacePage.handoffsDescription')"
         :empty-action-label="t('actions.continueFocus')"
-        :empty-action-to="getWorkspacePath('focus', workspace.runId)"
+        :empty-action-to="getRunWorkspacePath(workspace.runId)"
       />
     </div>
   </WorkspaceSectionShell>

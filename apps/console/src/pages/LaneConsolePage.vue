@@ -5,9 +5,9 @@ import { RouterLink, useRoute, useRouter } from "vue-router";
 import { getWorkspaceProjection } from "../api";
 import { usePreferences } from "../composables/usePreferences";
 import {
+  getRunWorkspacePath,
   getSessionDetailPath,
   getTaskDetailPath,
-  getWorkspacePath,
 } from "../workspace";
 
 const route = useRoute();
@@ -104,7 +104,7 @@ watch(
       <p v-else class="panel-card__body">{{ copy("等待跳转。", "Waiting for redirect.") }}</p>
 
       <div class="run-card__actions">
-        <RouterLink class="ghost-link" :to="getWorkspacePath('overview', typeof route.params.runId === 'string' ? route.params.runId : undefined)">
+        <RouterLink class="ghost-link" :to="getRunWorkspacePath(typeof route.params.runId === 'string' ? route.params.runId : undefined)">
           {{ t("actions.backToWorkspace") }}
         </RouterLink>
       </div>

@@ -1,126 +1,56 @@
-﻿import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, watch } from "vue";
 import { useRoute } from "vue-router";
 
-import { getWorkspace, listRuns, resumeRun } from "../api";
+import { getWorkspace } from "../api";
 import type { ActionQueueItem, WorkspaceView } from "../view-models";
 import { createEmptyWorkspace, getActionQueue, getFocusTask } from "../workspace";
 import { usePreferences } from "./usePreferences";
+import { useRunScopedResource } from "./useRunScopedResource";
+
+function isTerminalRunStatus(status: WorkspaceView["runStatus"]): boolean {
+  return status === "completed" || status === "failed";
+}
 
 export function useWorkspaceView() {
   const route = useRoute();
   const { locale } = usePreferences();
 
-  const runScopeId = computed(() => (typeof route.params.runId === "string" ? route.params.runId : undefined));
-  const resolvedRunId = ref<string | undefined>(runScopeId.value);
-  const workspace = ref<WorkspaceView>(createEmptyWorkspace(runScopeId.value));
-  const loading = ref(false);
-  const error = ref("");
-  const mutating = ref(false);
-  let pollHandle: ReturnType<typeof setInterval> | undefined;
+  const runScopeId = computed(() =>
+    typeof route.params.runId === "string" ? route.params.runId : undefined,
+  );
 
-  function stopPolling() {
-    if (pollHandle) {
-      clearInterval(pollHandle);
-      pollHandle = undefined;
-    }
-  }
-
-  function startPolling() {
-    stopPolling();
-
-    if (!resolvedRunId.value) {
-      return;
-    }
-
-    if (workspace.value.runStatus === "completed" || workspace.value.runStatus === "failed") {
-      return;
-    }
-
-    pollHandle = setInterval(() => {
-      void loadWorkspace(false);
-    }, 2000);
-  }
-
-  async function resolveRunId(): Promise<string | undefined> {
-    if (runScopeId.value) {
-      return runScopeId.value;
-    }
-
-    const runs = await listRuns();
-    return runs[0]?.runId;
-  }
-
-  async function loadWorkspace(showLoading = true): Promise<void> {
-    if (showLoading) {
-      loading.value = true;
-    }
-
-    try {
-      error.value = "";
-      resolvedRunId.value = await resolveRunId();
-
-      if (!resolvedRunId.value) {
-        workspace.value = createEmptyWorkspace();
-        stopPolling();
-        return;
-      }
-
-      workspace.value = await getWorkspace(resolvedRunId.value);
-      startPolling();
-    } catch (caught) {
-      error.value = caught instanceof Error ? caught.message : String(caught);
-      stopPolling();
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  async function handleResume(): Promise<void> {
-    if (!resolvedRunId.value) {
-      return;
-    }
-
-    mutating.value = true;
-    try {
-      await resumeRun(resolvedRunId.value);
-      await loadWorkspace(false);
-    } finally {
-      mutating.value = false;
-    }
-  }
+  const resource = useRunScopedResource<WorkspaceView, WorkspaceView["runStatus"]>({
+    getRunScopeId: () => runScopeId.value,
+    createEmpty: (runId) => createEmptyWorkspace(runId),
+    fetchData: (runId) => getWorkspace(runId),
+    getStatus: (data) => data.runStatus,
+    isTerminalStatus: isTerminalRunStatus,
+    getPollIntervalMs: () => 2000,
+  });
 
   watch(
     () => route.fullPath,
     () => {
-      void loadWorkspace();
+      void resource.load();
     },
     { immediate: true },
   );
 
-  watch(
-    () => workspace.value.runStatus,
-    () => {
-      startPolling();
-    },
+  const focusTask = computed(() => getFocusTask(resource.data.value));
+  const actionQueue = computed<ActionQueueItem[]>(() =>
+    getActionQueue(resource.data.value, locale.value),
   );
 
-  onBeforeUnmount(() => {
-    stopPolling();
-  });
-
-  const focusTask = computed(() => getFocusTask(workspace.value));
-  const actionQueue = computed<ActionQueueItem[]>(() => getActionQueue(workspace.value, locale.value));
-
   return {
-    workspace,
+    workspace: resource.data,
     focusTask,
     actionQueue,
     runScopeId,
-    resolvedRunId,
-    loading,
-    error,
-    mutating,
-    refresh: () => loadWorkspace(false),
-    resumeRun: handleResume,
+    resolvedRunId: resource.resolvedRunId,
+    loading: resource.loading,
+    error: resource.error,
+    mutating: resource.mutating,
+    refresh: () => resource.load(false),
+    resumeRun: resource.resumeScopedRun,
   };
 }

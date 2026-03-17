@@ -75,6 +75,7 @@ export abstract class StructuredAdapter implements AgentAdapter {
     selection: AgentSelection,
     options: {
       args?: string[];
+      stdin?: string;
       cwd?: string;
       env?: Record<string, string>;
       actionPlans?: ActionPlan[];
@@ -95,6 +96,7 @@ export abstract class StructuredAdapter implements AgentAdapter {
       agentId: this.agentId,
       command: this.command,
       args,
+      ...(typeof options.stdin === "string" ? { stdin: options.stdin } : {}),
       cwd,
       ...(options.env ? { env: options.env } : {}),
       actionPlans:
@@ -153,29 +155,55 @@ export abstract class StructuredAdapter implements AgentAdapter {
 
 function classifyActionKind(command: string, args: string[]): string {
   const executable = path.basename(command).toLowerCase();
-  const joined = [command, ...args].join(" ").toLowerCase();
+  const normalizedArgs = args.map((arg) => arg.toLowerCase());
+  const commandArg = firstNonFlagArg(normalizedArgs);
 
-  if ((executable === "git" || joined.includes(" git ")) && /\bgit\s+push\b/.test(joined)) {
+  if (executable === "git" && commandArg === "push") {
+    return "git_push";
+  }
+
+  if (isShellExecutable(executable) && normalizedArgs.some((arg) => /\bgit\s+push\b/.test(arg))) {
     return "git_push";
   }
 
   if (
     executable === "rm" ||
     executable === "del" ||
-    executable === "unlink" ||
-    /\bremove-item\b/.test(joined)
+    executable === "unlink"
   ) {
+    return "delete_file";
+  }
+
+  if (isShellExecutable(executable) && normalizedArgs.some((arg) => /\bremove-item\b/.test(arg))) {
     return "delete_file";
   }
 
   if (
     (executable === "npm" || executable === "pnpm" || executable === "yarn") &&
-    /\bpublish\b/.test(joined)
+    normalizedArgs.some((arg) => /\bpublish\b/.test(arg))
   ) {
     return "package_publish";
   }
 
   return "command";
+}
+
+function firstNonFlagArg(args: string[]): string | undefined {
+  return args.find((arg) => arg.length > 0 && !arg.startsWith("-"));
+}
+
+function isShellExecutable(executable: string): boolean {
+  return (
+    executable === "bash" ||
+    executable === "sh" ||
+    executable === "zsh" ||
+    executable === "fish" ||
+    executable === "pwsh" ||
+    executable === "powershell" ||
+    executable === "powershell.exe" ||
+    executable === "cmd" ||
+    executable === "cmd.exe"
+  );
 }
 
 function classifyActionRisk(

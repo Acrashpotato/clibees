@@ -8,7 +8,7 @@ import HealthPanel from "../components/HealthPanel.vue";
 import WorkspaceSectionShell from "../components/WorkspaceSectionShell.vue";
 import { usePreferences } from "../composables/usePreferences";
 import { useWorkspaceView } from "../composables/useWorkspaceView";
-import { getTaskConsolePath, getWorkspacePath } from "../workspace";
+import { getRunInspectPath, getTaskConsolePath } from "../workspace";
 
 const { t } = usePreferences();
 const { actionQueue, focusTask, resolvedRunId, workspace } = useWorkspaceView();
@@ -65,7 +65,7 @@ const relatedHandoffs = computed(() =>
           :title="t('sections.crossLaneMovement')"
           :description="t('workspacePage.handoffsDescription')"
           :empty-action-label="t('actions.reviewFlow')"
-          :empty-action-to="getWorkspacePath('handoffs', workspace.runId)"
+          :empty-action-to="getRunInspectPath(workspace.runId)"
         />
       </div>
 
@@ -73,7 +73,7 @@ const relatedHandoffs = computed(() =>
         :issues="focusIssues"
         :description="t('workspacePage.healthDescription')"
         :empty-action-label="t('actions.reviewFlow')"
-        :empty-action-to="getWorkspacePath('handoffs', workspace.runId)"
+        :empty-action-to="getRunInspectPath(workspace.runId)"
       />
     </div>
   </WorkspaceSectionShell>

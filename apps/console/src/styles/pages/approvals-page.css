@@ -1,0 +1,118 @@
+.approvals-page,
+.approvals-hero,
+.approvals-page__card,
+.approvals-page__plans,
+.approvals-page__plan-list {
+  display: grid;
+  gap: 16px;
+}
+
+.approvals-page__summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.approvals-hero__header,
+.approvals-page__card-top,
+.approvals-page__plan-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.approvals-page__board {
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  align-items: start;
+}
+
+.approvals-page__card {
+  align-content: start;
+}
+
+.approvals-page__card h2,
+.approvals-page__plans h2 {
+  margin: 0;
+}
+
+.approvals-page__badge-row,
+.approvals-page__identity-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.approvals-page__summary {
+  margin: 0;
+}
+
+.approvals-page__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.approvals-page__meta-grid--plans {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.approvals-page__meta-grid-item--wide {
+  grid-column: span 3;
+}
+
+.approvals-page__plan-card {
+  display: grid;
+  gap: 12px;
+}
+
+.approvals-page__command {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-subtle);
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.approvals-page__plans {
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.approvals-page__plans-header {
+  align-items: center;
+}
+
+.approvals-page__note-field {
+  display: grid;
+  gap: 8px;
+}
+
+.approvals-page__note-input {
+  min-height: 88px;
+}
+
+@media (max-width: 1240px) {
+  .approvals-page__summary-grid,
+  .approvals-page__meta-grid,
+  .approvals-page__meta-grid--plans {
+    grid-template-columns: 1fr;
+  }
+
+  .approvals-page__meta-grid-item--wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .approvals-hero__header,
+  .approvals-page__card-top,
+  .approvals-page__plan-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .approvals-page__board {
+    grid-template-columns: 1fr;
+  }
+}

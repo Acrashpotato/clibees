@@ -27,6 +27,19 @@ The current repository already includes:
 - File-based stores for run metadata, graphs, events, artifacts, approvals, blackboard summaries, workspace drift, and project memory
 - Compiled regression tests covering storage, execution, approvals, and multi-phase coordinator behavior
 
+## v1.1 Highlights
+
+v1.1 is the first major upgrade after `v1.0.0`, focused on projection-driven APIs, a restructured console IA, and stronger run-scoped interaction surfaces.
+
+v1.1 是 `v1.0.0` 之后的首次大版本迭代，重点落在 projection 驱动 API、控制台信息架构重构、以及更完整的 run 级交互能力。
+
+- UI API contracts and server routes now expose split projections for run list, workspace, task board, task/session detail, approval queue, audit timeline, and manager chat.
+- Console navigation is refactored around a task pool workflow with run-scoped submenu pages (manager/workerpool/workspace/lanes/approvals/inspect), plus dedicated settings and richer detail panels.
+- Run creation and resume are now explicitly tied to selected CLI metadata, and terminal streaming support is added through a dedicated gateway.
+- Session/thread persistence and read-model helpers were expanded to improve traceability and consistency across pages.
+
+详细发布说明见: [docs/v1.1-release-notes.md](docs/v1.1-release-notes.md)
+
 ## Architecture At A Glance
 
 ![Architecture overview](docs/assets/architecture-overview.svg)
@@ -126,6 +139,25 @@ npm install
 npm run build
 ```
 
+### Start development environment
+
+Run backend and frontend in separate terminals.
+
+Terminal A (project root, UI API on `127.0.0.1:4318`):
+
+```bash
+npm run ui-api
+```
+
+Terminal B (console app, Vite dev server on `127.0.0.1:5173` by default):
+
+```bash
+cd apps/console
+npm run dev
+```
+
+If you only need CLI flow, you can skip the console dev server and use the CLI commands below.
+
 ### Run from the CLI
 
 Use the default config in `.multi-agent.yaml`, or pass `--config <path>`.
@@ -138,6 +170,29 @@ npm run start -- approvals <runId>
 npm run start -- approve <runId> <requestId> --actor <name> --note "optional note"
 npm run start -- reject <runId> <requestId> --actor <name> --note "optional note"
 ```
+
+## Approval Strategy Matrix
+
+Use `safety.approvalPolicyByAction` to make approvals useful by only stopping high-impact actions.
+
+```yaml
+safety:
+  approvalThreshold: high
+  blockedActions: []
+  approvalPolicyByAction:
+    git_push: always
+    package_publish: always
+    delete_file: high
+    command: high
+```
+
+Policy values:
+
+- `always`: always require manual approval for this action kind
+- `never`: never require approval for this action kind
+- `low|medium|high`: require approval when action risk is at or above that level
+
+`approvalThreshold` remains the fallback for action kinds that are not listed in `approvalPolicyByAction`.
 
 ## State And Output Layout
 

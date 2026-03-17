@@ -54,7 +54,7 @@ function buildConfig(workspaceDir: string): MultiAgentConfig {
     version: 1,
     agents: [
       {
-        id: "local-default",
+        id: "codex",
         command: "node",
         priority: 1,
         profiles: [
@@ -71,10 +71,10 @@ function buildConfig(workspaceDir: string): MultiAgentConfig {
     ],
     planner: {
       mode: "static",
-      agentId: "local-default",
+      agentId: "codex",
     },
     routing: {
-      defaultAgentId: "local-default",
+      defaultAgentId: "codex",
       preferLowCost: true,
     },
     safety: {
@@ -217,7 +217,7 @@ async function setupPhase8App(options: {
   const task = buildTask(workspaceDir, options.taskOverrides);
   const config = buildConfig(workspaceDir);
   const registry = new AdapterRegistry();
-  registry.register(new ValidationTestAdapter("local-default"));
+  registry.register(new ValidationTestAdapter("codex"));
   const eventStore = new FileEventStore(stateRootDir);
   const app = createApp({
     stateRootDir,

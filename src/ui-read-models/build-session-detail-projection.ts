@@ -4,6 +4,7 @@
   InspectionValidationItem,
   RunEvent,
   RunInspection,
+  SessionMessageRecord,
   TaskSpec,
   TaskStatus,
 } from "../domain/models.js";
@@ -14,10 +15,23 @@ import type {
   SessionDetailValidationSummaryView,
   WorkspaceLaneStatus,
 } from "./models.js";
+import { buildEventSummary } from "./event-view-helpers.js";
+import {
+  buildTaskOwnerLabel,
+  buildTerminalPreview,
+  isTaskPastPlanning,
+  mapTaskStatus,
+  mapValidationState,
+  resolveTaskAgentId,
+  resolveTaskId,
+} from "./task-view-helpers.js";
 
 export function buildSessionDetailProjection(
   inspection: RunInspection,
   sessionId: string,
+  options: {
+    sessionMessages?: SessionMessageRecord[];
+  } = {},
 ): SessionDetailProjectionView {
   for (const task of Object.values(inspection.graph.tasks)) {
     const taskEvents = inspection.events
@@ -53,29 +67,23 @@ export function buildSessionDetailProjection(
         taskTitle: task.title,
         taskKind: task.kind,
         status,
-        statusReason: approvals[0]?.summary ?? summaryOf(latestEvent) ?? `Task is currently ${task.status}.`,
+        statusReason:
+          approvals[0]?.summary ??
+          (latestEvent ? buildEventSummary(latestEvent) : undefined) ??
+          `Task is currently ${task.status}.`,
         agentId: resolveAgentId(match.events[0], task),
-        ownerLabel: ownerOf(task),
+        ownerLabel: buildTaskOwnerLabel(task),
         ...(match.startedAt ? { startedAt: match.startedAt } : {}),
         lastActivityAt: latestEvent?.timestamp ?? validation?.updatedAt ?? match.startedAt ?? inspection.run.updatedAt,
-        latestActivitySummary: summaryOf(latestEvent) ?? validation?.summary ?? `Task is currently ${task.status}.`,
+        latestActivitySummary:
+          (latestEvent ? buildEventSummary(latestEvent) : undefined) ??
+          validation?.summary ??
+          `Task is currently ${task.status}.`,
         pendingApprovalCount: approvals.filter((approval) => approval.state === "pending").length,
         ...(transcriptPath ? { transcriptPath } : {}),
         sourceMode: match.sourceMode,
       },
-      messages: match.events
-        .filter((event) => event.type === "agent_message")
-        .map((event) => {
-          const payload = event.payload as { agentId?: unknown; message?: unknown; stream?: unknown };
-          return {
-            messageId: event.id,
-            timestamp: event.timestamp,
-            stream: payload.stream === "stderr" ? "stderr" : "stdout",
-            senderLabel: typeof payload.agentId === "string" ? payload.agentId : resolveAgentId(event, task),
-            text: typeof payload.message === "string" ? payload.message : "Agent emitted a message without textual content.",
-            sourceMode: "run_event_agent_message",
-          };
-        }),
+      messages: buildMessages(match.events, task, options.sessionMessages ?? []),
       toolCalls: buildToolCalls(match.events, artifacts),
       approvals: approvals.map((approval) => ({
         requestId: approval.requestId,
@@ -110,7 +118,7 @@ type Window = {
 function buildWindows(task: TaskSpec, events: RunEvent[]): Window[] {
   const starts = events.filter((event) => event.type === "task_started");
   if (starts.length === 0) {
-    if (events.length === 0 && !isPastPlanning(task.status)) {
+    if (events.length === 0 && !isTaskPastPlanning(task.status)) {
       return [];
     }
     return [{ sessionId: `backfill:${encodeURIComponent(task.id)}:status`, ...(events[0] ? { startedAt: events[0].timestamp } : {}), sourceMode: events.length > 0 ? "run_event_backfill" : "task_status_backfill", events }];
@@ -171,11 +179,53 @@ function buildToolCalls(events: RunEvent[], artifacts: InspectionArtifactItem[])
   return [...results, ...planned].sort((a, b) => b.finishedAt.localeCompare(a.finishedAt));
 }
 
+function buildMessages(
+  events: RunEvent[],
+  task: TaskSpec,
+  sessionMessages: SessionMessageRecord[],
+): SessionDetailProjectionView["messages"] {
+  if (sessionMessages.length > 0) {
+    return [...sessionMessages]
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+      .map((message) => ({
+        messageId: message.messageId,
+        timestamp: message.createdAt,
+        stream: message.role === "system" ? "stderr" : "stdout",
+        senderLabel: message.actorId,
+        text: message.body,
+        sourceMode: "session_message",
+      }));
+  }
+
+  return events
+    .filter((event) => event.type === "agent_message")
+    .map((event) => {
+      const payload = event.payload as { agentId?: unknown; message?: unknown; stream?: unknown };
+      return {
+        messageId: event.id,
+        timestamp: event.timestamp,
+        stream: payload.stream === "stderr" ? "stderr" : "stdout",
+        senderLabel:
+          typeof payload.agentId === "string" ? payload.agentId : resolveAgentId(event, task),
+        text:
+          typeof payload.message === "string"
+            ? payload.message
+            : "Agent emitted a message without textual content.",
+        sourceMode: "run_event_agent_message",
+      };
+    });
+}
+
 function buildValidation(validation: InspectionValidationItem | undefined, window: Window, taskStatus: TaskStatus, status: WorkspaceLaneStatus): SessionDetailValidationSummaryView {
   if (validation && (!validation.updatedAt ? !window.endExclusive : inWindow(validation.updatedAt, window))) {
-    return { state: mapValidation(validation.outcome, taskStatus), summary: validation.summary, details: [...validation.details], ...(validation.updatedAt ? { updatedAt: validation.updatedAt } : {}), sourceMode: "validation_record" };
+    return { state: mapValidationState(validation.outcome, taskStatus), summary: validation.summary, details: [...validation.details], ...(validation.updatedAt ? { updatedAt: validation.updatedAt } : {}), sourceMode: "validation_record" };
   }
-  return { state: status === "completed" ? "pass" : status === "blocked" || status === "failed" ? "fail" : "warn", summary: summaryOf(window.events.at(-1)) ?? `Validation has not produced a dedicated record for this session yet.`, details: [], sourceMode: "task_status_backfill" };
+  return {
+    state: status === "completed" ? "pass" : status === "blocked" || status === "failed" ? "fail" : "warn",
+    summary: (window.events.at(-1) ? buildEventSummary(window.events.at(-1)!) : undefined) ?? `Validation has not produced a dedicated record for this session yet.`,
+    details: [],
+    sourceMode: "task_status_backfill",
+  };
 }
 
 function buildArtifactSummary(artifacts: InspectionArtifactItem[]): SessionDetailArtifactSummaryView {
@@ -184,15 +234,11 @@ function buildArtifactSummary(artifacts: InspectionArtifactItem[]): SessionDetai
 }
 
 function previewLines(events: RunEvent[], task: TaskSpec, validation: InspectionValidationItem | undefined): string[] {
-  const lines = events.filter((event) => event.type === "agent_message").flatMap((event) => {
-    const payload = event.payload as { message?: unknown };
-    return typeof payload.message === "string" ? payload.message.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
-  });
-  return lines.length > 0 ? lines.slice(-20) : [`$ task ${task.id}`, `> ${task.title}`, `> status: ${task.status}`, ...(validation?.summary ? [`> ${validation.summary}`] : [])];
+  return buildTerminalPreview(task, events, validation?.summary, 20);
 }
 
 function resolveStatus(window: Window, taskStatus: TaskStatus, latestEvent: RunEvent | undefined): WorkspaceLaneStatus {
-  if (!window.endExclusive) return mapTask(taskStatus);
+  if (!window.endExclusive) return mapTaskStatus(taskStatus);
   if (!latestEvent) return "paused";
   switch (latestEvent.type) {
     case "approval_requested": return "awaiting_approval";
@@ -205,31 +251,6 @@ function resolveStatus(window: Window, taskStatus: TaskStatus, latestEvent: RunE
   }
 }
 
-function mapTask(status: TaskStatus): WorkspaceLaneStatus {
-  switch (status) {
-    case "awaiting_approval": return "awaiting_approval";
-    case "blocked": return "blocked";
-    case "completed": return "completed";
-    case "cancelled":
-    case "failed_retryable":
-    case "failed_terminal": return "failed";
-    case "pending":
-    case "ready": return "paused";
-    default: return "running";
-  }
-}
-
-function mapValidation(outcome: InspectionValidationItem["outcome"], taskStatus: TaskStatus): SessionDetailValidationSummaryView["state"] {
-  if (outcome === "pass" || taskStatus === "completed") return "pass";
-  if (outcome === "fail_retryable" || outcome === "fail_replan_needed" || outcome === "blocked" || taskStatus === "failed_retryable" || taskStatus === "failed_terminal" || taskStatus === "blocked") return "fail";
-  return "warn";
-}
-
-function resolveTaskId(event: RunEvent): string | undefined {
-  if (event.taskId) return event.taskId;
-  const payload = event.payload as { taskId?: unknown };
-  return typeof payload.taskId === "string" ? payload.taskId : undefined;
-}
 function requestedAt(events: RunEvent[], requestId: string): string | undefined {
   return events.find((event) => event.type === "approval_requested" && (event.payload as { requestId?: unknown }).requestId === requestId)?.timestamp;
 }
@@ -246,20 +267,7 @@ function resolveTranscriptPath(events: RunEvent[]): string | undefined {
 function resolveAgentId(event: RunEvent | undefined, task: TaskSpec): string {
   const value = (event?.payload as { agentId?: unknown } | undefined)?.agentId;
   if (typeof value === "string") return value;
-  return task.assignedAgent ?? task.preferredAgent ?? task.requiredCapabilities[0] ?? "unassigned";
+  return resolveTaskAgentId(task);
 }
-function ownerOf(task: TaskSpec): string {
-  return task.assignedAgent ?? task.preferredAgent ?? (task.requiredCapabilities.length > 0 ? task.requiredCapabilities.join(", ") : `${task.kind} task`);
-}
-function summaryOf(event: RunEvent | undefined): string | undefined {
-  if (!event) return undefined;
-  const payload = event.payload as { summary?: unknown; reason?: unknown; message?: unknown; agentId?: unknown };
-  if (typeof payload.summary === "string") return payload.summary;
-  if (typeof payload.reason === "string") return payload.reason;
-  if (typeof payload.message === "string") return payload.message.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
-  if (event.type === "task_started" && typeof payload.agentId === "string") return `Task started by ${payload.agentId}.`;
-  return event.type.replaceAll("_", " ");
-}
-function isPastPlanning(status: TaskStatus): boolean {
-  return status === "running" || status === "validating" || status === "completed" || status === "failed_retryable" || status === "failed_terminal" || status === "blocked" || status === "cancelled" || status === "awaiting_approval";
-}
+
+

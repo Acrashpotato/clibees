@@ -1,27 +1,47 @@
 version: 1
 agents:
-  - id: local-default
-    command: node
+  - id: codex
+    command: codex
     priority: 1
     profiles:
-      - id: default
-        label: Default
+      - id: manager
+        label: Manager
+        capabilities:
+          - planning
+          - delegation
+        defaultArgs:
+          - exec
+          - --skip-git-repo-check
+          - "-"
+        defaultCwd: .
+        costTier: low
+  - id: codex-worker
+    command: codex
+    priority: 2
+    profiles:
+      - id: worker
+        label: Worker
         capabilities:
           - planning
         defaultArgs:
-          - -e
-          - "const prompt = process.argv[1] ?? ''; process.stdout.write(`local-default received:\\n${prompt}\\n`);"
+          - exec
+          - --skip-git-repo-check
         defaultCwd: .
         costTier: low
 planner:
-  mode: static
-  agentId: local-default
+  mode: delegated
+  agentId: codex
 routing:
-  defaultAgentId: local-default
+  defaultAgentId: codex-worker
   preferLowCost: true
 safety:
   approvalThreshold: high
   blockedActions: []
+  approvalPolicyByAction:
+    git_push: always
+    package_publish: always
+    delete_file: high
+    command: high
 memory:
   enabled: false
   rootDir: .multi-agent/memory
