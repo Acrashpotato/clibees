@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { EventEmitter } from "node:events";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { PassThrough } from "node:stream";
 import type { ChildProcess } from "node:child_process";
 import type { InvocationPlan, RunEvent, TaskSpec } from "../domain/models.js";
@@ -184,4 +184,37 @@ test("ProcessExecutionRuntime times out and records stable failure events", asyn
   assert.equal(events.at(-1)?.payload["reason"], "timeout");
   assert.equal(events.at(-1)?.payload["timeoutMs"], 20);
   assert.equal((await eventStore.last("run-phase5-timeout"))?.type, "task_failed");
+});
+
+test("ProcessExecutionRuntime creates missing invocation cwd before spawning", async () => {
+  const stateRootDir = await mkdtemp(path.join(os.tmpdir(), "clibees-phase5-missing-cwd-"));
+  const eventStore = new FileEventStore(stateRootDir);
+  const missingCwd = path.join(stateRootDir, "workspace", "test02");
+  const runtime = new ProcessExecutionRuntime({
+    eventStore,
+    stateRootDir,
+    spawnProcess: createFakeChildProcess((child) => {
+      Object.defineProperty(child, "exitCode", {
+        value: 0,
+        writable: true,
+        configurable: true,
+      });
+      child.emit("close", 0, null);
+    }),
+  });
+
+  const events: RunEvent[] = [];
+  for await (const event of runtime.execute(
+    "run-phase5-missing-cwd",
+    buildTask(),
+    buildInvocation({ cwd: missingCwd }),
+  )) {
+    events.push(event);
+  }
+
+  const createdCwd = await stat(missingCwd);
+  assert.equal(createdCwd.isDirectory(), true);
+  assert.equal(events[0]?.type, "task_started");
+  assert.equal(events[0]?.payload["cwd"], missingCwd);
+  assert.equal(events.at(-1)?.type, "task_completed");
 });

@@ -1,0 +1,419 @@
+/* Auto-generated scoped legacy stylesheet. */
+
+/* Legacy rules apply only when an ancestor has .legacy-scope */
+
+/* Source: legacy-01.css */
+.legacy-scope a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.legacy-scope button,
+.legacy-scope input,
+.legacy-scope textarea,
+.legacy-scope select {
+  font: inherit;
+}
+
+.legacy-scope .app-shell {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.legacy-scope .app-shell__layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.legacy-scope .app-shell__backdrop {
+  position: absolute;
+  inset: auto;
+  width: 32rem;
+  height: 32rem;
+  border-radius: 999px;
+  filter: blur(90px);
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.legacy-scope .app-shell__backdrop--left {
+  top: -10rem;
+  left: -8rem;
+  background: #57d7d2;
+}
+
+.legacy-scope .app-shell__backdrop--right {
+  top: 8rem;
+  right: -10rem;
+  background: #ffbe5c;
+}
+
+.legacy-scope .app-shell__drawer-backdrop {
+  display: none;
+}
+
+.legacy-scope .app-sidebar {
+  position: sticky;
+  top: 24px;
+  min-width: 0;
+}
+
+.legacy-scope .app-sidebar__inner,
+.legacy-scope .app-toolbar,
+.legacy-scope .status-bar,
+.legacy-scope .panel-card,
+.legacy-scope .lane-panel,
+.legacy-scope .placeholder-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+}
+
+.legacy-scope .app-sidebar__inner {
+  display: grid;
+  gap: 24px;
+  min-height: calc(100vh - 48px);
+  padding: 22px 18px;
+  border-radius: 28px;
+}
+
+.legacy-scope .app-sidebar__header,
+.legacy-scope .section-header,
+.legacy-scope .panel-card__header,
+.legacy-scope .lane-panel__header,
+.legacy-scope .lane-panel__summary,
+.legacy-scope .lane-panel__footer,
+.legacy-scope .handoff-card__route,
+.legacy-scope .app-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.legacy-scope .app-sidebar__brand,
+.legacy-scope .section-eyebrow,
+.legacy-scope .lane-panel__eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.legacy-scope .app-sidebar h1,
+.legacy-scope .status-bar h1,
+.legacy-scope .section-header h2,
+.legacy-scope .panel-card h2,
+.legacy-scope .lane-panel h2,
+.legacy-scope .placeholder-card h1 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.legacy-scope .app-sidebar__close {
+  display: none;
+}
+
+.legacy-scope .app-sidebar__nav,
+.legacy-scope .section-actions,
+.legacy-scope .lane-panel__badges,
+.legacy-scope .approval-list,
+.legacy-scope .issue-list {
+  display: grid;
+  gap: 12px;
+}
+
+.legacy-scope .app-sidebar__nav {
+  gap: 10px;
+  align-content: start;
+}
+
+.legacy-scope .app-sidebar__link,
+.legacy-scope .mode-chip {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  transition: 160ms ease;
+}
+
+.legacy-scope .app-sidebar__link:hover,
+.legacy-scope .app-sidebar__link--active,
+.legacy-scope .mode-chip--active {
+  border-color: var(--line-strong);
+  background: rgba(87, 215, 210, 0.1);
+  color: var(--text);
+}
+
+.legacy-scope .app-shell__main {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+
+.legacy-scope .app-toolbar {
+  position: sticky;
+  top: 24px;
+  z-index: 10;
+  justify-content: flex-end;
+  padding: 14px 18px;
+  border-radius: 24px;
+}
+
+.legacy-scope .app-toolbar__menu {
+  display: none;
+  margin-right: auto;
+}
+
+.legacy-scope .app-toolbar__menu-lines {
+  display: grid;
+  gap: 4px;
+}
+
+.legacy-scope .app-toolbar__menu-lines span {
+  display: block;
+  width: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.legacy-scope .app-toolbar__controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.legacy-scope .toolbar-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 40px 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.legacy-scope .toolbar-select::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: translateY(-60%) rotate(45deg);
+  pointer-events: none;
+}
+
+.legacy-scope .toolbar-select__label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.legacy-scope .toolbar-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
+}
+
+.legacy-scope .toolbar-select select option {
+  color: #10212e;
+}
+
+.legacy-scope .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.legacy-scope .icon-button:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: rgba(87, 215, 210, 0.1);
+}
+
+.legacy-scope .theme-toggle__icon {
+  width: 20px;
+  height: 20px;
+}
+
+.legacy-scope .theme-toggle {
+  width: auto;
+  min-width: 90px;
+  padding: 0 12px;
+  gap: 6px;
+}
+
+.legacy-scope .theme-toggle__label {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.legacy-scope .app-content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+.legacy-scope .workspace-shell {
+  display: grid;
+  gap: 24px;
+}
+
+.legacy-scope .status-bar {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  border-radius: 28px;
+}
+
+.legacy-scope .status-bar__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+
+.legacy-scope .metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.legacy-scope .metric-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.legacy-scope .metric-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.legacy-scope .metric-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.75rem;
+}
+
+.legacy-scope .metric-card[data-tone="success"] strong {
+  color: var(--success);
+}
+
+.legacy-scope .metric-card[data-tone="warning"] strong {
+  color: var(--warning);
+}
+
+.legacy-scope .metric-card[data-tone="danger"] strong {
+  color: var(--danger);
+}
+
+.legacy-scope .workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.legacy-scope .workspace-main,
+.legacy-scope .sidebar-stack {
+  display: grid;
+  gap: 20px;
+}
+
+
+.legacy-scope .lane-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+
+/* Source: legacy-02.css */
+
+.legacy-scope .lane-panel {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 24px;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.legacy-scope .lane-panel[data-active="true"] {
+  transform: translateY(-4px);
+  border-color: rgba(87, 215, 210, 0.38);
+  background: var(--panel-strong);
+}
+
+.legacy-scope .lane-panel__summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.legacy-scope .lane-panel__summary span,
+.legacy-scope .lane-panel__footer,
+.legacy-scope .panel-card__body,
+.legacy-scope .handoff-card p,
+.legacy-scope .approval-card p,
+.legacy-scope .placeholder-card p,
+.legacy-scope .issue-list {
+  color: var(--muted);
+}
+
+.legacy-scope .lane-panel__summary strong,
+.legacy-scope .approval-card strong,
+.legacy-scope .handoff-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+}
+
+.legacy-scope .status-pill,
+.legacy-scope .risk-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.82rem;
+  text-transform: capitalize;
+}

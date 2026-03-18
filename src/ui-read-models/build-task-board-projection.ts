@@ -2,6 +2,7 @@ import type {
   InspectionValidationItem,
   RunEvent,
   RunInspection,
+  TaskSessionRecord,
   TaskSpec,
   TaskStatus,
 } from "../domain/models.js";
@@ -29,7 +30,14 @@ import {
   resolveTaskId,
 } from "./task-view-helpers.js";
 
-export function buildTaskBoardProjection(inspection: RunInspection): TaskBoardProjectionView {
+export interface BuildTaskBoardProjectionOptions {
+  sessions?: TaskSessionRecord[];
+}
+
+export function buildTaskBoardProjection(
+  inspection: RunInspection,
+  options: BuildTaskBoardProjectionOptions = {},
+): TaskBoardProjectionView {
   const tasks = Object.values(inspection.graph.tasks);
   const approvals = buildApprovalQueue(inspection);
   const validationByTaskId = new Map(
@@ -38,6 +46,19 @@ export function buildTaskBoardProjection(inspection: RunInspection): TaskBoardPr
   const approvalsByTaskId = groupApprovalsByTaskId(approvals);
   const eventsByTaskId = groupEventsByTaskId(inspection.events);
   const depthByTaskId = buildTaskDepthMap(inspection.graph.tasks);
+  const sessionsByTaskId = mapSessionsByTaskId(options.sessions ?? []);
+  const taskNodes = tasks
+    .map((task) =>
+      buildTaskNodeView(
+        inspection,
+        task,
+        depthByTaskId.get(task.id) ?? 0,
+        validationByTaskId.get(task.id),
+        approvalsByTaskId.get(task.id) ?? [],
+        eventsByTaskId.get(task.id) ?? [],
+        sessionsByTaskId.get(task.id),
+      ),
+    );
 
   return {
     projection: "task_board",
@@ -45,19 +66,8 @@ export function buildTaskBoardProjection(inspection: RunInspection): TaskBoardPr
     runId: inspection.run.runId,
     graphRevision: inspection.graph.revision,
     ...(inspection.run.currentTaskId ? { currentTaskId: inspection.run.currentTaskId } : {}),
-    summary: buildGraphSummary(tasks, approvals, inspection.graph.edges.length),
-    tasks: tasks
-      .map((task) =>
-        buildTaskNodeView(
-          inspection,
-          task,
-          depthByTaskId.get(task.id) ?? 0,
-          validationByTaskId.get(task.id),
-          approvalsByTaskId.get(task.id) ?? [],
-          eventsByTaskId.get(task.id) ?? [],
-        ),
-      )
-      .sort(compareTaskBoardNodes),
+    summary: buildGraphSummary(tasks, approvals, inspection.graph.edges.length, taskNodes),
+    tasks: taskNodes.sort(compareTaskBoardNodes),
     edges: inspection.graph.edges.map((edge, index) =>
       buildDependencyEdgeView(
         index,
@@ -72,6 +82,7 @@ function buildGraphSummary(
   tasks: TaskSpec[],
   approvals: ApprovalQueueItemView[],
   dependencyEdgeCount: number,
+  taskNodes: TaskBoardTaskNodeView[],
 ): TaskBoardGraphSummaryView {
   return {
     totalTaskCount: tasks.length,
@@ -82,7 +93,7 @@ function buildGraphSummary(
       (task) => task.status === "failed_retryable" || task.status === "failed_terminal",
     ).length,
     pendingApprovalCount: approvals.length,
-    activeSessionCount: tasks.filter((task) => isActiveSessionBackfillTaskStatus(task.status)).length,
+    activeSessionCount: taskNodes.filter((task) => Boolean(task.activeSession)).length,
     dependencyEdgeCount,
   };
 }
@@ -94,6 +105,7 @@ function buildTaskNodeView(
   validation: InspectionValidationItem | undefined,
   approvals: ApprovalQueueItemView[],
   taskEvents: RunEvent[],
+  taskSession: TaskSessionRecord | undefined,
 ): TaskBoardTaskNodeView {
   const status = mapTaskStatus(task.status);
   const latestActivity = buildLatestActivity(task, taskEvents, validation, inspection);
@@ -119,7 +131,7 @@ function buildTaskNodeView(
     depth,
     latestActivityAt: latestActivity.timestamp,
     latestActivitySummary: latestActivity.summary,
-    activeSession: buildActiveSessionView(task, approvals, taskEvents, latestActivity.timestamp),
+    activeSession: buildActiveSessionView(task, approvals, taskEvents, latestActivity.timestamp, taskSession),
     retry: buildRetrySummary(task, taskEvents),
   };
 }
@@ -129,9 +141,21 @@ function buildActiveSessionView(
   approvals: ApprovalQueueItemView[],
   taskEvents: RunEvent[],
   lastActivityAt: string,
+  taskSession: TaskSessionRecord | undefined,
 ): TaskBoardActiveSessionView | undefined {
   if (!isActiveSessionBackfillTaskStatus(task.status)) {
     return undefined;
+  }
+
+  if (taskSession) {
+    return {
+      sessionId: taskSession.sessionId,
+      agentId: taskSession.agentId ?? resolveTaskAgentId(task),
+      status: mapTaskStatus(task.status),
+      lastActivityAt: taskSession.updatedAt || lastActivityAt,
+      pendingApprovalCount: approvals.length,
+      sourceMode: "task_session",
+    };
   }
 
   const windows = buildBackfilledSessionWindows(task, taskEvents);
@@ -199,6 +223,23 @@ function groupApprovalsByTaskId(approvals: ApprovalQueueItemView[]): Map<string,
     const scoped = grouped.get(approval.taskId) ?? [];
     scoped.push(approval);
     grouped.set(approval.taskId, scoped);
+  }
+
+  return grouped;
+}
+
+function mapSessionsByTaskId(sessions: TaskSessionRecord[]): Map<string, TaskSessionRecord> {
+  const grouped = new Map<string, TaskSessionRecord>();
+
+  for (const session of sessions) {
+    if (session.scope !== "task_session" || !session.taskId) {
+      continue;
+    }
+
+    const existing = grouped.get(session.taskId);
+    if (!existing || session.updatedAt.localeCompare(existing.updatedAt) > 0) {
+      grouped.set(session.taskId, session);
+    }
   }
 
   return grouped;

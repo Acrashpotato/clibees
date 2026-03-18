@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
-
 import BlockerQueueCard from "../components/workspace/BlockerQueueCard.vue";
 import FocusTaskCard from "../components/workspace/FocusTaskCard.vue";
 import NextActionCard from "../components/workspace/NextActionCard.vue";
@@ -32,13 +30,6 @@ const {
         <h1>{{ t("workspacePage.overviewTitle") }}</h1>
       </div>
       <p>{{ t("workspacePage.overviewDescription") }}</p>
-    </div>
-
-    <div class="section-actions approvals-page__actions">
-      <button class="ghost-button" type="button" :disabled="loading" @click="refresh">
-        {{ t("actions.refresh") }}
-      </button>
-      <RouterLink class="ghost-link" :to="inspectTo">{{ t("actions.openInspect") }}</RouterLink>
     </div>
 
     <div v-if="error" class="panel-card__empty-state">

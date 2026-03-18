@@ -7,7 +7,8 @@
     "types": "dist/index.d.ts",
     "scripts": {
         "build": "tsc -p tsconfig.json",
-        "check": "tsc -p tsconfig.json --noEmit",
+        "check": "tsc -p tsconfig.json --noEmit && npm run check:max-lines",
+        "check:max-lines": "node tools/check-max-lines.mjs",
         "test": "npm run build && node dist/storage/file-stores.test.js && node dist/control/phase3.test.js && node dist/execution/phase4.test.js && node dist/execution/phase5.test.js && node dist/control/phase6.test.js && node dist/control/phase7.test.js && node dist/control/phase8.test.js && node dist/control/phase9.test.js && node dist/control/phase10.test.js && node dist/control/delegated-manager.test.js && node dist/ui-read-models/projection-contracts.test.js && node dist/ui-read-models/build-approval-queue-projection.test.js && node dist/ui-read-models/build-audit-timeline-projection.test.js && node dist/ui-read-models/projection-consistency-regression.test.js && node dist/ui-api/contracts.test.js && node dist/ui-api/server.test.js",
         "cli": "node --enable-source-maps dist/cli/main.js",
         "start": "npm run cli --",

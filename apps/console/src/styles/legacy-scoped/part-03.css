@@ -1,0 +1,415 @@
+.legacy-scope .lane-roster__list {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.legacy-scope .lane-roster__item {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+  transition: 160ms ease;
+}
+
+.legacy-scope .lane-roster__item:hover,
+.legacy-scope .lane-roster__item--active {
+  border-color: rgba(87, 215, 210, 0.28);
+  background: rgba(87, 215, 210, 0.08);
+  color: var(--text);
+}
+
+.legacy-scope .lane-roster__identity,
+.legacy-scope .lane-roster__meta,
+.legacy-scope .lane-conversation__header,
+.legacy-scope .lane-conversation__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.legacy-scope .lane-roster__identity {
+  align-items: start;
+}
+
+.legacy-scope .lane-roster__identity strong {
+  display: block;
+}
+
+.legacy-scope .lane-roster__identity span,
+.legacy-scope .lane-roster__item p,
+.legacy-scope .lane-related-issues {
+  color: var(--muted);
+}
+
+.legacy-scope .lane-roster__item p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.legacy-scope .lane-console-main {
+  display: grid;
+}
+
+.legacy-scope .lane-conversation {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 14px;
+  height: 100%;
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.legacy-scope .lane-chat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legacy-scope .lane-chat-toolbar span {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.legacy-scope .lane-conversation__terminal {
+  min-height: 32rem;
+}
+
+.legacy-scope .lane-conversation__terminal .terminal__body {
+  min-height: 28rem;
+}
+
+.legacy-scope .lane-conversation__footer {
+  color: var(--muted);
+}
+
+.legacy-scope .lane-console-side {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.legacy-scope .lane-artifact-grid {
+  margin-bottom: 12px;
+}
+
+.legacy-scope .lane-related-list {
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 1120px) {
+  .legacy-scope .workspace-layout,
+  .legacy-scope .runs-hero,
+  .legacy-scope .lane-console-layout,
+  .legacy-scope .lane-grid,
+  .legacy-scope .metric-grid,
+  .legacy-scope .lane-panel__summary,
+  .legacy-scope .run-card__meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .legacy-scope .app-shell {
+    padding: 16px;
+  }
+
+  .legacy-scope .app-shell__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .legacy-scope .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 30;
+    width: min(82vw, 310px);
+    padding-right: 12px;
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+  }
+
+  .legacy-scope .app-sidebar--open {
+    transform: translateX(0);
+  }
+
+  .legacy-scope .app-sidebar__inner {
+    min-height: 100dvh;
+    border-radius: 0 28px 28px 0;
+  }
+
+  .legacy-scope .app-sidebar__close,
+  .legacy-scope .app-toolbar__menu {
+    display: inline-flex;
+  }
+
+  .legacy-scope .app-shell__drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    display: block;
+    opacity: 0;
+    border: none;
+    background: rgba(5, 11, 16, 0.52);
+    pointer-events: none;
+    transition: opacity 180ms ease;
+    z-index: 20;
+  }
+
+  .legacy-scope .app-shell__drawer-backdrop--open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .legacy-scope .app-toolbar {
+    top: 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .legacy-scope .app-toolbar,
+  .legacy-scope .section-header,
+  .legacy-scope .lane-console-header,
+  .legacy-scope .lane-roster__identity,
+  .legacy-scope .lane-roster__meta,
+  .legacy-scope .lane-conversation__header,
+  .legacy-scope .lane-conversation__footer,
+  .legacy-scope .panel-card__header,
+  .legacy-scope .lane-panel__header,
+  .legacy-scope .lane-panel__footer,
+  .legacy-scope .run-card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .legacy-scope .app-toolbar__controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .legacy-scope .toolbar-select {
+    flex: 1;
+    justify-content: space-between;
+  }
+
+  .legacy-scope .lane-panel__mini-stats {
+    justify-content: flex-start;
+  }
+
+  .legacy-scope .lane-panel__footer-actions {
+    justify-content: flex-start;
+  }
+
+  .legacy-scope .run-open-card__actions,
+  .legacy-scope .run-card__actions {
+    flex-direction: column;
+  }
+}
+.legacy-scope .workspace-section-shell {
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.legacy-scope .workspace-section-shell__content,
+.legacy-scope .workspace-page-stack {
+  display: grid;
+  gap: 20px;
+}
+
+.legacy-scope .workspace-rail {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 18px;
+}
+
+.legacy-scope .workspace-rail__header,
+.legacy-scope .workspace-hero__intro,
+.legacy-scope .workspace-page-header,
+.legacy-scope .focus-panel__header,
+.legacy-scope .action-queue-card__topline,
+.legacy-scope .focus-panel__footer,
+.legacy-scope .workspace-stat-row {
+  display: flex;
+  justify-content: space-between;
+
+  gap: 16px;
+  align-items: start;
+}
+
+.legacy-scope .workspace-rail__summary,
+.legacy-scope .workspace-page-header p,
+.legacy-scope .workspace-link-card p,
+.legacy-scope .focus-panel__footer p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.legacy-scope .workspace-rail__nav {
+  display: grid;
+  gap: 10px;
+}
+
+.legacy-scope .workspace-rail__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+  transition: 160ms ease;
+}
+
+.legacy-scope .workspace-rail__link:hover,
+.legacy-scope .workspace-rail__link--active {
+  color: var(--text);
+  border-color: rgba(87, 215, 210, 0.28);
+  background: rgba(87, 215, 210, 0.08);
+}
+
+.legacy-scope .workspace-page-header {
+  padding: 4px 4px 0;
+}
+
+.legacy-scope .workspace-page-header h1,
+.legacy-scope .workspace-link-card h3 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.6vw, 2rem);
+  letter-spacing: -0.03em;
+}
+
+.legacy-scope .workspace-page-header p {
+  max-width: 48rem;
+}
+
+.legacy-scope .workspace-hero {
+  gap: 24px;
+}
+
+.legacy-scope .workspace-hero__intro {
+  align-items: end;
+}
+
+.legacy-scope .workspace-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.legacy-scope .workspace-hero__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.legacy-scope .workspace-overview-grid,
+.legacy-scope .workspace-focus-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 20px;
+}
+
+.legacy-scope .workspace-module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.legacy-scope .workspace-link-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.03);
+  transition: 160ms ease;
+}
+
+.legacy-scope .workspace-link-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(87, 215, 210, 0.3);
+  background: rgba(87, 215, 210, 0.07);
+}
+
+.legacy-scope .workspace-link-card__action,
+.legacy-scope .action-queue-card__link {
+  min-height: 36px;
+  justify-self: start;
+}
+
+.legacy-scope .workspace-stat-row {
+  flex-wrap: wrap;
+}
+
+.legacy-scope .focus-panel {
+  gap: 18px;
+}
+
+
+
+/* Source: legacy-04.css */
+.legacy-scope .focus-panel__task {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.legacy-scope .focus-panel__summary {
+  gap: 12px;
+}
+
+.legacy-scope .action-queue-card {
+  gap: 10px;
+}
+
+.legacy-scope .action-queue-card__topline {
+  align-items: center;
+}
+
+.legacy-scope .action-queue-card__kind {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.legacy-scope .health-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.legacy-scope .workspace-lane-grid {
+  margin-top: 18px;
+}
+
+@media (max-width: 1240px) {
+  .legacy-scope .workspace-section-shell,
+  .legacy-scope .workspace-overview-grid,
+  .legacy-scope .workspace-focus-grid,
+  .legacy-scope .workspace-module-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .legacy-scope .workspace-rail {
+    position: static;
+  }
+}

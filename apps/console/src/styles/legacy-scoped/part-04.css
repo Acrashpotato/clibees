@@ -1,0 +1,422 @@
+@media (max-width: 720px) {
+  .legacy-scope .workspace-rail__header,
+  .legacy-scope .workspace-hero__intro,
+  .legacy-scope .workspace-page-header,
+  .legacy-scope .focus-panel__header,
+  .legacy-scope .focus-panel__footer,
+  .legacy-scope .action-queue-card__topline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .legacy-scope .workspace-hero__meta {
+    justify-content: flex-start;
+  }
+}
+
+.legacy-scope .app-shell {
+  padding: 20px;
+}
+
+.legacy-scope .app-shell__layout {
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.legacy-scope .app-shell__backdrop {
+  opacity: 0.08;
+  filter: blur(120px);
+}
+
+.legacy-scope .app-sidebar__inner,
+.legacy-scope .app-toolbar,
+.legacy-scope .status-bar,
+.legacy-scope .panel-card,
+.legacy-scope .lane-panel,
+.legacy-scope .placeholder-card,
+.legacy-scope .runs-hero,
+.legacy-scope .runs-board,
+.legacy-scope .run-open-card,
+.legacy-scope .run-card,
+.legacy-scope .lane-console-header,
+.legacy-scope .lane-roster,
+.legacy-scope .lane-conversation,
+.legacy-scope .lane-console-side {
+  border-color: rgba(126, 168, 180, 0.14);
+  background: linear-gradient(180deg, rgba(10, 24, 34, 0.94) 0%, rgba(7, 18, 26, 0.98) 100%);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.legacy-scope .app-sidebar__inner {
+  gap: 20px;
+  padding: 20px 16px;
+  border-radius: 24px;
+}
+
+.legacy-scope .app-sidebar__brand,
+.legacy-scope .section-eyebrow,
+.legacy-scope .lane-panel__eyebrow {
+  color: var(--accent);
+  letter-spacing: 0.18em;
+}
+
+.legacy-scope .app-sidebar h1,
+.legacy-scope .status-bar h1,
+.legacy-scope .section-header h2,
+.legacy-scope .panel-card h2,
+.legacy-scope .lane-panel h2,
+.legacy-scope .placeholder-card h1 {
+  line-height: 1.1;
+}
+
+.legacy-scope .app-sidebar__link,
+.legacy-scope .mode-chip {
+  min-height: 44px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.legacy-scope .app-sidebar__link:hover,
+.legacy-scope .app-sidebar__link--active,
+.legacy-scope .mode-chip--active {
+  background: rgba(87, 215, 210, 0.08);
+}
+
+.legacy-scope .app-toolbar {
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 20px;
+}
+
+.legacy-scope .app-toolbar__context {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.legacy-scope .app-toolbar__context .section-eyebrow {
+  margin: 0;
+}
+
+.legacy-scope .app-toolbar__context strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.legacy-scope .app-toolbar__controls {
+  margin-left: 0;
+}
+
+.legacy-scope .toolbar-select,
+.legacy-scope .icon-button {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.legacy-scope .app-content {
+  width: min(1360px, 100%);
+  margin: 0;
+}
+
+.legacy-scope .workspace-section-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.legacy-scope .workspace-section-shell__nav {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 22px;
+}
+
+.legacy-scope .workspace-section-shell__scope {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.legacy-scope .workspace-section-shell__scope h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.legacy-scope .workspace-section-shell__stage {
+  min-width: min(100%, 24rem);
+}
+
+.legacy-scope .workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legacy-scope .workspace-tabs__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  transition: 160ms ease;
+}
+
+.legacy-scope .workspace-tabs__link:hover,
+.legacy-scope .workspace-tabs__link--active {
+  border-color: rgba(87, 215, 210, 0.32);
+  background: rgba(87, 215, 210, 0.1);
+  color: var(--text);
+}
+
+.legacy-scope .workspace-section-shell__content,
+.legacy-scope .workspace-page-stack {
+  gap: 18px;
+}
+
+.legacy-scope .workspace-page-header {
+  padding: 4px 2px 0;
+  align-items: end;
+}
+
+.legacy-scope .workspace-page-header h1 {
+  margin: 0;
+
+  font-size: clamp(1.6rem, 2vw, 2rem);
+}
+
+.legacy-scope .workspace-page-header p,
+.legacy-scope .workspace-link-card p,
+.legacy-scope .focus-panel__footer p,
+.legacy-scope .workspace-hero__lead,
+.legacy-scope .summary-card span,
+.legacy-scope .health-panel__item p,
+.legacy-scope .action-queue-panel__lead p {
+  color: var(--text-secondary);
+}
+
+.legacy-scope .workspace-page-header p {
+  max-width: 42rem;
+}
+
+.legacy-scope .status-bar.workspace-hero {
+  gap: 18px;
+  padding: 22px;
+  border-radius: 24px;
+}
+
+.legacy-scope .workspace-hero__intro {
+  display: block;
+}
+
+.legacy-scope .workspace-hero__lead {
+  margin: 12px 0 0;
+  max-width: 48rem;
+}
+
+.legacy-scope .workspace-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.legacy-scope .summary-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-subtle);
+}
+
+.legacy-scope .summary-card strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1rem;
+}
+
+.legacy-scope .workspace-overview-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 18px;
+}
+
+.legacy-scope .workspace-support-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.85fr);
+  gap: 18px;
+}
+
+.legacy-scope .metrics-panel,
+.legacy-scope .action-queue-panel,
+.legacy-scope .focus-panel,
+.legacy-scope .health-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.legacy-scope .metric-grid--compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.legacy-scope .metric-card,
+.legacy-scope .handoff-card,
+.legacy-scope .approval-card,
+.legacy-scope .detail-chip,
+.legacy-scope .lane-panel__summary > div,
+.legacy-scope .focus-panel__summary > div,
+.legacy-scope .health-panel__item,
+.legacy-scope .summary-card,
+.legacy-scope .action-queue-panel__lead {
+  border-radius: 16px;
+  background: var(--panel-subtle);
+}
+
+.legacy-scope .metric-card {
+  padding: 14px 16px;
+  border-color: rgba(126, 168, 180, 0.16);
+}
+
+.legacy-scope .panel-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+}
+
+.legacy-scope .action-queue-panel__lead {
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+}
+
+.legacy-scope .action-queue-panel__lead[data-tone="warning"] {
+  border-color: rgba(255, 190, 92, 0.32);
+  background: linear-gradient(180deg, rgba(255, 190, 92, 0.08) 0%, rgba(12, 27, 37, 0.9) 100%);
+}
+
+.legacy-scope .action-queue-panel__lead[data-tone="danger"] {
+  border-color: rgba(255, 123, 112, 0.32);
+  background: linear-gradient(180deg, rgba(255, 123, 112, 0.08) 0%, rgba(12, 27, 37, 0.9) 100%);
+}
+
+.legacy-scope .action-queue-panel__lead h3 {
+  margin: 0;
+  font-size: 1.18rem;
+  line-height: 1.35;
+}
+
+.legacy-scope .action-queue-panel__list {
+  gap: 10px;
+}
+
+.legacy-scope .action-queue-card--secondary {
+  display: grid;
+  gap: 10px;
+}
+
+
+/* Source: legacy-05.css */
+
+.legacy-scope .action-queue-card__topline {
+  align-items: center;
+}
+
+.legacy-scope .focus-panel__task {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel-subtle);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.legacy-scope .focus-panel__summary,
+.legacy-scope .lane-panel__summary {
+  gap: 10px;
+}
+
+.legacy-scope .focus-panel__summary > div,
+.legacy-scope .lane-panel__summary > div {
+  padding: 14px;
+  border: 1px solid var(--line);
+}
+
+.legacy-scope .focus-panel__checks {
+  gap: 10px;
+}
+
+.legacy-scope .focus-panel__footer {
+  padding-top: 6px;
+  border-top: 1px solid rgba(126, 168, 180, 0.14);
+  align-items: center;
+}
+
+.legacy-scope .health-panel__list {
+  display: grid;
+  gap: 10px;
+}
+
+.legacy-scope .health-panel__item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+}
+
+.legacy-scope .health-panel__marker {
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--warning);
+}
+
+.legacy-scope .health-panel__item p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.legacy-scope .handoff-card,
+.legacy-scope .approval-card {
+  padding: 14px 16px;
+}
+
+.legacy-scope .detail-chip {
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+.legacy-scope .detail-chip strong {
+  color: var(--text);
+}
+
+.legacy-scope .primary-button,
+.legacy-scope .primary-link {
+  background: var(--accent-soft);
+  border-color: rgba(87, 215, 210, 0.34);
+  color: var(--text);
+}
+
+.legacy-scope .ghost-button,
+.legacy-scope .ghost-link {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+}
+
+.legacy-scope .primary-button:hover,
+.legacy-scope .primary-link:hover,
+.legacy-scope .ghost-button:hover,
+.legacy-scope .ghost-link:hover {
+  background: rgba(87, 215, 210, 0.12);
+}

@@ -1,256 +1,13 @@
 import test from "node:test";
 import { EventEmitter } from "node:events";
 import assert from "node:assert/strict";
-import os from "node:os";
 import path from "node:path";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
-import type { MultiAgentConfig } from "../domain/config.js";
-import type {
-  AgentCapability,
-  InvocationPlan,
-  RunEvent,
-  RunInspection,
-  RunRecord,
-  TaskSpec,
-} from "../domain/models.js";
-import type { Planner, PlannerInput, ReplanInput } from "../decision/planner.js";
-import { createApp } from "../app/create-app.js";
+import { writeFile } from "node:fs/promises";
+import type { RunInspection, RunRecord } from "../domain/models.js";
 import { DefaultValidator } from "../decision/validator.js";
-import { AdapterRegistry } from "../execution/adapter-registry.js";
-import type { AgentAdapter } from "../execution/agent-adapter.js";
 import { FileArtifactStore } from "../storage/artifact-store.js";
 import { FileBlackboardStore } from "../storage/blackboard-store.js";
-import { FileEventStore } from "../storage/event-store.js";
-
-function buildTask(workspaceDir: string, overrides: Partial<TaskSpec> = {}): TaskSpec {
-  return {
-    id: "task-phase8",
-    title: "Phase 8 task",
-    kind: "execute",
-    goal: "Exercise validation and artifact archival",
-    instructions: ["Execute", "Archive artifacts", "Validate outputs"],
-    inputs: [],
-    dependsOn: [],
-    requiredCapabilities: ["planning"],
-    workingDirectory: workspaceDir,
-    expectedArtifacts: [],
-    acceptanceCriteria: ["Validation runs after execution"],
-    validator: { mode: "none" },
-    riskLevel: "low",
-    allowedActions: [],
-    timeoutMs: 60_000,
-    retryPolicy: {
-      maxAttempts: 1,
-      backoffMs: 0,
-      retryOn: ["validation_fail"],
-    },
-    status: "ready",
-    ...overrides,
-  };
-}
-
-function buildConfig(workspaceDir: string): MultiAgentConfig {
-  return {
-    version: 1,
-    agents: [
-      {
-        id: "codex",
-        command: "node",
-        priority: 1,
-        profiles: [
-          {
-            id: "default",
-            label: "Default",
-            capabilities: ["planning"],
-            defaultArgs: [],
-            defaultCwd: workspaceDir,
-            costTier: "low",
-          },
-        ],
-      },
-    ],
-    planner: {
-      mode: "static",
-      agentId: "codex",
-    },
-    routing: {
-      defaultAgentId: "codex",
-      preferLowCost: true,
-    },
-    safety: {
-      approvalThreshold: "high",
-      blockedActions: [],
-    },
-    memory: {
-      enabled: false,
-      rootDir: path.join(workspaceDir, ".multi-agent", "memory"),
-    },
-    workspace: {
-      rootDir: workspaceDir,
-      allowOutsideWorkspaceWrites: false,
-    },
-    validation: {
-      defaultTimeoutMs: 60_000,
-      enableBuildChecks: true,
-    },
-    logging: {
-      level: "info",
-      persistEvents: true,
-    },
-  };
-}
-
-class SingleTaskPlanner implements Planner {
-  constructor(private readonly task: TaskSpec) {}
-
-  async createInitialPlan(_input: PlannerInput): Promise<TaskSpec[]> {
-    return [{ ...this.task }];
-  }
-
-  async replan(_input: ReplanInput) {
-    return {
-      operation: "append_tasks" as const,
-      reason: "Phase 8 tests do not replan.",
-      tasks: [],
-    };
-  }
-}
-
-class ValidationTestAdapter implements AgentAdapter {
-  constructor(public readonly agentId: string) {}
-
-  async probe(): Promise<AgentCapability> {
-    return {
-      agentId: this.agentId,
-      supportsNonInteractive: true,
-      supportsStructuredOutput: true,
-      supportsCwd: true,
-      supportsAutoApproveFlags: false,
-      supportsStreaming: false,
-      supportsActionPlanning: true,
-      supportsResume: false,
-      supportedCapabilities: ["planning"],
-      defaultProfileId: "default",
-    };
-  }
-
-  async planInvocation(task: TaskSpec): Promise<InvocationPlan> {
-    return {
-      taskId: task.id,
-      agentId: this.agentId,
-      command: "node",
-      args: ["-e", "process.stdout.write('phase8');"],
-      cwd: task.workingDirectory,
-      actionPlans: [],
-    };
-  }
-
-  async *run(_runId: string, _invocation: InvocationPlan): AsyncIterable<RunEvent> {
-    return;
-  }
-
-  async interrupt(): Promise<void> {
-    return;
-  }
-}
-
-function buildExecutionRuntime(options: {
-  eventStore: FileEventStore;
-  onExecute?: (task: TaskSpec) => Promise<void>;
-  finalPayload?: Record<string, unknown>;
-}) {
-  return {
-    async *execute(runId: string, task: TaskSpec, invocation: InvocationPlan): AsyncIterable<RunEvent> {
-      await options.onExecute?.(task);
-      const events: RunEvent[] = [
-        {
-          schemaVersion: 1,
-          id: `evt-start-${task.id}`,
-          type: "task_started",
-          runId,
-          taskId: task.id,
-          timestamp: "2026-03-11T15:00:00.000Z",
-          payload: {
-            agentId: invocation.agentId,
-            command: invocation.command,
-            args: invocation.args,
-            cwd: invocation.cwd,
-          },
-        },
-        {
-          schemaVersion: 1,
-          id: `evt-complete-${task.id}`,
-          type: "task_completed",
-          runId,
-          taskId: task.id,
-          timestamp: "2026-03-11T15:00:01.000Z",
-          payload: {
-            agentId: invocation.agentId,
-            exitCode: 0,
-            ...(options.finalPayload ?? {}),
-          },
-        },
-      ];
-
-      for (const event of events) {
-        await options.eventStore.append(event);
-        yield event;
-      }
-    },
-    async interrupt(): Promise<void> {
-      return;
-    },
-  };
-}
-
-async function setupPhase8App(options: {
-  taskOverrides: Partial<TaskSpec>;
-  onExecute?: (task: TaskSpec) => Promise<void>;
-  finalPayload?: Record<string, unknown>;
-}) {
-  const rootDir = await mkdtemp(path.join(os.tmpdir(), "clibees-phase8-"));
-  const workspaceDir = path.join(rootDir, "workspace");
-  const stateRootDir = path.join(workspaceDir, ".multi-agent", "state");
-  await mkdir(workspaceDir, { recursive: true });
-  await writeFile(path.join(workspaceDir, "seed.txt"), "phase8", "utf8");
-
-  const task = buildTask(workspaceDir, options.taskOverrides);
-  const config = buildConfig(workspaceDir);
-  const registry = new AdapterRegistry();
-  registry.register(new ValidationTestAdapter("codex"));
-  const eventStore = new FileEventStore(stateRootDir);
-  const app = createApp({
-    stateRootDir,
-    planner: new SingleTaskPlanner(task),
-    adapterRegistry: registry,
-    eventStore,
-    executionRuntime: buildExecutionRuntime({
-      eventStore,
-      onExecute: options.onExecute,
-      finalPayload: options.finalPayload,
-    }),
-    configLoader: {
-      async load(): Promise<MultiAgentConfig> {
-        return config;
-      },
-    },
-    projectMemoryStore: {
-      async recall() {
-        return [];
-      },
-      async persist() {
-        return;
-      },
-    },
-  });
-
-  return {
-    app,
-    stateRootDir,
-    task,
-  };
-}
-
+import { buildTask, setupPhase8App } from "./phase8.test-helpers.js";
 
 test("Phase 8 command validator interprets successful command exits", async () => {
   const validator = new DefaultValidator({
@@ -431,7 +188,81 @@ test("Phase 8 maps blocked validators to blocked tasks", async () => {
   assert.ok(inspected.events.some((event) => event.type === "task_blocked"));
 });
 
+test("Phase 8 maps runtime sandbox setup failures to failed_retryable when retryOn includes adapter_error", async () => {
+  const { app, task } = await setupPhase8App({
+    taskOverrides: {
+      retryPolicy: {
+        maxAttempts: 2,
+        backoffMs: 0,
+        retryOn: ["adapter_error"],
+      },
+    },
+    terminalEventsByTaskId: {
+      "task-phase8": [
+        {
+          type: "task_failed",
+          payload: {
+            exitCode: -1,
+            error: "windows sandbox: setup refresh failed",
+          },
+        },
+      ],
+    },
+  });
 
+  const started = (await app.entrypoint.handle(["run", "Phase", "8", "adapter-error"])) as RunRecord;
+  const resumed = (await app.entrypoint.handle(["resume", started.runId])) as RunRecord;
+  assert.equal(resumed.status, "failed");
 
+  const inspected = (await app.entrypoint.handle(["inspect", started.runId])) as RunInspection;
+  assert.equal(inspected.graph.tasks[task.id]?.status, "failed_retryable");
+  assert.ok(inspected.events.some((event) => event.type === "task_failed"));
+});
 
+test("Phase 8 routes runtime policy-blocked failures to approval and resumes after approval", async () => {
+  const { app, task } = await setupPhase8App({
+    taskOverrides: {
+      retryPolicy: {
+        maxAttempts: 2,
+        backoffMs: 0,
+        retryOn: ["timeout"],
+      },
+    },
+    terminalEventsByTaskId: {
+      "task-phase8": [
+        {
+          type: "task_failed",
+          payload: {
+            reason: "timeout",
+            output: "sandbox: read-only / blocked by policy while writing artifact",
+          },
+        },
+        {
+          type: "task_completed",
+          payload: {},
+        },
+      ],
+    },
+  });
 
+  const started = (await app.entrypoint.handle(["run", "Phase", "8", "runtime-approval"])) as RunRecord;
+  const waiting = (await app.entrypoint.handle(["resume", started.runId])) as RunRecord;
+  assert.equal(waiting.status, "waiting_approval");
+
+  const approvals = (await app.entrypoint.handle(["approvals", started.runId])) as Array<{ id: string }>;
+  assert.equal(approvals.length, 1);
+
+  const approved = (await app.entrypoint.handle([
+    "approve",
+    started.runId,
+    approvals[0]!.id,
+    "--actor",
+    "phase8-tester",
+  ])) as RunRecord;
+  assert.equal(approved.status, "completed");
+
+  const inspected = (await app.entrypoint.handle(["inspect", started.runId])) as RunInspection;
+  assert.equal(inspected.graph.tasks[task.id]?.status, "completed");
+  assert.ok(inspected.events.some((event) => event.type === "approval_requested"));
+  assert.ok(inspected.events.some((event) => event.type === "approval_decided"));
+});

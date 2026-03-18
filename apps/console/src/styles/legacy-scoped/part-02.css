@@ -1,0 +1,416 @@
+.legacy-scope .status-pill[data-status="running"] {
+  color: var(--accent-strong);
+}
+
+.legacy-scope .status-pill[data-status="awaiting_approval"] {
+  color: var(--warning);
+}
+
+.legacy-scope .status-pill[data-status="blocked"] {
+  color: var(--danger);
+}
+
+.legacy-scope .status-pill[data-status="failed"] {
+  color: var(--danger);
+}
+
+.legacy-scope .status-pill[data-status="completed"] {
+  color: var(--success);
+}
+
+.legacy-scope .risk-pill[data-risk="high"],
+.legacy-scope .approval-card[data-risk="high"] {
+  border-color: rgba(255, 123, 112, 0.35);
+}
+
+.legacy-scope .risk-pill[data-risk="medium"],
+.legacy-scope .approval-card[data-risk="medium"] {
+  border-color: rgba(255, 190, 92, 0.35);
+}
+
+.legacy-scope .terminal {
+  border: 1px solid rgba(87, 215, 210, 0.14);
+  border-radius: 18px;
+  background: rgba(3, 10, 14, 0.86);
+  overflow: hidden;
+}
+
+.legacy-scope .terminal__toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(87, 215, 210, 0.12);
+  color: var(--muted);
+}
+
+.legacy-scope .terminal__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.legacy-scope .terminal__body {
+  margin: 0;
+  padding: 16px;
+  color: #d0eee9;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.legacy-scope .lane-panel__mini-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legacy-scope .lane-panel__footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
+}
+
+.legacy-scope .lane-panel__link {
+  min-height: 36px;
+  padding-inline: 14px;
+}
+
+.legacy-scope .lane-panel__mini-stats span,
+.legacy-scope .detail-chip {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.legacy-scope .panel-card,
+.legacy-scope .placeholder-card {
+  padding: 20px;
+  border-radius: 24px;
+}
+
+.legacy-scope .handoff-list,
+.legacy-scope .detail-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.legacy-scope .handoff-card,
+.legacy-scope .approval-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.legacy-scope .handoff-card[data-status="delivered"] {
+  border-color: rgba(117, 240, 174, 0.28);
+}
+
+.legacy-scope .handoff-card[data-status="in_progress"] {
+  border-color: rgba(87, 215, 210, 0.3);
+}
+
+.legacy-scope .handoff-card[data-status="queued"] {
+  border-color: rgba(255, 190, 92, 0.28);
+}
+
+.legacy-scope .handoff-card__arrow {
+  color: var(--accent-strong);
+}
+
+.legacy-scope .approval-card__lane {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--warning);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.legacy-scope .detail-chip {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.legacy-scope .detail-chip strong {
+  text-transform: uppercase;
+}
+
+.legacy-scope .detail-chip[data-state="pass"] strong {
+  color: var(--success);
+}
+
+.legacy-scope .detail-chip[data-state="warn"] strong {
+  color: var(--warning);
+}
+
+.legacy-scope .detail-chip[data-state="fail"] strong {
+  color: var(--danger);
+}
+
+.legacy-scope .issue-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.legacy-scope .placeholder-card {
+  min-height: 24rem;
+  display: grid;
+  align-content: center;
+}
+
+.legacy-scope .runs-shell {
+  display: grid;
+  gap: 24px;
+}
+
+.legacy-scope .runs-hero,
+.legacy-scope .runs-board,
+.legacy-scope .run-open-card,
+.legacy-scope .run-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+}
+
+.legacy-scope .runs-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  gap: 20px;
+}
+
+.legacy-scope .runs-hero__copy,
+.legacy-scope .run-open-card,
+.legacy-scope .runs-board,
+.legacy-scope .run-card {
+  padding: 22px;
+  border-radius: 24px;
+}
+
+.legacy-scope .runs-hero__copy p:last-child,
+.legacy-scope .run-card__summary,
+.legacy-scope .form-hint,
+.legacy-scope .form-error {
+  margin-bottom: 0;
+}
+
+.legacy-scope .run-open-card,
+.legacy-scope .run-list {
+  display: grid;
+  gap: 14px;
+}
+
+.legacy-scope .form-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.legacy-scope .text-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: rgba(2, 11, 16, 0.66);
+  color: var(--text);
+  outline: none;
+}
+
+.legacy-scope .text-input:focus {
+  border-color: rgba(87, 215, 210, 0.45);
+  box-shadow: 0 0 0 3px rgba(87, 215, 210, 0.12);
+}
+
+.legacy-scope .form-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.legacy-scope .form-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.legacy-scope .run-open-card__actions,
+.legacy-scope .run-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.legacy-scope .primary-button,
+.legacy-scope .ghost-button,
+.legacy-scope .primary-link,
+.legacy-scope .ghost-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: 160ms ease;
+  font: inherit;
+}
+
+.legacy-scope .primary-button,
+.legacy-scope .primary-link {
+  background: rgba(87, 215, 210, 0.16);
+  border-color: rgba(87, 215, 210, 0.28);
+  color: var(--text);
+}
+
+.legacy-scope .ghost-button,
+.legacy-scope .ghost-link {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.legacy-scope .primary-button:hover,
+.legacy-scope .primary-link:hover,
+.legacy-scope .ghost-button:hover,
+.legacy-scope .ghost-link:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.legacy-scope .run-list {
+  margin-top: 18px;
+}
+
+.legacy-scope .run-card {
+  display: grid;
+  gap: 16px;
+}
+
+.legacy-scope .run-card[data-status="failed"] {
+  border-color: rgba(255, 123, 112, 0.24);
+}
+
+.legacy-scope .run-card[data-status="awaiting_approval"] {
+  border-color: rgba(255, 190, 92, 0.24);
+}
+
+.legacy-scope .run-card[data-status="running"] {
+  border-color: rgba(87, 215, 210, 0.22);
+}
+
+.legacy-scope .run-card[data-status="completed"] {
+  border-color: rgba(117, 240, 174, 0.22);
+}
+
+.legacy-scope .run-card__header,
+.legacy-scope .run-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: start;
+}
+
+.legacy-scope .run-card__header h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.legacy-scope .run-card__summary {
+  color: var(--muted);
+}
+
+.legacy-scope .run-card__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.legacy-scope .run-card__meta span,
+.legacy-scope .run-card__stats {
+  color: var(--muted);
+}
+
+.legacy-scope .run-card__meta strong {
+  display: block;
+  margin-top: 6px;
+}
+
+.legacy-scope .run-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legacy-scope .run-card__stats span {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.legacy-scope .lane-console-shell {
+  display: grid;
+  gap: 20px;
+}
+
+
+
+/* Source: legacy-03.css */
+.legacy-scope .lane-console-side {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow);
+}
+
+.legacy-scope .lane-console-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  padding: 20px 22px;
+  border-radius: 24px;
+}
+
+.legacy-scope .lane-console-header h1,
+.legacy-scope .lane-roster h2,
+.legacy-scope .lane-conversation h2 {
+  margin: 0;
+}
+
+.legacy-scope .lane-console-header__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.legacy-scope .lane-console-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 280px) minmax(0, 1.35fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.legacy-scope .lane-roster,
+.legacy-scope .lane-console-main,
+.legacy-scope .lane-console-side {
+  min-height: 42rem;
+  border-radius: 24px;
+}
+
+.legacy-scope .lane-roster {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+.legacy-scope .lane-roster__header {
+  padding: 20px;
+  border-bottom: 1px solid var(--line);
+}

@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { appendFile } from "node:fs/promises";
+import { appendFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import type { InvocationPlan, RunEvent, TaskSpec } from "../domain/models.js";
@@ -59,6 +59,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
     const executionKey = getExecutionKey(runId, invocation.taskId);
     const transcriptPath = getTaskTranscriptPath(this.layout, runId, invocation.taskId);
     await ensureDirectory(path.dirname(transcriptPath));
+    const executionCwd = await ensureExecutionCwd(invocation.cwd);
 
     const queue = new AsyncEventQueue<RunEvent>();
     const child = spawnWithWindowsShellFallback(
@@ -66,7 +67,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
       invocation.command,
       invocation.args,
       {
-        cwd: invocation.cwd,
+        cwd: executionCwd,
         env: {
           ...process.env,
           ...invocation.env,
@@ -131,7 +132,7 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
         agentId: invocation.agentId,
         command: invocation.command,
         args: invocation.args,
-        cwd: invocation.cwd,
+        cwd: executionCwd,
         transcriptPath,
       }),
     );
@@ -280,6 +281,30 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
       timestamp: isoNow(this.now()),
       payload,
     };
+  }
+}
+
+async function ensureExecutionCwd(cwd: string): Promise<string> {
+  const resolvedCwd = path.resolve(cwd);
+
+  try {
+    const cwdStats = await stat(resolvedCwd);
+    if (cwdStats.isDirectory()) {
+      return resolvedCwd;
+    }
+
+    // If a file path is accidentally passed as cwd, execute from its parent directory.
+    const parentDirectory = path.dirname(resolvedCwd);
+    await ensureDirectory(parentDirectory);
+    return parentDirectory;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      throw error;
+    }
+
+    await ensureDirectory(resolvedCwd);
+    return resolvedCwd;
   }
 }
 

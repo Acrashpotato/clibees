@@ -1,0 +1,127 @@
+
+.legacy-scope .inspect-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.legacy-scope .inspect-run-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legacy-scope .inspect-timeline {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 1240px) {
+  .legacy-scope .inspect-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.legacy-scope .workspace-v3 {
+  display: grid;
+  gap: 18px;
+}
+
+.legacy-scope .workspace-v3-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+
+.legacy-scope .workspace-v3-summary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.legacy-scope .workspace-v3-primary-grid,
+.legacy-scope .workspace-v3-support-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.legacy-scope .workspace-v3-primary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.legacy-scope .workspace-v3-support-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.legacy-scope .workspace-v3-card {
+  display: grid;
+  gap: 16px;
+}
+
+.legacy-scope .workspace-v3-card--wide {
+  grid-column: 1 / -1;
+}
+
+.legacy-scope .workspace-v3-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.legacy-scope .workspace-v3-terminal {
+  min-height: 18rem;
+}
+
+.legacy-scope .workspace-v3-message-list,
+.legacy-scope .workspace-v3-control-list {
+  display: grid;
+  gap: 10px;
+}
+
+.legacy-scope .workspace-v3-control-item {
+  display: grid;
+  gap: 12px;
+}
+
+.legacy-scope .workspace-v3-action-note {
+  color: var(--text-secondary);
+  align-self: center;
+}
+
+@media (max-width: 1240px) {
+  .legacy-scope .workspace-v3-summary-grid,
+  .legacy-scope .workspace-v3-primary-grid,
+  .legacy-scope .workspace-v3-support-grid,
+  .legacy-scope .workspace-v3-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .legacy-scope .workspace-v3-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.legacy-scope .app-toolbar__settings {
+  flex-shrink: 0;
+}
+
+.legacy-scope .app-toolbar__settings-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.legacy-scope .app-toolbar__settings--active {
+  border-color: var(--line-strong);
+  color: var(--accent);
+  background: rgba(87, 215, 210, 0.12);
+}
+
+.legacy-scope .app-shell__layout {
+  grid-template-columns: 1fr;
+}
+
+.legacy-scope .app-toolbar__menu {
+  display: inline-flex;
+  margin-right: 0;
+}

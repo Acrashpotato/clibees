@@ -9,12 +9,19 @@ import {
 } from "../manager-projection";
 import { usePreferences } from "../composables/usePreferences";
 
+const props = defineProps<{
+  runIdOverride?: string;
+}>();
+
 const route = useRoute();
 const { isZh } = usePreferences();
 
-const runId = computed(() =>
-  typeof route.params.runId === "string" ? route.params.runId : "",
-);
+const runId = computed(() => {
+  if (typeof props.runIdOverride === "string" && props.runIdOverride.length > 0) {
+    return props.runIdOverride;
+  }
+  return typeof route.params.runId === "string" ? route.params.runId : "";
+});
 const projection = ref<ManagerChatProjectionView>(createEmptyManagerChatProjection());
 const loading = ref(false);
 const sending = ref(false);

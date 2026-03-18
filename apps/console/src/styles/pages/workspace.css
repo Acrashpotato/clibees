@@ -18,7 +18,7 @@
 
 .workspace-overview-grid {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   align-items: stretch;
 }
@@ -28,19 +28,19 @@
 }
 
 .workspace-run-card {
-  grid-column: span 8;
+  grid-column: auto;
 }
 
 .workspace-next-action-card {
-  grid-column: span 4;
+  grid-column: auto;
 }
 
 .workspace-focus-card {
-  grid-column: span 7;
+  grid-column: auto;
 }
 
 .workspace-blocker-card {
-  grid-column: span 5;
+  grid-column: auto;
 }
 
 .workspace-focus-grid {
@@ -133,33 +133,7 @@
   margin: 0;
 }
 
-@media (min-width: 1700px) {
-  .workspace-run-card {
-    grid-column: span 9;
-  }
-
-  .workspace-next-action-card {
-    grid-column: span 3;
-  }
-
-  .workspace-focus-card {
-    grid-column: span 8;
-  }
-
-  .workspace-blocker-card {
-    grid-column: span 4;
-  }
-
-  .workspace-focus-grid > :first-child {
-    grid-column: span 4;
-  }
-
-  .workspace-focus-grid > :last-child {
-    grid-column: span 8;
-  }
-}
-
-@media (max-width: 1080px) {
+@media (max-width: 760px) {
   .workspace-overview-grid,
   .workspace-focus-grid {
     grid-template-columns: 1fr;
