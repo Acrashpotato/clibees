@@ -2,94 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
-import type { MultiAgentConfig } from "../domain/config.js";
+import { mkdtemp, readFile } from "node:fs/promises";
 import type {
-  ActionPlan,
-  AgentCapability,
-  ContextBundle,
-  InvocationPlan,
   MemoryRecord,
-  RunEvent,
   RunGraph,
   RunInspection,
   RunRecord,
-  TaskSpec,
-  ValidationResult,
 } from "../domain/models.js";
-import type { Planner, PlannerInput, ReplanInput } from "../decision/planner.js";
-import type { ValidationInput, Validator } from "../decision/validator.js";
-import { createApp } from "../app/create-app.js";
 import { ConfiguredCliAdapter } from "../adapters/configured-cli-adapter.js";
 import { MemoryConsolidator } from "./memory-consolidator.js";
-import { AdapterRegistry } from "../execution/adapter-registry.js";
-import type { AgentAdapter } from "../execution/agent-adapter.js";
-import { FileEventStore } from "../storage/event-store.js";
 import {
   FileProjectMemoryStore,
   readMemoryIndex,
 } from "../storage/project-memory-store.js";
-
-import { buildConfig, buildTask, buildExecutionRuntime, setupPhase10App } from "./phase10.test-helpers.js";
-
-class Phase10Planner implements Planner {
-  constructor(private readonly tasks: TaskSpec[]) {}
-
-  async createInitialPlan(_input: PlannerInput): Promise<TaskSpec[]> {
-    return this.tasks.map((task) => ({ ...task }));
-  }
-
-  async replan(_input: ReplanInput) {
-    return {
-      operation: "append_tasks" as const,
-      reason: "Phase 10 tests do not replan.",
-      tasks: [],
-    };
-  }
-}
-
-class Phase10Adapter implements AgentAdapter {
-  constructor(
-    public readonly agentId: string,
-    private readonly actionPlansByTaskId: Record<string, ActionPlan[]> = {},
-  ) {}
-
-  async probe(): Promise<AgentCapability> {
-    return {
-      agentId: this.agentId,
-      supportsNonInteractive: true,
-      supportsStructuredOutput: true,
-      supportsCwd: true,
-      supportsAutoApproveFlags: false,
-      supportsStreaming: false,
-      supportsActionPlanning: true,
-      supportsResume: false,
-      supportedCapabilities: ["planning"],
-      defaultProfileId: "default",
-    };
-  }
-
-  async planInvocation(task: TaskSpec, _context: ContextBundle): Promise<InvocationPlan> {
-    return {
-      taskId: task.id,
-      agentId: this.agentId,
-      command: "node",
-      args: ["-e", `process.stdout.write(${JSON.stringify(task.id)});`],
-      cwd: task.workingDirectory,
-      actionPlans: (this.actionPlansByTaskId[task.id] ?? []).map((action) => ({
-        ...action,
-      })),
-    };
-  }
-
-  async *run(): AsyncIterable<RunEvent> {
-    return;
-  }
-
-  async interrupt(): Promise<void> {
-    return;
-  }
-}
+import { buildTask, setupPhase10App } from "./phase10.test-helpers.js";
 
 test("ConfiguredCliAdapter treats codex-worker ids as codex stdin invocations", async () => {
   const workspaceDir = process.cwd();
@@ -476,6 +402,76 @@ test("Phase 10 inspect explains blocked runs after approval rejection", async ()
   assert.ok(inspected.timeline.some((entry) => entry.type === "task_blocked"));
   assert.equal(approvalItem?.state, "rejected");
   assert.match(inspected.summary.latestBlocker ?? "", /rejected/i);
+});
+
+test("Phase 10 resume requeues stale awaiting approval tasks with no pending approval", async () => {
+  const task = buildTask(process.cwd(), {
+    id: "task-stale-awaiting-approval",
+    title: "Stale awaiting approval",
+  });
+  const { app } = await setupPhase10App({
+    tasks: [task],
+  });
+
+  const started = (await app.entrypoint.handle(["run", "Phase", "10", "stale"])) as RunRecord;
+
+  await app.dependencies.runStore.updateTaskStatus(started.runId, task.id, "routing");
+  await app.dependencies.runStore.updateTaskStatus(
+    started.runId,
+    task.id,
+    "context_building",
+  );
+  await app.dependencies.runStore.updateTaskStatus(
+    started.runId,
+    task.id,
+    "awaiting_approval",
+  );
+
+  const resumed = (await app.entrypoint.handle(["resume", started.runId])) as RunRecord;
+  assert.equal(resumed.status, "completed");
+
+  const pendingApprovals = await app.runCoordinator.listPendingApprovals(started.runId);
+  assert.equal(pendingApprovals.length, 0);
+
+  const inspected = (await app.entrypoint.handle(["inspect", started.runId])) as RunInspection;
+  assert.equal(inspected.graph.tasks[task.id]?.status, "completed");
+  assert.ok(
+    inspected.events.some(
+      (event) => event.type === "task_started" && event.taskId === task.id,
+    ),
+  );
+});
+
+test("Phase 10 resume pauses when unresolved tasks remain without ready work", async () => {
+  const task = buildTask(process.cwd(), {
+    id: "task-pending-without-ready-work",
+    title: "Pending without ready work",
+  });
+  const { app } = await setupPhase10App({
+    tasks: [task],
+  });
+
+  const started = (await app.entrypoint.handle(["run", "Phase", "10", "pause"])) as RunRecord;
+  const graph = await app.dependencies.runStore.getGraph(started.runId);
+  assert.ok(graph);
+  await app.dependencies.runStore.saveGraph(started.runId, {
+    ...graph!,
+    tasks: {
+      ...graph!.tasks,
+      [task.id]: {
+        ...graph!.tasks[task.id]!,
+        status: "pending",
+      },
+    },
+    readyQueue: [],
+  });
+
+  const resumed = (await app.entrypoint.handle(["resume", started.runId])) as RunRecord;
+  assert.equal(resumed.status, "paused");
+
+  const inspected = (await app.entrypoint.handle(["inspect", started.runId])) as RunInspection;
+  assert.equal(inspected.run.status, "paused");
+  assert.equal(inspected.graph.tasks[task.id]?.status, "pending");
 });
 
 

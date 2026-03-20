@@ -28,6 +28,10 @@ import type { WorkspaceStateStore } from "../../storage/workspace-state-store.js
 import type { SelectedCli } from "../../ui-api/selected-cli.js";
 import type { GraphManager } from "../graph-manager.js";
 import type { Scheduler } from "../scheduler.js";
+import type {
+  SkillDiscoveryAdapter,
+  SkillRegistry,
+} from "../skills/types.js";
 
 export interface RunCoordinatorDependencies {
   planner: Planner;
@@ -47,6 +51,8 @@ export interface RunCoordinatorDependencies {
   workspaceStateStore?: WorkspaceStateStore;
   approvalManager?: ApprovalManager;
   safetyManager?: SafetyManager;
+  skillRegistry?: SkillRegistry;
+  skillDiscoveryAdapter?: SkillDiscoveryAdapter;
 }
 
 export interface ExecutionServices {
@@ -61,6 +67,8 @@ export interface ExecutionServices {
   blackboardStore: BlackboardStore;
   artifactStore: ArtifactStore;
   workspaceStateStore: WorkspaceStateStore;
+  skillRegistry: SkillRegistry;
+  skillDiscoveryAdapter: SkillDiscoveryAdapter;
 }
 
 export interface TaskProcessingResult {
@@ -95,6 +103,8 @@ export interface DelegatedTaskTemplate {
   riskLevel?: unknown;
   timeoutMs?: unknown;
   dependsOn?: unknown;
+  skillId?: unknown;
+  skillArgs?: unknown;
 }
 
 export interface ManagerCoordinationOutput {

@@ -60,6 +60,7 @@ export function buildManagerChatProjection(
         agentId: resolveTaskAgentId(task),
         lastActivityAt: latestEvent?.timestamp ?? inspection.run.updatedAt,
         ...(latestSession ? { sessionId: latestSession.sessionId } : {}),
+        ...(readTaskSkillId(task) ? { skillId: readTaskSkillId(task) } : {}),
       };
     })
     .sort(
@@ -208,4 +209,11 @@ function statusOrder(status: ManagerChatProjectionView["workerQueue"][number]["s
     default:
       return 6;
   }
+}
+
+function readTaskSkillId(task: TaskSpec): string | undefined {
+  const skillId = task.metadata?.skillId;
+  return typeof skillId === "string" && skillId.trim().length > 0
+    ? skillId.trim()
+    : undefined;
 }

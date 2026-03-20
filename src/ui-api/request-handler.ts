@@ -29,6 +29,11 @@ export interface RequestRouteHelpers {
   buildApprovalQueueSummary: (items: ApprovalQueueItemDetailView[]) => ApprovalQueueSummaryView;
   rejectIfBuildIsStale: (response: ServerResponse, options: UiApiServerOptions, method: string, path: string, serverStartedAtMs: number) => Promise<boolean>;
   deleteRunState: (stateRootDir: string | undefined, runId: string) => Promise<void>;
+  getMultiAgentSummary: (stateRootDir?: string) => Promise<unknown>;
+  cleanupMultiAgentData: (
+    stateRootDir: string | undefined,
+    options: { keepRunId?: string; clearMemory?: boolean },
+  ) => Promise<unknown>;
   readArtifactContentPreview: (app: ReturnType<typeof createApp>, options: UiApiServerOptions, runId: string, artifactId: string) => Promise<unknown>;
   sendJson: (response: ServerResponse, status: number, payload: unknown) => void;
   sendApiError: (
@@ -59,6 +64,8 @@ export async function handleRequest(
     buildApprovalQueueSummary,
     rejectIfBuildIsStale,
     deleteRunState,
+    getMultiAgentSummary,
+    cleanupMultiAgentData,
     readArtifactContentPreview,
     sendJson,
     sendApiError,
@@ -146,6 +153,50 @@ export async function handleRequest(
     return;
   }
 
+  if (request.method === "GET" && path === "/api/system/multi-agent/summary") {
+    const summary = await getMultiAgentSummary(options.stateRootDir);
+    sendJson(response, 200, summary);
+    return;
+  }
+
+  if (request.method === "POST" && path === "/api/system/multi-agent/cleanup") {
+    if (body?.clearMemory !== undefined && typeof body.clearMemory !== "boolean") {
+      sendApiError(
+        response,
+        400,
+        "bad_request",
+        "Field \"clearMemory\" must be a boolean when provided.",
+      );
+      return;
+    }
+
+    if (body?.keepRunId !== undefined && typeof body.keepRunId !== "string") {
+      sendApiError(
+        response,
+        400,
+        "bad_request",
+        "Field \"keepRunId\" must be a string when provided.",
+      );
+      return;
+    }
+
+    try {
+      const result = await cleanupMultiAgentData(options.stateRootDir, {
+        keepRunId: body?.keepRunId,
+        clearMemory: body?.clearMemory,
+      });
+      sendJson(response, 200, result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("was not found under")) {
+        sendApiError(response, 404, "not_found", message);
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
   if (request.method === "POST" && path === "/api/runs") {
     const goal = body?.goal?.trim();
     if (!goal) {
@@ -207,12 +258,19 @@ export async function handleRequest(
         allowOutsideWorkspaceWrites: effectiveAllowOutsideWorkspaceWrites,
       },
     });
-    const run = body?.autoResume
-      // resumeRun must resolve CLI from persisted RunRecord.metadata.selectedCli.
-      ? await app.runCoordinator.resumeRun(createdRun.runId, { config })
-      : createdRun;
-
-    sendJson(response, 201, run);
+    sendJson(response, 201, createdRun);
+    if (body?.autoResume) {
+      // Do not block create response on execution; resume in background.
+      void app.runCoordinator
+        // resumeRun must resolve CLI from persisted RunRecord.metadata.selectedCli.
+        .resumeRun(createdRun.runId, { config })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(
+            `[ui-api] background autoResume failed for run "${createdRun.runId}": ${message}`,
+          );
+        });
+    }
     return;
   }
 

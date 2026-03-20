@@ -17,7 +17,7 @@ import { useLiveSessionTerminal } from "./session-detail/comp/useLiveSessionTerm
 import { getRunWorkspacePath, getTaskDetailPath } from "../workspace";
 
 const route = useRoute();
-const { isZh, riskLabel, statusLabel, validationLabel, t } = usePreferences();
+const { riskLabel, statusLabel, validationLabel, t } = usePreferences();
 
 const runId = computed(() => (typeof route.params.runId === "string" ? route.params.runId : ""));
 const sessionId = computed(() => (typeof route.params.sessionId === "string" ? route.params.sessionId : ""));
@@ -25,9 +25,6 @@ const initialPromptFromRoute = computed(() =>
   typeof route.query.initialPrompt === "string" ? route.query.initialPrompt : "",
 );
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 const {
   artifactPreviewById,
@@ -50,10 +47,7 @@ const { projection, loading, error, loadProjection, stopPolling } = useEntityPro
   getProjectionStatus: (data) => data.overview.status,
   isTerminalStatus: (status) => status === "completed" || status === "failed",
   getMissingParamMessage: () =>
-    copy(
-      "缺少 runId 或 sessionId，无法打开会话详情。",
-      "Missing runId or sessionId, so session detail cannot be opened.",
-    ),
+    "缺少 runId 或 sessionId，无法打开会话详情。",
   emptyRunId: "workspace",
   emptyEntityId: "session",
 });
@@ -77,7 +71,6 @@ const {
   getRunId: () => runId.value,
   getSessionId: () => sessionId.value,
   getAgentMessages: () => projection.value.messages,
-  copy,
 });
 
 watch(
@@ -131,12 +124,12 @@ const summaryCards = computed(() => [
   },
   {
     id: "source",
-    label: copy("来源模式", "Source mode"),
+    label: "来源模式",
     value: sourceModeLabel(overview.value.sourceMode),
   },
   {
     id: "transcript",
-    label: copy("转录路径", "Transcript path"),
+    label: "转录路径",
     value: overview.value.transcriptPath ?? "-",
   },
 ]);
@@ -144,42 +137,42 @@ const summaryCards = computed(() => [
 function sourceModeLabel(sourceMode: string): string {
   switch (sourceMode) {
     case "task_session":
-      return copy("真实 taskSession", "Persisted taskSession");
+      return "真实 taskSession";
     case "run_event_backfill":
-      return copy("事件回填", "Event backfill");
+      return "事件回填";
     case "session_message":
-      return copy("会话消息", "Session message");
+      return "会话消息";
     case "run_event_agent_message":
-      return copy("Agent 事件消息", "Agent event message");
+      return "Agent 事件消息";
     case "tool_call":
-      return copy("工具调用", "Tool call");
+      return "工具调用";
     case "artifact_record":
-      return copy("产物记录", "Artifact record");
+      return "产物记录";
     case "invocation_event_backfill":
-      return copy("调用计划回填", "Invocation backfill");
+      return "调用计划回填";
     case "approval_request":
-      return copy("审批请求", "Approval request");
+      return "审批请求";
     case "inspection_approval":
-      return copy("审批快照", "Approval snapshot");
+      return "审批快照";
     case "validation_record":
-      return copy("验证记录", "Validation record");
+      return "验证记录";
     case "transcript_stream":
-      return copy("转录流", "Transcript stream");
+      return "转录流";
     case "agent_message_backfill":
-      return copy("消息回填", "Message backfill");
+      return "消息回填";
     default:
-      return copy("状态回填", "Status backfill");
+      return "状态回填";
   }
 }
 
 function approvalStateLabel(item: SessionDetailApprovalItemView): string {
   switch (item.state) {
     case "pending":
-      return copy("待决", "Pending");
+      return "待决";
     case "approved":
-      return copy("已批准", "Approved");
+      return "已批准";
     default:
-      return copy("已拒绝", "Rejected");
+      return "已拒绝";
   }
 }
 
@@ -196,15 +189,12 @@ function workspaceLink(): string {
   <section class="workspace-page-stack detail-page">
     <div class="workspace-page-header detail-page__header">
       <div>
-        <p class="section-eyebrow">{{ copy("会话详情", "Session detail") }}</p>
+        <p class="section-eyebrow">{{ "会话详情" }}</p>
         <h1>{{ overview.taskTitle }}</h1>
       </div>
       <p>
         {{
-          copy(
-            "详情页以真实 session 为入口，直接展示 CLI 实时工作窗口和 Agent 事件流。",
-            "The detail page enters from a real session and shows the live CLI workspace with agent events.",
-          )
+          "详情页以真实 session 为入口，直接展示 CLI 实时工作窗口和 Agent 事件流。"
         }}
       </p>
     </div>
@@ -213,7 +203,7 @@ function workspaceLink(): string {
       <button class="ghost-button" type="button" :disabled="loading" @click="loadProjection(false)">
         {{ t("actions.refresh") }}
       </button>
-      <RouterLink class="ghost-link" :to="taskLink()">{{ copy("返回任务详情", "Back to task detail") }}</RouterLink>
+      <RouterLink class="ghost-link" :to="taskLink()">{{ "返回任务详情" }}</RouterLink>
       <RouterLink class="ghost-link" :to="workspaceLink()">{{ t("actions.backToWorkspace") }}</RouterLink>
     </div>
 
@@ -243,7 +233,7 @@ function workspaceLink(): string {
     </section>
 
     <div v-if="loading && !error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ copy("正在加载会话详情。", "Loading session detail.") }}</p>
+      <p class="panel-card__body">{{ "正在加载会话详情。" }}</p>
     </div>
 
     <div class="detail-grid detail-grid--primary">
@@ -251,12 +241,12 @@ function workspaceLink(): string {
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">CLI Workspace</p>
-            <h2>{{ copy("实时 CLI 工作窗口", "Live CLI workspace") }}</h2>
+            <h2>{{ "实时 CLI 工作窗口" }}</h2>
           </div>
           <div class="detail-terminal-actions">
             <span class="panel-chip">{{ liveStatusLabel() }}</span>
             <button class="ghost-button" type="button" :disabled="liveTerminalConnecting" @click="connectLiveTerminal">
-              {{ liveTerminalConnecting ? copy("连接中...", "Connecting...") : copy("启动实时终端", "Start live terminal") }}
+              {{ liveTerminalConnecting ? "连接中..." : "启动实时终端" }}
             </button>
             <button
               class="ghost-button"
@@ -264,7 +254,7 @@ function workspaceLink(): string {
               :disabled="liveTerminalStatus !== 'connected' && liveTerminalStatus !== 'connecting'"
               @click="disconnectLiveTerminal"
             >
-              {{ copy("断开", "Disconnect") }}
+              {{ "断开" }}
             </button>
           </div>
         </div>
@@ -288,7 +278,7 @@ function workspaceLink(): string {
                 v-model="chatInput"
                 class="text-input text-input--textarea"
                 rows="3"
-                :placeholder="copy('输入消息，回车发送（Shift+Enter 换行）', 'Type a message. Press Enter to send (Shift+Enter for newline).')"
+                :placeholder="'输入消息，回车发送（Shift+Enter 换行）'"
                 @keydown="onChatInputKeydown"
               ></textarea>
               <div class="chat-composer__actions">
@@ -298,13 +288,13 @@ function workspaceLink(): string {
                   :disabled="liveTerminalStatus !== 'connected' || chatInput.trim().length === 0"
                   @click="sendChatInput"
                 >
-                  {{ copy("发送到会话", "Send to session") }}
+                  {{ "发送到会话" }}
                 </button>
                 <span class="form-hint">
                   {{
                     liveTerminalStatus === "connected"
-                      ? copy("消息会实时写入当前 CLI 终端。", "Messages are sent to the live CLI terminal.")
-                      : copy("先连接实时终端，再发送消息。", "Connect the live terminal before sending messages.")
+                      ? "消息会实时写入当前 CLI 终端。"
+                      : "先连接实时终端，再发送消息。"
                   }}
                 </span>
               </div>
@@ -314,8 +304,8 @@ function workspaceLink(): string {
           <section class="live-workspace__events">
             <div class="live-workspace__events-header">
               <div>
-                <p class="section-eyebrow">{{ copy("Agent 事件消息", "Agent event messages") }}</p>
-                <h3>{{ copy("正在做的事情", "What the CLI worker is doing") }}</h3>
+                <p class="section-eyebrow">{{ "Agent 事件消息" }}</p>
+                <h3>{{ "正在做的事情" }}</h3>
               </div>
               <span class="panel-chip">{{ liveWorkspaceTimeline.length }}</span>
             </div>
@@ -339,7 +329,7 @@ function workspaceLink(): string {
               </article>
             </div>
             <div v-else class="panel-card__empty-state">
-              <p class="panel-card__body">{{ copy("当前没有可展示的事件消息。", "No event messages are available to display.") }}</p>
+              <p class="panel-card__body">{{ "当前没有可展示的事件消息。" }}</p>
             </div>
           </section>
         </div>
@@ -348,7 +338,6 @@ function workspaceLink(): string {
 
     <SessionSupportPanels
       :projection="projection"
-      :copy="copy"
       :t="t"
       :risk-label="riskLabel"
       :validation-label="validationLabel"

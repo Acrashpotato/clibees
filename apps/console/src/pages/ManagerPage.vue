@@ -7,14 +7,12 @@ import {
   createEmptyManagerChatProjection,
   type ManagerChatProjectionView,
 } from "../manager-projection";
-import { usePreferences } from "../composables/usePreferences";
 
 const props = defineProps<{
   runIdOverride?: string;
 }>();
 
 const route = useRoute();
-const { isZh } = usePreferences();
 
 const runId = computed(() => {
   if (typeof props.runIdOverride === "string" && props.runIdOverride.length > 0) {
@@ -30,14 +28,11 @@ const messageInput = ref("");
 
 const managerSessionId = computed(() => projection.value.managerSession?.sessionId);
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 async function loadProjection(targetRunId: string): Promise<void> {
   if (!targetRunId) {
     projection.value = createEmptyManagerChatProjection();
-    error.value = copy("缺少 runId，无法打开总管页面。", "Missing runId, so manager page cannot be opened.");
+    error.value = "缺少 runId，无法打开总管页面。";
     return;
   }
 
@@ -59,7 +54,7 @@ async function sendMessage(): Promise<void> {
     return;
   }
   if (!managerSessionId.value) {
-    error.value = copy("当前 run 未建立总管会话。", "Manager session is not available for this run.");
+    error.value = "当前 run 未建立总管会话。";
     return;
   }
 
@@ -82,13 +77,13 @@ async function sendMessage(): Promise<void> {
 function messageRoleLabel(role: string): string {
   switch (role) {
     case "user":
-      return copy("你", "You");
+      return "你";
     case "manager":
-      return copy("总管", "Manager");
+      return "总管";
     case "worker":
-      return copy("员工", "Worker");
+      return "员工";
     case "system":
-      return copy("系统", "System");
+      return "系统";
     default:
       return role;
   }
@@ -107,13 +102,13 @@ watch(
   <section class="workspace-page-stack">
     <header class="workspace-page-header">
       <div>
-        <p class="section-eyebrow">{{ copy("总管面板", "Manager Desk") }}</p>
-        <h1>{{ copy("总管-员工协作", "Manager-worker coordination") }}</h1>
+        <p class="section-eyebrow">{{ "总管面板" }}</p>
+        <h1>{{ "总管-员工协作" }}</h1>
       </div>
       <div class="manager-toolbar">
         <span class="flow-pill">run {{ runId || "-" }}</span>
         <button class="ghost-button" type="button" :disabled="loading || !runId" @click="runId && loadProjection(runId)">
-          {{ copy("刷新", "Refresh") }}
+          {{ "刷新" }}
         </button>
       </div>
     </header>
@@ -123,16 +118,16 @@ watch(
     <section class="manager-layout">
       <article class="panel-card manager-chat-panel">
         <header class="manager-chat-panel__header">
-          <h2>{{ copy("总管对话时间线", "Manager timeline") }}</h2>
+          <h2>{{ "总管对话时间线" }}</h2>
           <span class="status-pill" :data-status="projection.run.status">
             {{ projection.run.status }}
           </span>
         </header>
 
         <div class="manager-chat-panel__timeline">
-          <p v-if="loading">{{ copy("加载中...", "Loading...") }}</p>
+          <p v-if="loading">{{ "加载中..." }}</p>
           <p v-else-if="projection.timeline.length === 0">
-            {{ copy("暂无消息。", "No messages yet.") }}
+            {{ "暂无消息。" }}
           </p>
           <article
             v-for="message in projection.timeline"
@@ -153,19 +148,19 @@ watch(
           <textarea
             v-model="messageInput"
             rows="4"
-            :placeholder="copy('给总管发送新指令...', 'Send a message to the manager...')"
+            :placeholder="'给总管发送新指令...'"
           ></textarea>
           <button class="primary-button" type="button" :disabled="sending || !messageInput.trim()" @click="sendMessage">
-            {{ sending ? copy("发送中...", "Sending...") : copy("发送并触发执行", "Send and trigger run") }}
+            {{ sending ? "发送中..." : "发送并触发执行" }}
           </button>
         </div>
       </article>
 
       <aside class="manager-side">
         <article class="panel-card manager-side-card">
-          <h2>{{ copy("员工执行队列", "Worker queue") }}</h2>
+          <h2>{{ "员工执行队列" }}</h2>
           <div v-if="projection.workerQueue.length === 0" class="panel-card__empty-state">
-            <p>{{ copy("当前没有员工任务。", "No worker tasks right now.") }}</p>
+            <p>{{ "当前没有员工任务。" }}</p>
           </div>
           <div v-else class="manager-queue-list">
             <article v-for="worker in projection.workerQueue" :key="worker.taskId" class="manager-queue-item">
@@ -179,9 +174,9 @@ watch(
         </article>
 
         <article class="panel-card manager-side-card">
-          <h2>{{ copy("待审批", "Pending approvals") }}</h2>
+          <h2>{{ "待审批" }}</h2>
           <div v-if="projection.pendingApprovals.length === 0" class="panel-card__empty-state">
-            <p>{{ copy("无待审批项。", "No pending approvals.") }}</p>
+            <p>{{ "无待审批项。" }}</p>
           </div>
           <div v-else class="manager-approval-list">
             <article v-for="approval in projection.pendingApprovals" :key="approval.requestId">

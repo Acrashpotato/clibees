@@ -58,6 +58,10 @@ import type { RunStore } from "../../../storage/run-store.js";
 import type { SessionStore } from "../../../storage/session-store.js";
 import type { WorkspaceStateStore } from "../../../storage/workspace-state-store.js";
 import { FileWorkspaceStateStore } from "../../../storage/workspace-state-store.js";
+import {
+  createStateLayout,
+  getTaskTranscriptPath,
+} from "../../../storage/state-layout.js";
 import { createId, isoNow, pathExists, resolvePath } from "../../../shared/runtime.js";
 import { SELECTED_CLI_VALUES, type SelectedCli } from "../../../ui-api/selected-cli.js";
 import { GraphManager } from "../../graph-manager.js";
@@ -92,6 +96,8 @@ import {
   buildDelegationTaskTitle,
   capitalize,
   captureFileManifest,
+  classifyManagerUserMessageIntent,
+  countActiveManagerCoordinationTasks,
   dedupeAgentConfigs,
   dedupeStrings,
   diffFileManifest,
@@ -117,6 +123,7 @@ import {
   pickWorkerAgentForCapabilities,
   readAgentProfiles,
   readDynamicAgents,
+  type ManagerUserMessageIntent,
   readNonEmptyString,
   readOptionalBoolean,
   readStringArray,
@@ -235,6 +242,20 @@ export async function resumeRun(this: any,
 
     const resolvedConfig = this.resolveRunExecutionConfig(run, options.config);
     const services = this.resolveExecutionServices(run, resolvedConfig);
+    let latestRun = run;
+    let latestGraph = graph;
+    latestRun = await this.autoPauseStalledRunIfNeeded(
+      latestRun,
+      latestGraph,
+      services,
+      "resume",
+    );
+    latestRun = (await this.dependencies.runStore.getRun(runId)) ?? latestRun;
+    latestGraph = (await this.dependencies.runStore.getGraph(runId)) ?? latestGraph;
+    if (run.status === "running" && latestRun.status === "paused") {
+      return latestRun;
+    }
+
     const drift = await services.workspaceStateStore.detectDrift(runId);
 
     if (drift.hasDrift) {
@@ -250,18 +271,22 @@ export async function resumeRun(this: any,
         }),
         services.blackboardStore,
       );
-      return this.updateRunRecord(run, "paused");
+      return this.updateRunRecord(latestRun, "paused");
     }
 
-    const recovered = await this.recoverGraphForResume(run, services);
+    const recovered = await this.recoverGraphForResume(latestRun, services);
     if (recovered.waitingApprovalTaskId) {
-      return this.updateRunRecord(run, "waiting_approval", recovered.waitingApprovalTaskId);
+      return this.updateRunRecord(
+        latestRun,
+        "waiting_approval",
+        recovered.waitingApprovalTaskId,
+      );
     }
 
     const resumableRun =
-      run.status === "paused" || run.status === "waiting_approval"
-        ? await this.updateRunRecord(run, "ready")
-        : run;
+      latestRun.status === "paused" || latestRun.status === "waiting_approval"
+        ? await this.updateRunRecord(latestRun, "ready")
+        : latestRun;
 
     return this.executeReadyTasks(resumableRun, recovered.graph, resolvedConfig);
   }
@@ -275,18 +300,26 @@ export async function inspectRun(this: any,
       throw new Error(`Run "${runId}" is incomplete or missing.`);
     }
 
-    const events = await this.dependencies.eventStore.list(runId);
     const services = this.resolveExecutionServices(
       run,
       createDefaultConfig(run.workspacePath),
     );
+    const stabilizedRun = await this.autoPauseStalledRunIfNeeded(
+      run,
+      graph,
+      services,
+      "inspect",
+    );
+    const effectiveRun = (await this.dependencies.runStore.getRun(runId)) ?? stabilizedRun;
+    const effectiveGraph = (await this.dependencies.runStore.getGraph(runId)) ?? graph;
+    const events = await this.dependencies.eventStore.list(runId);
     const aggregator = new InspectionAggregator({
       artifactStore: services.artifactStore,
       blackboardStore: services.blackboardStore,
       approvalManager: services.approvalManager,
     });
 
-    return aggregator.build(run, graph, events);
+    return aggregator.build(effectiveRun, effectiveGraph, events);
   }
 
 export async function listPendingApprovals(this: any,
@@ -403,98 +436,10 @@ export async function decideApproval(this: any,
       { bypassApproval: true },
     );
 
+    if (outcome.halted) {
+      return outcome.run;
+    }
+
     return this.executeReadyTasks(outcome.run, outcome.graph, resolvedConfig);
   }
 
-export async function postThreadMessage(this: any,
-  runId: string,
-  threadId: string,
-  input: PostThreadMessageInput): Promise<PostThreadMessageResult> {
-    const run = await this.dependencies.runStore.getRun(runId);
-    const graph = await this.dependencies.runStore.getGraph(runId);
-    if (!run || !graph) {
-      throw new Error(`Run "${runId}" was not found.`);
-    }
-    if (isTerminalRunStatus(run.status)) {
-      throw new Error(`Run "${runId}" is ${run.status} and cannot accept new messages.`);
-    }
-
-    const thread = await this.dependencies.sessionStore.getThread(runId, threadId);
-    if (!thread) {
-      throw new Error(`Thread "${threadId}" was not found in run "${runId}".`);
-    }
-
-    const session =
-      typeof thread.sessionId === "string" && thread.sessionId.length > 0
-        ? await this.dependencies.sessionStore.getSession(runId, thread.sessionId)
-        : null;
-    const runConfig = this.resolveRunExecutionConfig(run, createDefaultConfig(run.workspacePath));
-    const services = this.resolveExecutionServices(run, runConfig);
-    const message = await this.appendThreadMessageWithAudit(
-      run,
-      services,
-      {
-        runId,
-        threadId,
-        role: this.resolveIncomingMessageRole(run, session, input.actorId),
-        body: input.body.trim(),
-        actorId: input.actorId.trim() || "console-user",
-        ...(session ? { sessionId: session.sessionId } : {}),
-        ...(input.replyToMessageId ? { replyToMessageId: input.replyToMessageId } : {}),
-        ...(input.clientRequestId ? { clientRequestId: input.clientRequestId } : {}),
-        metadata: {
-          source: "thread_api",
-          ...(input.note ? { note: input.note } : {}),
-        },
-      },
-      session?.taskId,
-    );
-
-    let latestRun = (await this.dependencies.runStore.getRun(runId)) ?? run;
-    let latestGraph = (await this.dependencies.runStore.getGraph(runId)) ?? graph;
-    let resumed = false;
-
-    if (thread.scope === "manager_primary" && shouldUseDelegatedBootstrap(run.metadata)) {
-      latestGraph = await this.enqueueManagerCoordinationTask(
-        latestRun,
-        latestGraph,
-        message,
-        services,
-      );
-      latestRun = (await this.dependencies.runStore.getRun(runId)) ?? latestRun;
-      if (isAutoResumableRunStatus(latestRun.status)) {
-        try {
-          latestRun = await this.resumeRun(runId, { config: runConfig });
-          resumed = true;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          await this.appendThreadMessageWithAudit(
-            latestRun,
-            services,
-            {
-              runId,
-              threadId,
-              role: "system",
-              body: `Auto resume attempted but failed: ${errorMessage}`,
-              actorId: "system",
-              sessionId: session?.sessionId,
-              clientRequestId: `resume-failed:${createId("request")}`,
-              metadata: {
-                source: "auto_resume",
-                error: errorMessage,
-              },
-            },
-            session?.taskId,
-          );
-          latestRun = (await this.dependencies.runStore.getRun(runId)) ?? latestRun;
-        }
-      }
-    }
-
-    return {
-      run: latestRun,
-      thread,
-      message,
-      resumed,
-    };
-  }

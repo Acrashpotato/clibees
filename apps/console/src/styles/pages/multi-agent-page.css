@@ -1,0 +1,42 @@
+.multi-agent-page {
+  display: grid;
+  gap: 16px;
+}
+
+.multi-agent-run-list {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.multi-agent-run-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-subtle);
+}
+
+.multi-agent-run-item input {
+  margin-top: 4px;
+}
+
+.multi-agent-run-item strong {
+  font-size: 0.92rem;
+  word-break: break-all;
+}
+
+.settings-error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.settings-success {
+  margin: 0;
+  color: var(--success);
+}

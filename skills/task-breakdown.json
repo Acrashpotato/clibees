@@ -1,0 +1,23 @@
+{
+  "id": "task-breakdown",
+  "name": "Task Breakdown",
+  "description": "Break down goals into sequenced worker tasks with explicit dependencies and acceptance checks.",
+  "keywords": ["plan", "breakdown", "dependency", "coordination"],
+  "template": {
+    "instructions": [
+      "Break the goal into incremental deliverables with explicit dependency order.",
+      "Keep each delegated task independently verifiable by acceptance criteria."
+    ],
+    "requiredCapabilities": ["planning"],
+    "expectedArtifacts": ["Task decomposition and executable implementation output."],
+    "acceptanceCriteria": [
+      "Subtasks are ordered by dependency and can be executed by workers.",
+      "Each subtask has concrete acceptance criteria."
+    ],
+    "riskLevel": "low",
+    "timeoutMs": 600000,
+    "validator": {
+      "mode": "none"
+    }
+  }
+}

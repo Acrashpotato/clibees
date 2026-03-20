@@ -92,18 +92,21 @@ import {
   buildDelegationTaskTitle,
   capitalize,
   captureFileManifest,
+  classifyManagerUserMessageIntent,
+  countActiveManagerCoordinationTasks,
   dedupeAgentConfigs,
   dedupeStrings,
   diffFileManifest,
   extractStructuredOutputFromPayload,
   findCommonPathRoot,
-  hasActiveDelegationManagerTask,
+  getActiveDelegationManagerTaskIds,
   hasCompatibleWorkerForCapabilities,
   hasMeaningfulGraphPatch,
   isAgentCompatibleWithCapabilities,
   isAutoResumableRunStatus,
   isDelegationManagerTask,
   isManagerCoordinationTask,
+  isTaskTerminalStatus,
   isPathInsideRoot,
   isPlainObject,
   isSelectedCli,
@@ -117,6 +120,7 @@ import {
   pickWorkerAgentForCapabilities,
   readAgentProfiles,
   readDynamicAgents,
+  type ManagerUserMessageIntent,
   readNonEmptyString,
   readOptionalBoolean,
   readStringArray,
@@ -132,6 +136,10 @@ import {
   summarizeCommandResult,
   toCapabilitySlug,
 } from "../helpers/index.js";
+import {
+  findManagerCoordinationByTriggerMessageId,
+  summarizeNonTerminalTasksForCoordination,
+} from "./coordination-helpers.js";
 
 export async function interactSession(this: any,
   runId: string,
@@ -266,30 +274,62 @@ export async function enqueueManagerCoordinationTask(this: any,
   run: RunRecord,
   graph: RunGraph,
   triggerMessage: SessionMessageRecord,
-  services: ExecutionServices): Promise<RunGraph> {
+  services: ExecutionServices,
+  options: {
+    activeManagerStrategy?: "skip_if_active" | "append_followup";
+    triggerIntent?: ManagerUserMessageIntent;
+  } = {}): Promise<RunGraph> {
     if (!shouldUseDelegatedBootstrap(run.metadata)) {
       return graph;
     }
-    const coordinationTaskCount = Object.values(graph.tasks).filter((task) =>
+    const activeManagerStrategy = options.activeManagerStrategy ?? "skip_if_active";
+    if (findManagerCoordinationByTriggerMessageId(graph, triggerMessage.messageId)) {
+      return graph;
+    }
+    const activeCoordinationTaskCount = countActiveManagerCoordinationTasks(graph);
+    const historicalCoordinationTaskCount = Object.values(graph.tasks).filter((task) =>
       isManagerCoordinationTask(task),
     ).length;
-    if (coordinationTaskCount >= MAX_MANAGER_COORDINATION_TASKS) {
+    const hasReachedCoordinationLimit =
+      activeManagerStrategy === "append_followup"
+        ? activeCoordinationTaskCount >= MAX_MANAGER_COORDINATION_TASKS
+        : historicalCoordinationTaskCount >= MAX_MANAGER_COORDINATION_TASKS;
+    if (hasReachedCoordinationLimit) {
       return graph;
     }
-    if (hasActiveDelegationManagerTask(graph)) {
+    const activeManagerTaskIds = getActiveDelegationManagerTaskIds(graph);
+    if (activeManagerStrategy === "skip_if_active" && activeManagerTaskIds.length > 0) {
       return graph;
     }
+    const managerTaskDependencies =
+      activeManagerStrategy === "append_followup"
+        ? [...new Set(activeManagerTaskIds)]
+        : [];
 
     const existingManager = await this.ensureDelegatedManagerSession(run, graph);
     const recentMessages = await this.dependencies.sessionStore.listMessages(
       run.runId,
       existingManager.thread.threadId,
     );
+    const availableSkillSummary = await this.buildAvailableSkillSummary(
+      run,
+      services,
+    );
+    const triggerIntent =
+      options.triggerIntent ??
+      (triggerMessage.role === "user"
+        ? classifyManagerUserMessageIntent(triggerMessage.body)
+        : "other");
     const managerTask = this.buildManagerCoordinationTask(
       run,
       graph,
       triggerMessage,
       recentMessages,
+      availableSkillSummary,
+      {
+        dependsOn: managerTaskDependencies,
+        triggerIntent,
+      },
     );
     const patch = {
       operation: "append_tasks" as const,
@@ -323,11 +363,21 @@ export function buildManagerCoordinationTask(this: any,
   run: RunRecord,
   graph: RunGraph,
   triggerMessage: SessionMessageRecord,
-  recentMessages: SessionMessageRecord[]): TaskSpec {
+  recentMessages: SessionMessageRecord[],
+  availableSkillSummary: string[] = [],
+  options: {
+    dependsOn?: string[];
+    triggerIntent?: ManagerUserMessageIntent;
+  } = {}): TaskSpec {
     const managerAgentId = readNonEmptyString(run.metadata.plannerAgentId);
     const workerAgentIds = readStringArray(run.metadata.agentIds).filter(
       (agentId) => agentId !== managerAgentId,
     );
+    const triggerSource =
+      typeof triggerMessage.metadata?.source === "string" &&
+      triggerMessage.metadata.source.trim().length > 0
+        ? triggerMessage.metadata.source.trim()
+        : "unknown";
     const recentContext = recentMessages
       .slice(-6)
       .map((message) => {
@@ -335,23 +385,39 @@ export function buildManagerCoordinationTask(this: any,
         return `[${message.role}] ${message.actorId}: ${compactBody.slice(0, 320)}`;
       })
       .join("\n");
+    const availableSkillIds = availableSkillSummary
+      .map((item) => item.split(":")[0]?.trim())
+      .filter((item): item is string => Boolean(item));
+    const triggerIntent = options.triggerIntent ?? "other";
+    const nonTerminalTaskSummary = summarizeNonTerminalTasksForCoordination(graph);
+    const intentGuardInstruction =
+      triggerIntent === "progress_query"
+        ? "This trigger is a progress query. You must set managerDecision=no_more_tasks and provide status-only managerReply."
+        : triggerIntent === "other"
+          ? "Unless the trigger clearly requests requirement changes, prefer managerDecision=no_more_tasks with a concise status reply."
+          : "If existing non-terminal tasks already cover the goal, avoid duplicate delegation and prefer managerDecision=no_more_tasks.";
 
     return {
       id: createId("task"),
       title: "Manager coordination",
       kind: "plan",
-      goal: buildDelegationManagerGoal(run.goal, workerAgentIds),
+      goal: buildDelegationManagerGoal(run.goal, workerAgentIds, availableSkillIds),
       instructions: [
         "Review the latest manager thread conversation and coordinate follow-up work.",
+        "Inspect current non-terminal tasks first and avoid delegating duplicate work.",
         "Return JSON only with managerReply, managerDecision, and delegatedTasks.",
         "Use dependsOn when a delegated worker task must wait for another delegated task.",
         "Use managerDecision=no_more_tasks when no further worker delegation is needed.",
+        intentGuardInstruction,
       ],
       inputs: [
         `Trigger message ${triggerMessage.messageId} from ${triggerMessage.actorId}: ${triggerMessage.body}`,
+        `Trigger intent classification: ${triggerIntent}`,
+        `Current non-terminal task summary:\n${nonTerminalTaskSummary}`,
         `Recent manager thread context:\n${recentContext || "(no prior messages)"}`,
+        `Available workflow skills:\n${availableSkillSummary.length > 0 ? availableSkillSummary.join("\n") : "(none)"}`,
       ],
-      dependsOn: [],
+      dependsOn: [...new Set(options.dependsOn ?? [])],
       requiredCapabilities: ["planning", "delegation"],
       ...(managerAgentId ? { preferredAgent: managerAgentId } : {}),
       workingDirectory: run.workspacePath,
@@ -368,6 +434,13 @@ export function buildManagerCoordinationTask(this: any,
         maxAttempts: 1,
         backoffMs: 0,
         retryOn: [],
+      },
+      metadata: {
+        triggerMessageId: triggerMessage.messageId,
+        triggerRole: triggerMessage.role,
+        triggerActorId: triggerMessage.actorId,
+        triggerSource,
+        triggerIntent,
       },
       status: "pending",
     };
@@ -402,6 +475,24 @@ export async function reportWorkerCompletionToManager(this: any,
       },
       task.id,
     );
-    return this.enqueueManagerCoordinationTask(run, graph, completionMessage, services);
+    const hasRunnableNonManagerTasks = Object.values(graph.tasks).some((candidate) => {
+      if (candidate.id === task.id) {
+        return false;
+      }
+      if (isDelegationManagerTask(candidate)) {
+        return false;
+      }
+      return (
+        candidate.status === "ready" ||
+        candidate.status === "pending" ||
+        candidate.status === "running"
+      );
+    });
+    if (hasRunnableNonManagerTasks) {
+      return (await this.dependencies.runStore.getGraph(run.runId)) ?? graph;
+    }
+    return this.enqueueManagerCoordinationTask(run, graph, completionMessage, services, {
+      activeManagerStrategy: "skip_if_active",
+    });
   }
 

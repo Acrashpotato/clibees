@@ -1,5 +1,6 @@
 ﻿<script setup lang="ts">
 import { computed, ref } from "vue";
+import { RouterLink } from "vue-router";
 
 import {
   useConsoleSettings,
@@ -8,9 +9,6 @@ import {
   type InspectDefaultRunSource,
   type RunOpenTarget,
 } from "../composables/useConsoleSettings";
-import { usePreferences } from "../composables/usePreferences";
-
-const { isZh } = usePreferences();
 const { defaultConsoleSettings, limits, saveConsoleSettings, settings } = useConsoleSettings();
 
 const form = ref<ConsoleSettings>(cloneSettings(settings.value));
@@ -23,59 +21,56 @@ const hasChanges = computed(
 const summaryCards = computed(() => [
   {
     id: "run-default",
-    label: copy("运行默认参数", "Run defaults"),
+    label: "运行默认参数",
     value: `${form.value.runDefaultCli} · ${
-      form.value.runAutoResume ? copy("自动启动", "Auto start") : copy("仅创建", "Create only")
+      form.value.runAutoResume ? "自动启动" : "仅创建"
     }`,
   },
   {
     id: "run-open-target",
-    label: copy("创建后跳转", "Post-create open"),
+    label: "创建后跳转",
     value:
       form.value.runOpenTarget === "session"
-        ? copy("会话详情", "Session detail")
-        : copy("工作空间总览", "Workspace overview"),
+        ? "会话详情"
+        : "工作空间总览",
   },
   {
     id: "run-outside-write-policy",
-    label: copy("允许工作区外写入", "Outside workspace writes"),
+    label: "允许工作区外写入",
     value: form.value.runAllowOutsideWorkspaceWrites
-      ? copy("允许", "Allowed")
-      : copy("禁止", "Blocked"),
+      ? "允许"
+      : "禁止",
   },
   {
     id: "approval-filter",
-    label: copy("审批默认筛选", "Approval default filter"),
+    label: "审批默认筛选",
     value: approvalFilterLabel(form.value.approvalsDefaultFilter),
   },
   {
     id: "approval-refresh",
-    label: copy("审批自动刷新", "Approval auto refresh"),
+    label: "审批自动刷新",
     value: autoRefreshLabel(form.value.approvalsAutoRefreshSec),
   },
   {
     id: "inspect-run",
-    label: copy("审计默认 run", "Inspect default run"),
+    label: "审计默认 run",
     value:
       form.value.inspectDefaultRunSource === "remembered"
-        ? copy("上次查看", "Remembered run")
-        : copy("最新运行", "Latest run"),
+        ? "上次查看"
+        : "最新运行",
   },
   {
     id: "inspect-refresh",
-    label: copy("审计自动刷新", "Inspect auto refresh"),
+    label: "审计自动刷新",
     value: autoRefreshLabel(form.value.inspectAutoRefreshSec),
   },
   {
     id: "workspace-refresh",
-    label: copy("Workspace 轮询", "Workspace polling"),
+    label: "Workspace 轮询",
     value: `${form.value.workspaceAutoRefreshSec}s`,
   },
 ]);
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 function cloneSettings(value: ConsoleSettings): ConsoleSettings {
   return { ...value };
@@ -121,49 +116,49 @@ function normalizeForm(input: ConsoleSettings): ConsoleSettings {
 }
 
 function autoRefreshLabel(seconds: number): string {
-  return seconds > 0 ? `${seconds}s` : copy("关闭", "Off");
+  return seconds > 0 ? `${seconds}s` : "关闭";
 }
 
 function approvalFilterLabel(value: ApprovalFilter): string {
   switch (value) {
     case "all":
-      return copy("全部", "All");
+      return "全部";
     case "approved":
-      return copy("已批准", "Approved");
+      return "已批准";
     case "rejected":
-      return copy("已拒绝", "Rejected");
+      return "已拒绝";
     default:
-      return copy("待审批", "Pending");
+      return "待审批";
   }
 }
 
 function runOpenTargetLabel(value: RunOpenTarget): string {
   return value === "session"
-    ? copy("会话详情（减少点击）", "Session detail (fewer clicks)")
-    : copy("工作空间总览", "Workspace overview");
+    ? "会话详情（减少点击）"
+    : "工作空间总览";
 }
 
 function inspectDefaultRunLabel(value: InspectDefaultRunSource): string {
   return value === "remembered"
-    ? copy("上次查看的 run", "Last viewed run")
-    : copy("最新 run", "Latest run");
+    ? "上次查看的 run"
+    : "最新 run";
 }
 
 function saveForm() {
   const normalized = normalizeForm(form.value);
   saveConsoleSettings(normalized);
   form.value = cloneSettings(settings.value);
-  flashMessage.value = copy("设置已保存，所有关联页面会按新参数生效。", "Settings saved. Linked pages now use the new values.");
+  flashMessage.value = "设置已保存，所有关联页面会按新参数生效。";
 }
 
 function resetDraft() {
   form.value = cloneSettings(settings.value);
-  flashMessage.value = copy("已恢复到当前保存值。", "Draft reset to saved values.");
+  flashMessage.value = "已恢复到当前保存值。";
 }
 
 function restoreDefaults() {
   form.value = cloneSettings(defaultConsoleSettings);
-  flashMessage.value = copy("已加载默认值，点击保存后才会生效。", "Defaults loaded. Click Save to apply.");
+  flashMessage.value = "已加载默认值，点击保存后才会生效。";
 }
 </script>
 
@@ -171,26 +166,40 @@ function restoreDefaults() {
   <section class="workspace-page-stack settings-page">
     <div class="workspace-page-header">
       <div>
-        <p class="section-eyebrow">{{ copy("设置", "Settings") }}</p>
-        <h1>{{ copy("操作效率配置", "Operator efficiency settings") }}</h1>
+        <p class="section-eyebrow">{{ "设置" }}</p>
+        <h1>{{ "操作效率配置" }}</h1>
       </div>
       <p>
         {{
-          copy(
-            "这些配置都直接关联已有页面行为，用于减少重复操作：运行创建默认参数、审批页筛选/刷新、审计页默认 run 和自动刷新、Workspace 轮询频率。",
-            "Every option on this page now maps to current workflow behavior: run creation defaults, approval filter/refresh, inspect run selection/refresh, and workspace polling interval.",
-          )
+          "这些配置都直接关联已有页面行为，用于减少重复操作：运行创建默认参数、审批页筛选/刷新、审计页默认 run 和自动刷新、Workspace 轮询频率。"
         }}
       </p>
     </div>
 
+    <section class="panel-card settings-entry-card">
+      <div class="panel-card__header">
+        <div>
+          <p class="section-eyebrow">.multi-agent</p>
+          <h2>{{ "运行数据管理" }}</h2>
+        </div>
+        <RouterLink class="primary-link" to="/settings/multi-agent">
+          {{ "打开管理页" }}
+        </RouterLink>
+      </div>
+      <p class="form-hint">
+        {{
+          "查看 .multi-agent/state 和 .multi-agent/memory 占用，并执行保留 run / 清理 memory 操作。"
+        }}
+      </p>
+    </section>
+
     <section class="panel-card settings-snapshot">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("当前草稿", "Current draft") }}</p>
-          <h2>{{ copy("生效配置快照", "Effective configuration snapshot") }}</h2>
+          <p class="section-eyebrow">{{ "当前草稿" }}</p>
+          <h2>{{ "生效配置快照" }}</h2>
         </div>
-        <span class="panel-chip">{{ hasChanges ? copy("未保存", "Unsaved") : copy("已同步", "Synced") }}</span>
+        <span class="panel-chip">{{ hasChanges ? "未保存" : "已同步" }}</span>
       </div>
       <div class="settings-summary-grid">
         <article v-for="card in summaryCards" :key="card.id" class="summary-card">
@@ -204,13 +213,13 @@ function restoreDefaults() {
       <section class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("运行创建", "Run creation") }}</p>
-            <h2>{{ copy("减少创建时重复选择", "Reduce repetitive run creation choices") }}</h2>
+            <p class="section-eyebrow">{{ "运行创建" }}</p>
+            <h2>{{ "减少创建时重复选择" }}</h2>
           </div>
         </div>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("默认 CLI", "Default CLI") }}</span>
+          <span class="form-label">{{ "默认 CLI" }}</span>
           <select v-model="form.runDefaultCli" class="text-input">
             <option value="codex">codex</option>
             <option value="codefree">codefree</option>
@@ -220,33 +229,27 @@ function restoreDefaults() {
 
         <label class="settings-toggle-row">
           <input v-model="form.runAutoResume" type="checkbox" />
-          <span>{{ copy("创建后自动启动 CLI", "Auto-start CLI right after creation") }}</span>
+          <span>{{ "创建后自动启动 CLI" }}</span>
         </label>
 
         <label class="settings-toggle-row">
           <input v-model="form.runAllowOutsideWorkspaceWrites" type="checkbox" />
           <span>
             {{
-              copy(
-                "允许新建 run 写入工作区外路径（allowOutsideWorkspaceWrites）",
-                "Allow newly created runs to write outside workspace paths (allowOutsideWorkspaceWrites).",
-              )
+              "允许新建 run 写入工作区外路径（allowOutsideWorkspaceWrites）"
             }}
           </span>
         </label>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("创建完成后默认打开", "Open by default after run creation") }}</span>
+          <span class="form-label">{{ "创建完成后默认打开" }}</span>
           <select v-model="form.runOpenTarget" class="text-input">
             <option value="session">{{ runOpenTargetLabel("session") }}</option>
             <option value="workspace">{{ runOpenTargetLabel("workspace") }}</option>
           </select>
           <span class="form-hint">
             {{
-              copy(
-                "会影响 Runs 页创建成功后的自动跳转目标。",
-                "Controls where the Runs page navigates after successful creation.",
-              )
+              "会影响 Runs 页创建成功后的自动跳转目标。"
             }}
           </span>
         </label>
@@ -255,13 +258,13 @@ function restoreDefaults() {
       <section class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("审批页", "Approval page") }}</p>
-            <h2>{{ copy("减少筛选与刷新操作", "Reduce filter and refresh operations") }}</h2>
+            <p class="section-eyebrow">{{ "审批页" }}</p>
+            <h2>{{ "减少筛选与刷新操作" }}</h2>
           </div>
         </div>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("默认筛选", "Default filter") }}</span>
+          <span class="form-label">{{ "默认筛选" }}</span>
           <select v-model="form.approvalsDefaultFilter" class="text-input">
             <option value="pending">{{ approvalFilterLabel("pending") }}</option>
             <option value="all">{{ approvalFilterLabel("all") }}</option>
@@ -271,7 +274,7 @@ function restoreDefaults() {
         </label>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("请求条数上限", "Request limit") }}</span>
+          <span class="form-label">{{ "请求条数上限" }}</span>
           <input
             v-model.number="form.approvalsFetchLimit"
             class="text-input"
@@ -283,7 +286,7 @@ function restoreDefaults() {
         </label>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("自动刷新（秒，0=关闭）", "Auto refresh (seconds, 0 = off)") }}</span>
+          <span class="form-label">{{ "自动刷新（秒，0=关闭）" }}</span>
           <input
             v-model.number="form.approvalsAutoRefreshSec"
             class="text-input"
@@ -298,29 +301,26 @@ function restoreDefaults() {
       <section class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("审计页", "Inspect page") }}</p>
-            <h2>{{ copy("降低 run 选择成本", "Lower run-selection overhead") }}</h2>
+            <p class="section-eyebrow">{{ "审计页" }}</p>
+            <h2>{{ "降低 run 选择成本" }}</h2>
           </div>
         </div>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("默认 run 选择策略", "Default run strategy") }}</span>
+          <span class="form-label">{{ "默认 run 选择策略" }}</span>
           <select v-model="form.inspectDefaultRunSource" class="text-input">
             <option value="remembered">{{ inspectDefaultRunLabel("remembered") }}</option>
             <option value="latest">{{ inspectDefaultRunLabel("latest") }}</option>
           </select>
           <span class="form-hint">
             {{
-              copy(
-                "当 URL 未指定 runId 时生效。",
-                "Applied only when the URL does not include a runId.",
-              )
+              "当 URL 未指定 runId 时生效。"
             }}
           </span>
         </label>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("自动刷新（秒，0=关闭）", "Auto refresh (seconds, 0 = off)") }}</span>
+          <span class="form-label">{{ "自动刷新（秒，0=关闭）" }}</span>
           <input
             v-model.number="form.inspectAutoRefreshSec"
             class="text-input"
@@ -336,12 +336,12 @@ function restoreDefaults() {
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">Workspace</p>
-            <h2>{{ copy("轮询频率", "Polling interval") }}</h2>
+            <h2>{{ "轮询频率" }}</h2>
           </div>
         </div>
 
         <label class="settings-field">
-          <span class="form-label">{{ copy("自动刷新间隔（秒）", "Auto refresh interval (seconds)") }}</span>
+          <span class="form-label">{{ "自动刷新间隔（秒）" }}</span>
           <input
             v-model.number="form.workspaceAutoRefreshSec"
             class="text-input"
@@ -352,10 +352,7 @@ function restoreDefaults() {
           />
           <span class="form-hint">
             {{
-              copy(
-                "影响 Workspace 页面 projection 轮询间隔。",
-                "Controls projection polling interval on Workspace pages.",
-              )
+              "影响 Workspace 页面 projection 轮询间隔。"
             }}
           </span>
         </label>
@@ -365,19 +362,19 @@ function restoreDefaults() {
     <section class="panel-card settings-actions-card">
       <div class="settings-actions">
         <button class="primary-button" type="button" :disabled="!hasChanges" @click="saveForm">
-          {{ copy("保存设置", "Save settings") }}
+          {{ "保存设置" }}
         </button>
         <button class="ghost-button" type="button" :disabled="!hasChanges" @click="resetDraft">
-          {{ copy("撤销修改", "Discard changes") }}
+          {{ "撤销修改" }}
         </button>
         <button class="ghost-button" type="button" @click="restoreDefaults">
-          {{ copy("恢复默认", "Restore defaults") }}
+          {{ "恢复默认" }}
         </button>
       </div>
       <p class="form-hint settings-feedback">
         {{
           flashMessage ||
-            copy("修改后点击“保存设置”才会应用到 Runs / Approvals / Inspect / Workspace 页面。", "Changes apply to Runs / Approvals / Inspect / Workspace after Save settings.")
+            "修改后点击“保存设置”才会应用到 Runs / Approvals / Inspect / Workspace 页面。"
         }}
       </p>
     </section>

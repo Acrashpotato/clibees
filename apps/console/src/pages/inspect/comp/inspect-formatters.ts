@@ -4,30 +4,28 @@
   AuditTimelineRunStatus,
 } from "../../../audit-timeline-projection";
 
-type CopyFn = (zh: string, en: string) => string;
-
-export function runStatusLabel(status: AuditTimelineRunStatus, copy: CopyFn): string {
+export function runStatusLabel(status: AuditTimelineRunStatus): string {
   switch (status) {
     case "created":
-      return copy("已创建", "Created");
+      return "已创建";
     case "planning":
-      return copy("规划中", "Planning");
+      return "规划中";
     case "ready":
-      return copy("就绪", "Ready");
+      return "就绪";
     case "running":
-      return copy("运行中", "Running");
+      return "运行中";
     case "waiting_approval":
-      return copy("待审批", "Waiting approval");
+      return "待审批";
     case "replanning":
-      return copy("重规划中", "Replanning");
+      return "重规划中";
     case "paused":
-      return copy("已暂停", "Paused");
+      return "已暂停";
     case "completed":
-      return copy("已完成", "Completed");
+      return "已完成";
     case "failed":
-      return copy("失败", "Failed");
+      return "失败";
     case "cancelled":
-      return copy("已取消", "Cancelled");
+      return "已取消";
   }
 }
 
@@ -51,34 +49,33 @@ export function runStatusPill(
   }
 }
 
-export function eventKindLabel(kind: AuditTimelineEntryKind, copy: CopyFn): string {
+export function eventKindLabel(kind: AuditTimelineEntryKind): string {
   switch (kind) {
     case "lifecycle":
-      return copy("生命周期", "Lifecycle");
+      return "生命周期";
     case "session":
-      return copy("会话", "Session");
+      return "会话";
     case "approval":
-      return copy("审批", "Approval");
+      return "审批";
     case "validation":
-      return copy("验证", "Validation");
+      return "验证";
     case "artifact":
-      return copy("产物", "Artifact");
+      return "产物";
     case "replan":
-      return copy("重规划", "Replan");
+      return "重规划";
   }
 }
 
 export function approvalStateLabel(
   state: AuditTimelineApprovalHistoryItemView["state"],
-  copy: CopyFn,
 ): string {
   switch (state) {
     case "pending":
-      return copy("待处理", "Pending");
+      return "待处理";
     case "approved":
-      return copy("已批准", "Approved");
+      return "已批准";
     case "rejected":
-      return copy("已拒绝", "Rejected");
+      return "已拒绝";
   }
 }
 
@@ -101,22 +98,22 @@ export function riskTone(
   return riskLevel === "none" ? "low" : riskLevel;
 }
 
-export function sourceLabel(sourceMode: string, copy: CopyFn): string {
+export function sourceLabel(sourceMode: string): string {
   switch (sourceMode) {
     case "run_event":
-      return copy("运行事件", "Run event");
+      return "运行事件";
     case "approval_artifact":
-      return copy("审批快照", "Approval artifact");
+      return "审批快照";
     case "inspection_approval":
-      return copy("审计回填", "Inspection fallback");
+      return "审计回填";
     case "validation_record":
-      return copy("验证记录", "Validation record");
+      return "验证记录";
     case "task_status_backfill":
-      return copy("状态回填", "Status backfill");
+      return "状态回填";
     case "artifact_record":
-      return copy("产物记录", "Artifact record");
+      return "产物记录";
     case "run_event_backfill":
-      return copy("事件回填", "Event backfill");
+      return "事件回填";
     default:
       return sourceMode.replaceAll("_", " ");
   }

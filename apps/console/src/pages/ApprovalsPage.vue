@@ -15,7 +15,7 @@ import ApprovalDetailPanel from "./approvals/comp/ApprovalDetailPanel.vue";
 
 const route = useRoute();
 const router = useRouter();
-const { isZh, riskLabel, t } = usePreferences();
+const { riskLabel, t } = usePreferences();
 const { settings } = useConsoleSettings();
 const projection = ref<ApprovalQueueProjectionView>(createEmptyApprovalQueueProjection());
 const loading = ref(false);
@@ -46,45 +46,42 @@ const selectedApproval = computed(() =>
 const summaryCards = computed(() => [
   {
     id: "scope",
-    label: copy("范围", "Scope"),
+    label: "范围",
     value: scopedRunId.value ?? "-",
   },
   {
     id: "pending",
-    label: copy("待审批", "Pending"),
+    label: "待审批",
     value: String(projection.value.summary.pendingCount),
   },
   {
     id: "approved",
-    label: copy("已通过", "Approved"),
+    label: "已通过",
     value: String(projection.value.summary.approvedCount),
   },
   {
     id: "rejected",
-    label: copy("已拒绝", "Rejected"),
+    label: "已拒绝",
     value: String(projection.value.summary.rejectedCount),
   },
   {
     id: "high-risk",
-    label: copy("高风险", "High risk"),
+    label: "高风险",
     value: String(projection.value.summary.highRiskCount),
   },
 ]);
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 function stateFilterLabel(state: "all" | "pending" | "approved" | "rejected"): string {
   switch (state) {
     case "pending":
-      return copy("待审批", "Pending");
+      return "待审批";
     case "approved":
-      return copy("已通过", "Approved");
+      return "已通过";
     case "rejected":
-      return copy("已拒绝", "Rejected");
+      return "已拒绝";
     default:
-      return copy("全部", "All");
+      return "全部";
   }
 }
 
@@ -95,17 +92,17 @@ function displayRiskLevel(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): 
 }
 
 function riskLevelLabel(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): string {
-  return riskLevel === "none" ? copy("无", "None") : riskLabel(riskLevel);
+  return riskLevel === "none" ? "无" : riskLabel(riskLevel);
 }
 
 function decisionStateLabel(state: ApprovalQueueItemDetailView["state"]): string {
   switch (state) {
     case "pending":
-      return copy("待审批", "Pending");
+      return "待审批";
     case "approved":
-      return copy("已通过", "Approved");
+      return "已通过";
     default:
-      return copy("已拒绝", "Rejected");
+      return "已拒绝";
   }
 }
 
@@ -152,7 +149,7 @@ async function loadProjection(showLoading = true) {
     error.value = "";
     if (!scopedRunId.value) {
       projection.value = createEmptyApprovalQueueProjection();
-      error.value = copy("缺少 runId，无法打开审批队列。", "Missing runId, so approval queue cannot be opened.");
+      error.value = "缺少 runId，无法打开审批队列。";
       return;
     }
     projection.value = await getApprovalQueueProjection({
@@ -338,14 +335,11 @@ onBeforeUnmount(() => {
     <div class="workspace-page-header">
       <div>
         <p class="section-eyebrow">{{ t("nav.approvals") }}</p>
-        <h1>{{ copy("审批队列", "Approval queue") }}</h1>
+        <h1>{{ "审批队列" }}</h1>
       </div>
       <p>
         {{
-          copy(
-            `仅查看 run ${scopedRunId ?? "-"} 的审批请求、task/session 绑定与 action plan 快照。`,
-            `Reviewing only approval requests, task/session bindings, and action plan snapshots for run ${scopedRunId ?? "-"}.`,
-          )
+          `仅查看 run ${scopedRunId ?? "-"} 的审批请求、task/session 绑定与 action plan 快照。`
         }}
       </p>
     </div>
@@ -357,8 +351,8 @@ onBeforeUnmount(() => {
     <section class="status-bar workspace-hero approvals-hero">
       <div class="approvals-hero__header">
         <div>
-          <p class="section-eyebrow">{{ copy("审批摘要", "Approval summary") }}</p>
-          <h2>{{ copy("基于审批事实归一化", "Normalized from approval facts") }}</h2>
+          <p class="section-eyebrow">{{ "审批摘要" }}</p>
+          <h2>{{ "基于审批事实归一化" }}</h2>
         </div>
         <div class="approvals-hero__controls">
           <RouterLink
@@ -404,15 +398,15 @@ onBeforeUnmount(() => {
     </section>
 
     <div v-if="loading && approvals.length === 0 && !error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ copy("正在加载审批队列。", "Loading approval queue.") }}</p>
+      <p class="panel-card__body">{{ "正在加载审批队列。" }}</p>
     </div>
 
     <section v-else-if="approvals.length > 0" class="approvals-mailboard">
       <aside class="panel-card approvals-inbox">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("审批收件箱", "Approval inbox") }}</p>
-            <h2>{{ copy("逐条处理", "Open one by one") }}</h2>
+            <p class="section-eyebrow">{{ "审批收件箱" }}</p>
+            <h2>{{ "逐条处理" }}</h2>
           </div>
           <span class="panel-chip">{{ filteredApprovals.length }}</span>
         </div>
@@ -457,7 +451,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前筛选条件下没有审批项。", "No approvals under the current filter.") }}</p>
+          <p class="panel-card__body">{{ "当前筛选条件下没有审批项。" }}</p>
         </div>
       </aside>
 
@@ -474,8 +468,8 @@ onBeforeUnmount(() => {
       <p class="panel-card__body">
         {{
           loading
-            ? copy("正在加载审批队列。", "Loading approval queue.")
-            : copy("当前没有可展示的审批请求。", "There is no approval request to display right now.")
+            ? "正在加载审批队列。"
+            : "当前没有可展示的审批请求。"
         }}
       </p>
     </div>

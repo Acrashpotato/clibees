@@ -50,6 +50,7 @@ export interface TaskSpec {
   timeoutMs: number;
   retryPolicy: RetryPolicy;
   budget?: BudgetSpec;
+  metadata?: Record<string, unknown>;
   status: TaskStatus;
 }
 

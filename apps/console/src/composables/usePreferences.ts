@@ -7,8 +7,9 @@ type Theme = "dark" | "light";
 
 const LOCALE_KEY = "clibees.console.locale";
 const THEME_KEY = "clibees.console.theme";
+const FIXED_LOCALE: Locale = "zh-CN";
 
-const locale = ref<Locale>("zh-CN");
+const locale = ref<Locale>(FIXED_LOCALE);
 const theme = ref<Theme>("light");
 
 let initialized = false;
@@ -27,24 +28,16 @@ function init() {
     return;
   }
 
-  const savedLocale = window.localStorage.getItem(LOCALE_KEY);
   const savedTheme = window.localStorage.getItem(THEME_KEY);
-
-  if (savedLocale === "zh-CN" || savedLocale === "en") {
-    locale.value = savedLocale;
-  }
 
   if (savedTheme === "dark" || savedTheme === "light") {
     theme.value = savedTheme;
   }
 
-  applyLocale(locale.value);
+  locale.value = FIXED_LOCALE;
+  window.localStorage.setItem(LOCALE_KEY, FIXED_LOCALE);
+  applyLocale(FIXED_LOCALE);
   applyTheme(theme.value);
-
-  watch(locale, (value) => {
-    window.localStorage.setItem(LOCALE_KEY, value);
-    applyLocale(value);
-  });
 
   watch(theme, (value) => {
     window.localStorage.setItem(THEME_KEY, value);
@@ -60,20 +53,13 @@ export function usePreferences() {
   return {
     locale,
     theme,
-    isZh: computed(() => locale.value === "zh-CN"),
     isDark: computed(() => theme.value === "dark"),
-    setLocale: (nextLocale: Locale) => {
-      locale.value = nextLocale;
-    },
-    toggleLocale: () => {
-      locale.value = locale.value === "zh-CN" ? "en" : "zh-CN";
-    },
     toggleTheme: () => {
       theme.value = theme.value === "dark" ? "light" : "dark";
     },
-    t: (key: string) => translate(locale.value, key),
-    statusLabel: (status: ExecutionStatus | "failed") => getStatusLabel(locale.value, status),
-    riskLabel: (risk: RiskLevel) => getRiskLabel(locale.value, risk),
-    validationLabel: (state: ValidationSummary["state"]) => getValidationLabel(locale.value, state)
+    t: (key: string) => translate(FIXED_LOCALE, key),
+    statusLabel: (status: ExecutionStatus | "failed") => getStatusLabel(FIXED_LOCALE, status),
+    riskLabel: (risk: RiskLevel) => getRiskLabel(FIXED_LOCALE, risk),
+    validationLabel: (state: ValidationSummary["state"]) => getValidationLabel(FIXED_LOCALE, state),
   };
 }

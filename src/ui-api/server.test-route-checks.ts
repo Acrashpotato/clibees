@@ -148,9 +148,8 @@ export async function runCreateAndStaleBuildChecks(options: {
     assert.equal(autoResumeResponse.status, 201);
     const autoResumePayload = await autoResumeResponse.json() as RunRecord;
     assert.equal(autoResumePayload.metadata.selectedCli, "codex");
-    assert.notEqual(autoResumePayload.status, "ready");
-    const autoResumeInspection = await fetchRunInspection(baseUrl, autoResumePayload.runId);
-    assertSelectedCliEvents(autoResumeInspection.events, "codex");
+    assert.equal(autoResumePayload.status, "ready");
+    await waitForSelectedCliEvents(baseUrl, autoResumePayload.runId, "codex");
 
     const codefreeRunId = createdRunIds.get("codefree");
     assert.ok(codefreeRunId);
@@ -231,6 +230,21 @@ function assertSelectedCliEvents(
   events: RunEvent[],
   selectedCli: SelectedCli,
 ): void {
+  const { selectedEvent, invocationEvent } = findSelectedCliEvents(events, selectedCli);
+  assert.ok(selectedEvent, `Expected an agent_selected event for "${selectedCli}".`);
+  assert.ok(
+    invocationEvent,
+    `Expected an invocation_planned event with command "${selectedCli}".`,
+  );
+}
+
+function findSelectedCliEvents(
+  events: RunEvent[],
+  selectedCli: SelectedCli,
+): {
+  selectedEvent: RunEvent | undefined;
+  invocationEvent: RunEvent | undefined;
+} {
   const selectedEvent = events.find((event) => {
     if (event.type !== "agent_selected") {
       return false;
@@ -238,7 +252,6 @@ function assertSelectedCliEvents(
     const payload = asPayload(event);
     return payload.agentId === selectedCli;
   });
-  assert.ok(selectedEvent, `Expected an agent_selected event for "${selectedCli}".`);
 
   const invocationEvent = events.find((event) => {
     if (event.type !== "invocation_planned") {
@@ -247,10 +260,39 @@ function assertSelectedCliEvents(
     const payload = asPayload(event);
     return payload.agentId === selectedCli && payload.command === selectedCli;
   });
-  assert.ok(
+
+  return {
+    selectedEvent,
     invocationEvent,
-    `Expected an invocation_planned event with command "${selectedCli}".`,
+  };
+}
+
+async function waitForSelectedCliEvents(
+  baseUrl: string,
+  runId: string,
+  selectedCli: SelectedCli,
+): Promise<void> {
+  const timeoutMs = 2_000;
+  const intervalMs = 50;
+  const deadline = Date.now() + timeoutMs;
+  let lastEvents: RunEvent[] = [];
+  while (Date.now() <= deadline) {
+    const inspection = await fetchRunInspection(baseUrl, runId);
+    lastEvents = inspection.events;
+    const matched = findSelectedCliEvents(lastEvents, selectedCli);
+    if (matched.selectedEvent && matched.invocationEvent) {
+      return;
+    }
+    await delay(intervalMs);
+  }
+
+  assert.fail(
+    `Timed out waiting for selected CLI events for "${selectedCli}" in run "${runId}". Last event count: ${lastEvents.length}.`,
   );
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function asPayload(event: RunEvent): Record<string, unknown> {

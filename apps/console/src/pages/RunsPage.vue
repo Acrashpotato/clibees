@@ -31,7 +31,6 @@ const {
   sortedRuns,
   filteredRuns,
   selectedRun,
-  copy,
   syncRunQuery,
   ensureSelection,
   buildRunSubmenuPath,
@@ -64,21 +63,21 @@ const {
             v-model="runSearchQuery"
             class="text-input"
             type="text"
-            :placeholder="copy('搜索任务（runId / 目标）', 'Search tasks (runId / goal)')"
+            :placeholder="'搜索任务（runId / 目标）'"
           />
           <button
             class="ghost-button runs-list-pane__create-trigger"
             type="button"
-            :title="copy('新建任务', 'Create task')"
+            :title="'新建任务'"
             @click="toggleCreatePanel"
           >
-            {{ copy("新建", "New") }}
+            {{ "新建" }}
           </button>
         </div>
 
-        <div v-if="loading" class="runs-list-pane__state">{{ copy("加载中...", "Loading...") }}</div>
+        <div v-if="loading" class="runs-list-pane__state">{{ "加载中..." }}</div>
         <div v-else-if="filteredRuns.length === 0" class="runs-list-pane__state">
-          {{ copy("没有匹配的任务。", "No matching tasks.") }}
+          {{ "没有匹配的任务。" }}
         </div>
 
         <div v-else class="runs-list">
@@ -109,8 +108,8 @@ const {
                 class="icon-button runs-list-item__delete"
                 type="button"
                 :disabled="deletingRunId === run.runId"
-                :aria-label="copy('删除该任务及资源', 'Delete this task and resources')"
-                :title="copy('删除该任务及资源', 'Delete this task and resources')"
+                :aria-label="'删除该任务及资源'"
+                :title="'删除该任务及资源'"
                 @click.stop="deleteTaskResources(run)"
               >
                 <svg
@@ -136,7 +135,41 @@ const {
       </aside>
 
       <main class="runs-detail-pane" :class="{ 'runs-detail-pane--submenu': isSubmenuRoute }">
-        <template v-if="selectedRun">
+        <article v-if="createExpanded" class="panel-card runs-create-card">
+          <header class="runs-create-card__header">
+            <h2>{{ "新建任务" }}</h2>
+            <button class="ghost-button" type="button" @click="toggleCreatePanel">
+              {{ "关闭" }}
+            </button>
+          </header>
+
+          <textarea
+            v-model="createGoalInput"
+            class="text-input text-input--textarea"
+            rows="3"
+            :placeholder="'输入该任务的目标...'"
+          ></textarea>
+
+          <div class="runs-create-card__controls">
+            <label class="runs-create-card__field">
+              <span class="form-label">CLI</span>
+              <select v-model="selectedCli">
+                <option v-for="cli in cliOptions" :key="cli" :value="cli">{{ cli }}</option>
+              </select>
+            </label>
+            <label class="runs-create-card__checkbox">
+              <input v-model="autoResume" type="checkbox" />
+              <span>{{ "创建后自动启动" }}</span>
+            </label>
+          </div>
+
+          <p v-if="createError" class="form-error">{{ createError }}</p>
+          <button class="primary-button" type="button" :disabled="creating" @click="createNewRun">
+            {{ creating ? "创建中..." : "创建任务" }}
+          </button>
+        </article>
+
+        <template v-else-if="selectedRun">
           <header class="runs-detail-header">
             <div class="runs-detail-header__identity">
               <span class="runs-detail-header__avatar" :data-status="statusTone(selectedRun.status)">
@@ -151,14 +184,14 @@ const {
             <div class="runs-detail-header__actions">
               <span class="status-pill" :data-status="statusTone(selectedRun.status)">{{ selectedRun.status }}</span>
               <button class="ghost-button" type="button" :disabled="resuming" @click="resumeSelectedRun">
-                {{ resuming ? copy("恢复中...", "Resuming...") : copy("恢复任务", "Resume task") }}
+                {{ resuming ? "恢复中..." : "恢复任务" }}
               </button>
               <button
                 v-if="isSubmenuRoute"
                 class="icon-button runs-detail-header__back"
                 type="button"
-                :aria-label="copy('返回菜单', 'Back to menu')"
-                :title="copy('返回菜单', 'Back to menu')"
+                :aria-label="'返回菜单'"
+                :title="'返回菜单'"
                 @click="backToSubmenuHub"
               >
                 <svg
@@ -175,53 +208,53 @@ const {
                 </svg>
               </button>
               <button v-else class="ghost-button" type="button" @click="copyRunId">
-                {{ copying ? copy("已复制", "Copied") : copy("复制 ID", "Copy ID") }}
+                {{ copying ? "已复制" : "复制 ID" }}
               </button>
             </div>
           </header>
 
-          <nav class="runs-submenu-bar" :aria-label="copy('运行二级入口', 'Run submenu shortcuts')">
+          <nav class="runs-submenu-bar" :aria-label="'运行二级入口'">
             <RouterLink
               class="runs-submenu-button"
               :class="{ 'runs-submenu-button--active': !isSubmenuRoute || activeSubmenuLeaf === 'manager' }"
               :to="buildRunSubmenuPath(selectedRun.runId, 'manager')"
             >
-              {{ copy("总管", "Manager") }}
+              {{ "总管" }}
             </RouterLink>
             <RouterLink
               class="runs-submenu-button"
               :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'workerpoll' }"
               :to="buildRunSubmenuPath(selectedRun.runId, 'workerpoll')"
             >
-              {{ copy("工位池", "Worker pool") }}
+              {{ "工位池" }}
             </RouterLink>
             <RouterLink
               class="runs-submenu-button"
               :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'workspace' }"
               :to="getRunWorkspacePath(selectedRun.runId)"
             >
-              {{ copy("工作台", "Workspace") }}
+              {{ "工作台" }}
             </RouterLink>
             <RouterLink
               class="runs-submenu-button"
               :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'tasks' }"
               :to="getRunTaskBoardPath(selectedRun.runId)"
             >
-              {{ copy("执行车道", "Execution lanes") }}
+              {{ "执行车道" }}
             </RouterLink>
             <RouterLink
               class="runs-submenu-button"
               :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'approvals' }"
               :to="getRunApprovalsPath(selectedRun.runId)"
             >
-              {{ copy("审批", "Approvals") }}
+              {{ "审批" }}
             </RouterLink>
             <RouterLink
               class="runs-submenu-button"
               :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'inspect' }"
               :to="getRunInspectPath(selectedRun.runId)"
             >
-              {{ copy("审计", "Inspect") }}
+              {{ "审计" }}
             </RouterLink>
           </nav>
 
@@ -234,67 +267,33 @@ const {
 
             <section class="workspace-summary-grid runs-summary-grid">
               <article class="summary-card">
-                <span>{{ copy("阶段", "Stage") }}</span>
+                <span>{{ "阶段" }}</span>
                 <strong>{{ selectedRun.stage }}</strong>
               </article>
               <article class="summary-card">
-                <span>{{ copy("活跃任务", "Active tasks") }}</span>
+                <span>{{ "活跃任务" }}</span>
                 <strong>{{ selectedRun.activeTaskCount }}</strong>
               </article>
               <article class="summary-card">
-                <span>{{ copy("活跃会话", "Active sessions") }}</span>
+                <span>{{ "活跃会话" }}</span>
                 <strong>{{ selectedRun.activeSessionCount }}</strong>
               </article>
               <article class="summary-card">
-                <span>{{ copy("待审批", "Pending approvals") }}</span>
+                <span>{{ "待审批" }}</span>
                 <strong>{{ selectedRun.pendingApprovalCount }}</strong>
               </article>
             </section>
 
             <article class="panel-card runs-summary-card">
-              <p class="section-eyebrow">{{ copy("最近动态", "Latest activity") }}</p>
+              <p class="section-eyebrow">{{ "最近动态" }}</p>
               <p class="panel-card__body">{{ selectedRun.summary }}</p>
             </article>
           </template>
         </template>
 
         <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("请先在左侧选择一个任务查看详情。", "Select a task on the left to view details.") }}</p>
+          <p class="panel-card__body">{{ "请先在左侧选择一个任务查看详情。" }}</p>
         </div>
-
-        <article v-if="createExpanded" class="panel-card runs-create-card">
-          <header class="runs-create-card__header">
-            <h2>{{ copy("新建任务", "Create task") }}</h2>
-            <button class="ghost-button" type="button" @click="toggleCreatePanel">
-              {{ copy("关闭", "Close") }}
-            </button>
-          </header>
-
-          <textarea
-            v-model="createGoalInput"
-            class="text-input text-input--textarea"
-            rows="3"
-            :placeholder="copy('输入该任务的目标...', 'Describe the goal for this task...')"
-          ></textarea>
-
-          <div class="runs-create-card__controls">
-            <label class="runs-create-card__field">
-              <span class="form-label">CLI</span>
-              <select v-model="selectedCli">
-                <option v-for="cli in cliOptions" :key="cli" :value="cli">{{ cli }}</option>
-              </select>
-            </label>
-            <label class="runs-create-card__checkbox">
-              <input v-model="autoResume" type="checkbox" />
-              <span>{{ copy("创建后自动启动", "Auto start after create") }}</span>
-            </label>
-          </div>
-
-          <p v-if="createError" class="form-error">{{ createError }}</p>
-          <button class="primary-button" type="button" :disabled="creating" @click="createNewRun">
-            {{ creating ? copy("创建中...", "Creating...") : copy("创建任务", "Create task") }}
-          </button>
-        </article>
       </main>
     </div>
   </section>

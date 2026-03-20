@@ -1,0 +1,24 @@
+{
+  "id": "code-implementation",
+  "name": "Code Implementation",
+  "description": "Implement code changes with focused file edits and runnable verification instructions.",
+  "keywords": ["code", "implement", "fix", "feature", "refactor"],
+  "template": {
+    "instructions": [
+      "Implement concrete code changes directly in the repository.",
+      "Avoid unrelated refactors and preserve existing behavior outside the target scope.",
+      "Include focused verification steps that prove the requested behavior."
+    ],
+    "requiredCapabilities": ["planning"],
+    "expectedArtifacts": ["Code changes that satisfy the delegated goal."],
+    "acceptanceCriteria": [
+      "Requested behavior is implemented and validated.",
+      "Changed files remain consistent with repository coding constraints."
+    ],
+    "riskLevel": "medium",
+    "timeoutMs": 900000,
+    "validator": {
+      "mode": "none"
+    }
+  }
+}

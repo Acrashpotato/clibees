@@ -42,6 +42,7 @@ export interface ManagerWorkerQueueItem {
   agentId: string;
   lastActivityAt: string;
   sessionId?: string;
+  skillId?: string;
 }
 
 export interface ManagerPendingApprovalItem {

@@ -51,14 +51,16 @@ export function buildExecutionRuntime(
   options: {
     managerShouldFail?: boolean;
     managerNoMoreTasks?: boolean;
-    managerDelegatedTasks?: Array<{
-      title: string;
-      goal: string;
-      preferredAgent?: string;
-      dependsOn?: string[];
-      requiredCapabilities?: string[];
-      instructions?: string[];
-      expectedArtifacts?: string[];
+      managerDelegatedTasks?: Array<{
+        title: string;
+        goal: string;
+        skillId?: string;
+        skillArgs?: Record<string, unknown>;
+        preferredAgent?: string;
+        dependsOn?: string[];
+        requiredCapabilities?: string[];
+        instructions?: string[];
+        expectedArtifacts?: string[];
       acceptanceCriteria?: string[];
     }>;
   } = {},

@@ -64,6 +64,10 @@ import { GraphManager } from "../../graph-manager.js";
 import { InspectionAggregator } from "../../inspection-aggregator.js";
 import { MemoryConsolidator } from "../../memory-consolidator.js";
 import { Scheduler } from "../../scheduler.js";
+import {
+  LocalSkillDiscoveryAdapter,
+  LocalSkillRegistry,
+} from "../../skills/index.js";
 import type {
   DelegatedTaskTemplate,
   ExecutionServices,
@@ -132,29 +136,37 @@ import {
   summarizeCommandResult,
   toCapabilitySlug,
 } from "../helpers/index.js";
-
 export async function executeReadyTasks(this: any,
   run: RunRecord,
   graph: RunGraph,
   config: MultiAgentConfig | undefined): Promise<RunRecord> {
     const resolvedConfig = this.resolveRunExecutionConfig(run, config);
     const services = this.resolveExecutionServices(run, resolvedConfig);
-
     let currentRun = run;
     let currentGraph = graph;
-
     if (currentRun.status !== "running") {
       currentRun = await this.updateRunRecord(currentRun, "running");
     }
-
     while (true) {
       const task = services.scheduler.pickNext(currentGraph);
       if (!task) {
-        const terminalStatus =
-          currentGraph.failedTaskIds.length > 0 ? "failed" : "completed";
-        return this.finalizeRun(currentRun, terminalStatus, currentGraph, services);
+        if (currentGraph.failedTaskIds.length > 0) {
+          return this.finalizeRun(currentRun, "failed", currentGraph, services);
+        }
+        const unresolvedTask = Object.values(currentGraph.tasks).find((candidate) =>
+          candidate.status !== "completed" &&
+          candidate.status !== "failed_terminal" &&
+          candidate.status !== "blocked" &&
+          candidate.status !== "cancelled",
+        );
+        if (unresolvedTask) {
+          if (unresolvedTask.status === "awaiting_approval") {
+            return this.updateRunRecord(currentRun, "waiting_approval", unresolvedTask.id);
+          }
+          return this.updateRunRecord(currentRun, "paused", unresolvedTask.id);
+        }
+        return this.finalizeRun(currentRun, "completed", currentGraph, services);
       }
-
       currentRun = await this.updateRunRecord(currentRun, "running", task.id);
       let outcome: TaskProcessingResult;
       try {
@@ -176,13 +188,11 @@ export async function executeReadyTasks(this: any,
       }
       currentRun = outcome.run;
       currentGraph = outcome.graph;
-
       if (outcome.halted) {
         return currentRun;
       }
     }
   }
-
 export async function handleTaskProcessingFailure(this: any,
   run: RunRecord,
   graph: RunGraph,
@@ -202,7 +212,6 @@ export async function handleTaskProcessingFailure(this: any,
       }),
       services.blackboardStore,
     );
-
     if (shouldUseDelegatedBootstrap(run.metadata)) {
       try {
         const latestGraph = (await this.dependencies.runStore.getGraph(run.runId)) ?? graph;
@@ -229,11 +238,9 @@ export async function handleTaskProcessingFailure(this: any,
         // Best effort notification for manager timeline.
       }
     }
-
     const latestGraph = (await this.dependencies.runStore.getGraph(run.runId)) ?? graph;
     return this.finalizeRun(run, "failed", latestGraph, services);
   }
-
 export function resolveExecutionServices(this: any,
   run: RunRecord,
   config: MultiAgentConfig): ExecutionServices {
@@ -250,7 +257,11 @@ export function resolveExecutionServices(this: any,
         stateRootDir,
         workspaceRootDir: run.workspacePath,
       });
-
+    const skillRegistry =
+      this.dependencies.skillRegistry ?? new LocalSkillRegistry();
+    const skillDiscoveryAdapter =
+      this.dependencies.skillDiscoveryAdapter ??
+      new LocalSkillDiscoveryAdapter(skillRegistry);
     return {
       adapterRegistry,
       router:
@@ -292,9 +303,10 @@ export function resolveExecutionServices(this: any,
       blackboardStore,
       artifactStore,
       workspaceStateStore,
+      skillRegistry,
+      skillDiscoveryAdapter,
     };
   }
-
 export async function processTask(this: any,
   run: RunRecord,
   graph: RunGraph,
@@ -311,7 +323,6 @@ export async function processTask(this: any,
     );
     const currentTask = plannedGraph.tasks[task.id] ?? task;
     const review = services.safetyManager.review(currentTask, invocation);
-
     if (review.blocked) {
       const reasons = review.actions
         .filter((action) => action.blocked)
@@ -334,7 +345,6 @@ export async function processTask(this: any,
         halted: false,
       };
     }
-
     if (review.requiresApproval && !options.bypassApproval) {
       const approvalActions = review.actions
         .filter((action) => action.requiresApproval)
@@ -377,7 +387,6 @@ export async function processTask(this: any,
         halted: true,
       };
     }
-
     const executedGraph = await this.executeInvocation(
       run,
       plannedGraph,
@@ -394,14 +403,12 @@ export async function processTask(this: any,
         halted: true,
       };
     }
-
     return {
       graph: executedGraph,
       run,
       halted: false,
     };
   }
-
 export async function planTaskInvocation(this: any,
   run: RunRecord,
   graph: RunGraph,
@@ -409,12 +416,10 @@ export async function planTaskInvocation(this: any,
   services: ExecutionServices,
   options: { trackTransitions: boolean }): Promise<{ graph: RunGraph; invocation: InvocationPlan }> {
     let currentGraph = graph;
-
     if (options.trackTransitions) {
       await this.dependencies.runStore.updateTaskStatus(run.runId, task.id, "routing");
       currentGraph = (await this.dependencies.runStore.getGraph(run.runId)) ?? graph;
     }
-
     const selection = await services.router.selectAgent(currentGraph.tasks[task.id] ?? task);
     currentGraph.tasks[task.id] = {
       ...currentGraph.tasks[task.id],
@@ -430,7 +435,6 @@ export async function planTaskInvocation(this: any,
       }),
       services.blackboardStore,
     );
-
     if (options.trackTransitions) {
       await this.dependencies.runStore.updateTaskStatus(
         run.runId,
@@ -439,7 +443,6 @@ export async function planTaskInvocation(this: any,
       );
       currentGraph = (await this.dependencies.runStore.getGraph(run.runId)) ?? currentGraph;
     }
-
     const context = await services.contextAssembler.buildContext({
       task: currentGraph.tasks[task.id] ?? task,
       selection,
@@ -458,7 +461,6 @@ export async function planTaskInvocation(this: any,
       }),
       services.blackboardStore,
     );
-
     const adapter = services.adapterRegistry.get(selection.agentId);
     const invocation = await adapter.planInvocation(
       currentGraph.tasks[task.id] ?? task,
@@ -476,6 +478,5 @@ export async function planTaskInvocation(this: any,
       }),
       services.blackboardStore,
     );
-
     return { graph: currentGraph, invocation };
   }

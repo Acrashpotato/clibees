@@ -27,6 +27,7 @@ import { buildApprovalQueueProjection } from "../ui-read-models/build-approval-q
 import { buildAuditTimelineProjection } from "../ui-read-models/build-audit-timeline-projection.js";
 import { buildManagerChatProjection } from "../ui-read-models/build-manager-chat-projection.js";
 import { buildWorkerpollProjection } from "../ui-read-models/build-workerpoll-projection.js";
+import { cleanupMultiAgentData, getMultiAgentSummary } from "./multi-agent-admin.js";
 
 export interface UiApiServerOptions {
   host?: string;
@@ -52,6 +53,8 @@ export interface JsonRequestBody {
   rows?: number;
   launchCli?: boolean;
   launchCodex?: boolean;
+  keepRunId?: string;
+  clearMemory?: boolean;
 }
 
 export function createUiApiServer(options: UiApiServerOptions = {}) {
@@ -73,6 +76,8 @@ export function createUiApiServer(options: UiApiServerOptions = {}) {
           buildApprovalQueueSummary,
           rejectIfBuildIsStale,
           deleteRunState,
+          getMultiAgentSummary,
+          cleanupMultiAgentData,
           readArtifactContentPreview,
           sendJson,
           sendApiError,

@@ -104,6 +104,7 @@ import {
   isAutoResumableRunStatus,
   isDelegationManagerTask,
   isManagerCoordinationTask,
+  isTaskTerminalStatus,
   isPathInsideRoot,
   isPlainObject,
   isSelectedCli,
@@ -132,6 +133,11 @@ import {
   summarizeCommandResult,
   toCapabilitySlug,
 } from "../helpers/index.js";
+import {
+  buildDelegatedTaskDedupSignature,
+  extractLatestStructuredOutput,
+  extractManagerCoordinationOutput,
+} from "./delegation-planning-helpers.js";
 
 export function buildDelegatedBootstrapTasks(this: any,
   request: RunRequest): TaskSpec[] {
@@ -188,8 +194,8 @@ export async function appendDelegatedTasksIfNeeded(this: any,
     }
 
     const isCoordinationTask = isManagerCoordinationTask(task);
-    const managerOutput = this.extractManagerCoordinationOutput(
-      this.extractLatestStructuredOutput(artifacts),
+    const managerOutput = extractManagerCoordinationOutput(
+      extractLatestStructuredOutput(artifacts),
     );
     const delegatedTemplates =
       managerOutput.managerDecision === "no_more_tasks"
@@ -216,6 +222,11 @@ export async function appendDelegatedTasksIfNeeded(this: any,
     const delegatedTaskDrafts = delegatedTemplates.map((template: DelegatedTaskTemplate, index: number) =>
       buildDelegatedTaskDraft(template, index),
     );
+    const skillBindings = await this.resolveDelegatedSkillBindings(activeRun, delegatedTaskDrafts, services);
+    if (skillBindings.missingSkillIds.length > 0) {
+      await this.requestMissingSkillApproval(activeRun, graph, task, skillBindings.missingSkillIds, skillBindings.missingSkillSuggestions, services);
+      return (await this.dependencies.runStore.getGraph(run.runId)) ?? graph;
+    }
     const delegatedTaskReferenceMap = buildDelegatedTaskReferenceMap(
       delegatedTaskDrafts,
       task,
@@ -280,7 +291,7 @@ export async function appendDelegatedTasksIfNeeded(this: any,
       );
     }
 
-    const delegatedTasks = delegatedTaskDrafts
+    let delegatedTasks = delegatedTaskDrafts
       .map((draft: (typeof delegatedTaskDrafts)[number]) =>
         this.toDelegatedTaskSpec(draft.template, {
           run: activeRun,
@@ -293,6 +304,10 @@ export async function appendDelegatedTasksIfNeeded(this: any,
           index: draft.index,
           taskId: draft.taskId,
           title: draft.title,
+          requestedSkillId: readNonEmptyString(draft.template.skillId),
+          resolvedSkill: skillBindings.skillByTaskId.get(draft.taskId) ?? null,
+          approvedMissingSkillIds: skillBindings.approvedMissingSkillIds,
+          skillArgs: draft.template.skillArgs,
           dependencyTaskIds: resolveDelegatedDependencyTaskIds({
             dependencyRefs: readStringArray(draft.template.dependsOn),
             currentTaskId: draft.taskId,
@@ -303,10 +318,29 @@ export async function appendDelegatedTasksIfNeeded(this: any,
         }),
       )
       .filter((candidate: TaskSpec | null): candidate is TaskSpec => candidate !== null);
+    const existingNonTerminalSignatures = new Set(
+      Object.values(graph.tasks)
+        .filter(
+          (candidate: TaskSpec) =>
+            candidate.id !== task.id && !isTaskTerminalStatus(candidate.status),
+        )
+        .map((candidate: TaskSpec) => buildDelegatedTaskDedupSignature(candidate)),
+    );
+    const skippedDuplicateTaskTitles: string[] = [];
+    delegatedTasks = delegatedTasks.filter((candidate: TaskSpec) => {
+      const signature = buildDelegatedTaskDedupSignature(candidate);
+      if (existingNonTerminalSignatures.has(signature)) {
+        skippedDuplicateTaskTitles.push(candidate.title);
+        return false;
+      }
+      existingNonTerminalSignatures.add(signature);
+      return true;
+    });
 
     if (
       delegatedTasks.length === 0 &&
       fallbackWorkerId &&
+      skippedDuplicateTaskTitles.length === 0 &&
       managerOutput.managerDecision !== "no_more_tasks" &&
       !isCoordinationTask
     ) {
@@ -317,7 +351,34 @@ export async function appendDelegatedTasksIfNeeded(this: any,
 
     if (
       delegatedTasks.length === 0 &&
+      skippedDuplicateTaskTitles.length > 0
+    ) {
+      const { session } = await this.ensureDelegatedManagerSession(run, graph);
+      await this.appendThreadMessageWithAudit(
+        run,
+        services,
+        {
+          runId: run.runId,
+          threadId: session.threadId,
+          sessionId: session.sessionId,
+          role: "manager",
+          actorId: managerAgentId ?? session.agentId ?? "manager",
+          body: "Plan unchanged: existing non-terminal tasks already cover this work, so duplicate delegation was skipped.",
+          clientRequestId: `manager-dedup:${task.id}:${isoNow()}`,
+          metadata: {
+            source: "manager_task_dedup",
+            taskId: task.id,
+            skippedTaskTitles: skippedDuplicateTaskTitles,
+          },
+        },
+        task.id,
+      );
+    }
+
+    if (
+      delegatedTasks.length === 0 &&
       isCoordinationTask &&
+      skippedDuplicateTaskTitles.length === 0 &&
       !managerOutput.managerReply &&
       managerOutput.managerDecision !== "no_more_tasks"
     ) {
@@ -369,6 +430,7 @@ export async function appendDelegatedTasksIfNeeded(this: any,
         this.createEvent("task_planned", run.runId, {
           taskId: delegatedTask.id,
           title: delegatedTask.title,
+          skillId: typeof delegatedTask.metadata?.skillId === "string" ? delegatedTask.metadata.skillId : undefined,
           parentTaskId: task.id,
           delegatedBy: task.assignedAgent ?? task.preferredAgent ?? "manager",
         }),
@@ -413,68 +475,4 @@ export function buildFallbackDelegatedTask(this: any,
       },
       status: "pending",
     };
-  }
-
-export function extractLatestStructuredOutput(this: any,
-  artifacts: ArtifactRecord[]): unknown {
-    const structuredArtifact = [...artifacts]
-      .reverse()
-      .find((artifact) => artifact.kind === "structured_output");
-    if (!structuredArtifact) {
-      return undefined;
-    }
-
-    const metadata = structuredArtifact.metadata as Record<string, unknown>;
-    if ("output" in metadata) {
-      return metadata.output;
-    }
-    if ("structuredOutput" in metadata) {
-      return metadata.structuredOutput;
-    }
-    return undefined;
-  }
-
-export function extractManagerCoordinationOutput(this: any,
-  value: unknown): ManagerCoordinationOutput {
-    if (!isPlainObject(value)) {
-      return {
-        delegatedTasks: [],
-      };
-    }
-
-    const managerReply = readNonEmptyString(value.managerReply);
-    const managerDecision =
-      value.managerDecision === "continue" || value.managerDecision === "no_more_tasks"
-        ? value.managerDecision
-        : undefined;
-
-    return {
-      delegatedTasks: this.extractDelegatedTaskTemplates(value),
-      ...(managerReply ? { managerReply } : {}),
-      ...(managerDecision ? { managerDecision } : {}),
-    };
-  }
-
-export function extractDelegatedTaskTemplates(this: any,
-  value: unknown): DelegatedTaskTemplate[] {
-    if (!isPlainObject(value)) {
-      return [];
-    }
-
-    const rootDelegated = value.delegatedTasks;
-    if (Array.isArray(rootDelegated)) {
-      return rootDelegated.filter(isPlainObject);
-    }
-
-    const rootTasks = value.tasks;
-    if (Array.isArray(rootTasks)) {
-      return rootTasks.filter(isPlainObject);
-    }
-
-    const delegate = value.delegate;
-    if (isPlainObject(delegate) && Array.isArray(delegate.tasks)) {
-      return delegate.tasks.filter(isPlainObject);
-    }
-
-    return [];
   }

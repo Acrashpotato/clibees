@@ -1,12 +1,10 @@
 import type { ExecutionStatus, RiskLevel, ValidationSummary } from "./view-models";
-import { enMessages } from "./i18n/messages-en";
 import { zhMessages } from "./i18n/messages-zh-cn";
 
-export type Locale = "zh-CN" | "en";
+export type Locale = "zh-CN";
 
 const messages = {
   "zh-CN": zhMessages,
-  en: enMessages,
 } as const;
 
 export function translate(locale: Locale, key: string): string {

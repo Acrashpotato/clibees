@@ -19,7 +19,6 @@ interface UseLiveSessionTerminalOptions {
   getRunId: () => string;
   getSessionId: () => string;
   getAgentMessages: () => SessionDetailMessageItemView[];
-  copy: (zh: string, en: string) => string;
 }
 
 export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
@@ -232,7 +231,7 @@ export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
     await nextTick();
     ensureLiveTerminal();
     if (!liveTerminal || !liveFitAddon) {
-      liveTerminalError.value = options.copy("终端容器未就绪。", "Terminal mount is not ready.");
+      liveTerminalError.value = "终端容器未就绪。";
       return;
     }
 
@@ -241,7 +240,7 @@ export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
     liveTerminalConnecting.value = true;
     liveTerminalStatus.value = "connecting";
     liveTerminalError.value = "";
-    liveTerminal.writeln(options.copy("正在启动实时终端...", "Starting live terminal..."));
+    liveTerminal.writeln("正在启动实时终端...");
 
     try {
       const bootstrap = await startSessionTerminal(options.getRunId(), options.getSessionId(), {
@@ -272,7 +271,7 @@ export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
         try {
           payload = JSON.parse(String(event.data));
         } catch {
-          liveTerminal?.writeln(options.copy("\r\n[系统] 收到无效终端消息。", "\r\n[system] Invalid terminal payload."));
+          liveTerminal?.writeln("\r\n[系统] 收到无效终端消息。");
           return;
         }
 
@@ -315,7 +314,7 @@ export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
       });
 
       socket.addEventListener("error", () => {
-        liveTerminalError.value = options.copy("实时终端连接失败。", "Live terminal connection failed.");
+        liveTerminalError.value = "实时终端连接失败。";
       });
     } catch (caught) {
       liveTerminalStatus.value = "closed";
@@ -337,10 +336,7 @@ export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
       data: `${message}\r`,
     });
     if (!sent) {
-      liveTerminalError.value = options.copy(
-        "实时终端未连接，无法发送消息。",
-        "Live terminal is not connected, so the message cannot be sent.",
-      );
+      liveTerminalError.value = "实时终端未连接，无法发送消息。";
       return;
     }
 
@@ -358,13 +354,13 @@ export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
   function liveStatusLabel(): string {
     switch (liveTerminalStatus.value) {
       case "connecting":
-        return options.copy("连接中", "Connecting");
+        return "连接中";
       case "connected":
-        return options.copy("已连接", "Connected");
+        return "已连接";
       case "closed":
-        return options.copy("已关闭", "Closed");
+        return "已关闭";
       default:
-        return options.copy("未启动", "Idle");
+        return "未启动";
     }
   }
 
@@ -415,7 +411,7 @@ export function useLiveSessionTerminal(options: UseLiveSessionTerminalOptions) {
   const chatTimeline = computed<ChatMessageView[]>(() => {
     const userMessages: ChatMessageView[] = localUserMessages.value.map((item) => ({
       id: item.id,
-      senderLabel: options.copy("你", "You"),
+      senderLabel: "你",
       timestamp: item.timestamp,
       text: item.text,
       stream: "stdin",

@@ -94,7 +94,7 @@ export function buildTimelineTitle(
 export function buildTimelineDetails(payload: Record<string, unknown>): string[] {
   const details: string[] = [];
 
-  for (const key of ["summary", "reason", "actor", "command", "validatorMode", "status"]) {
+  for (const key of ["summary", "reason", "actor", "command", "validatorMode", "status", "skillId"]) {
     const value = payload[key];
     if (typeof value === "string") {
       details.push(`${key}: ${value}`);

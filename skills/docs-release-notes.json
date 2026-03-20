@@ -1,0 +1,23 @@
+{
+  "id": "docs-release-notes",
+  "name": "Docs and Release Notes",
+  "description": "Update documentation and release notes with explicit scope, impact, and validation notes.",
+  "keywords": ["docs", "release", "notes", "changelog", "milestone"],
+  "template": {
+    "instructions": [
+      "Update only relevant documentation sections for the delegated change.",
+      "State behavior change, compatibility impact, and verification summary."
+    ],
+    "requiredCapabilities": ["planning"],
+    "expectedArtifacts": ["Updated documentation and release notes content."],
+    "acceptanceCriteria": [
+      "Documentation reflects current behavior and contracts.",
+      "Release notes clearly summarize what changed and why."
+    ],
+    "riskLevel": "low",
+    "timeoutMs": 300000,
+    "validator": {
+      "mode": "none"
+    }
+  }
+}

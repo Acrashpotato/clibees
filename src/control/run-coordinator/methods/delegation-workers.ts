@@ -64,6 +64,7 @@ import { GraphManager } from "../../graph-manager.js";
 import { InspectionAggregator } from "../../inspection-aggregator.js";
 import { MemoryConsolidator } from "../../memory-consolidator.js";
 import { Scheduler } from "../../scheduler.js";
+import type { SkillDefinition } from "../../skills/types.js";
 import type {
   DelegatedTaskTemplate,
   ExecutionServices,
@@ -291,6 +292,10 @@ export function toDelegatedTaskSpec(this: any,
       index: number;
       taskId: string;
       title: string;
+      requestedSkillId?: string;
+      resolvedSkill: SkillDefinition | null;
+      approvedMissingSkillIds: Set<string>;
+      skillArgs?: unknown;
       dependencyTaskIds: string[];
     }): TaskSpec | null {
     const goal = readNonEmptyString(template.goal) ?? options.run.goal;
@@ -299,13 +304,22 @@ export function toDelegatedTaskSpec(this: any,
       return null;
     }
 
+    const skillTemplate = options.resolvedSkill?.template;
+    const templateInstructions = readStringArray(template.instructions);
+    const skillInstructions = readStringArray(skillTemplate?.instructions);
     const baseInstructions =
-      readStringArray(template.instructions).length > 0
-        ? readStringArray(template.instructions)
+      templateInstructions.length > 0
+        ? templateInstructions
+        : skillInstructions.length > 0
+          ? skillInstructions
         : [`Deliver the delegated goal: ${goal}`];
+    const templateCapabilities = readStringArray(template.requiredCapabilities);
+    const skillCapabilities = readStringArray(skillTemplate?.requiredCapabilities);
     const requiredCapabilities = dedupeStrings(
-      readStringArray(template.requiredCapabilities).length > 0
-        ? readStringArray(template.requiredCapabilities)
+      templateCapabilities.length > 0
+        ? templateCapabilities
+        : skillCapabilities.length > 0
+          ? skillCapabilities
         : ["planning"],
     );
     const preferredAgentCandidate = readNonEmptyString(template.preferredAgent);
@@ -317,9 +331,13 @@ export function toDelegatedTaskSpec(this: any,
       plannerAgentId: options.plannerAgentId,
       agents: options.agentCatalog,
     });
+    const templateArtifacts = readStringArray(template.expectedArtifacts);
+    const skillArtifacts = readStringArray(skillTemplate?.expectedArtifacts);
     const expectedArtifacts =
-      readStringArray(template.expectedArtifacts).length > 0
-        ? readStringArray(template.expectedArtifacts)
+      templateArtifacts.length > 0
+        ? templateArtifacts
+        : skillArtifacts.length > 0
+          ? skillArtifacts
         : ["Output that satisfies the delegated goal."];
     const instructions = buildDelegatedTaskInstructions({
       instructions: baseInstructions,
@@ -333,15 +351,45 @@ export function toDelegatedTaskSpec(this: any,
       workspacePath: options.run.workspacePath,
       allowOutsideWorkspaceWrites: options.allowOutsideWorkspaceWrites,
     });
+    const templateAcceptance = readStringArray(template.acceptanceCriteria);
+    const skillAcceptance = readStringArray(skillTemplate?.acceptanceCriteria);
     const acceptanceCriteria =
-      readStringArray(template.acceptanceCriteria).length > 0
-        ? readStringArray(template.acceptanceCriteria)
+      templateAcceptance.length > 0
+        ? templateAcceptance
+        : skillAcceptance.length > 0
+          ? skillAcceptance
         : [`Delegated goal completed: ${goal}`];
-    const riskLevel = normalizeRiskLevel(template.riskLevel);
+    const riskLevel =
+      template.riskLevel === undefined
+        ? normalizeRiskLevel(skillTemplate?.riskLevel)
+        : normalizeRiskLevel(template.riskLevel);
     const timeoutMs = normalizeTimeoutMs(
-      template.timeoutMs,
+      template.timeoutMs ?? skillTemplate?.timeoutMs,
       DEFAULT_DELEGATED_TASK_TIMEOUT_MS,
     );
+    const metadata: Record<string, unknown> = {};
+    const requestedSkillId = options.requestedSkillId;
+    const normalizedRequestedSkillId =
+      typeof requestedSkillId === "string" ? requestedSkillId.trim().toLowerCase() : undefined;
+    if (requestedSkillId) {
+      metadata.skillId = requestedSkillId;
+      metadata.skillStatus = options.resolvedSkill ? "resolved" : "missing_confirmed";
+    }
+    if (options.resolvedSkill) {
+      metadata.skillSource = "local_registry";
+      metadata.skillName = options.resolvedSkill.name;
+    } else if (
+      normalizedRequestedSkillId &&
+      options.approvedMissingSkillIds.has(normalizedRequestedSkillId)
+    ) {
+      metadata.skillSource = "missing_skill_approved";
+    }
+    if (isPlainObject(options.skillArgs)) {
+      metadata.skillArgs = options.skillArgs;
+    }
+    const validator = isPlainObject(skillTemplate?.validator)
+      ? (skillTemplate.validator as TaskSpec["validator"])
+      : { mode: "none" as const };
 
     return {
       id: options.taskId,
@@ -359,7 +407,7 @@ export function toDelegatedTaskSpec(this: any,
       workingDirectory,
       expectedArtifacts,
       acceptanceCriteria,
-      validator: { mode: "none" },
+      validator,
       riskLevel,
       allowedActions: [],
       timeoutMs,
@@ -368,6 +416,7 @@ export function toDelegatedTaskSpec(this: any,
         backoffMs: 0,
         retryOn: ["adapter_error", "timeout"],
       },
+      ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
       status: "pending",
     };
   }

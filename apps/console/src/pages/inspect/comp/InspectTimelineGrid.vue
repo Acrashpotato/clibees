@@ -1,44 +1,63 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
+import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
-import type { AuditTimelineEntryKind, AuditTimelineProjectionView } from "../../../audit-timeline-projection";
+import type {
+  AuditTimelineEntryKind,
+  AuditTimelineEntryView,
+  AuditTimelineSessionEventView,
+} from "../../../audit-timeline-projection";
 
-defineProps<{
-  projection: AuditTimelineProjectionView;
+const props = defineProps<{
+  entries: AuditTimelineEntryView[];
+  sessionEvents: AuditTimelineSessionEventView[];
+  totalEntryCount: number;
+  timelineWindow: number | "all";
+  timelineStep: number;
+  hasMoreTimelineEntries: boolean;
+  visibleTimelineSummary: string;
   findings: Array<[string, string]>;
-  copy: (zh: string, en: string) => string;
   eventKindLabel: (kind: AuditTimelineEntryKind) => string;
   sourceLabel: (sourceMode: string) => string;
   taskLink: (taskId?: string) => string | undefined;
   sessionLink: (sessionId?: string) => string | undefined;
   approvalLink: (requestId?: string) => string | undefined;
 }>();
+
+const emit = defineEmits<{
+  (event: "load-more"): void;
+  (event: "reset-window"): void;
+}>();
+
+const showResetWindow = computed(() =>
+  props.timelineWindow === "all" || props.timelineWindow > props.timelineStep,
+);
 </script>
 
 <template>
-  <section class="audit-grid">
+  <section class="audit-grid audit-grid--timeline-stack">
     <article class="panel-card audit-card audit-card--timeline">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("分类表格", "Category table") }}</p>
-          <h2>{{ copy("时间线事件", "Timeline events") }}</h2>
+          <p class="section-eyebrow">{{ "分类表格" }}</p>
+          <h2>{{ "时间线事件" }}</h2>
         </div>
-        <span class="panel-chip">{{ projection.entries.length }}</span>
+        <span class="panel-chip">{{ totalEntryCount }}</span>
       </div>
 
-      <div v-if="projection.entries.length > 0" class="audit-table-wrap">
+      <div v-if="entries.length > 0" class="audit-table-wrap audit-table-wrap--timeline">
         <table class="audit-table">
           <thead>
             <tr>
-              <th>{{ copy("时间", "Time") }}</th>
-              <th>{{ copy("分类", "Category") }}</th>
-              <th>{{ copy("标题", "Title") }}</th>
-              <th>{{ copy("追踪", "Trace") }}</th>
-              <th>{{ copy("详情", "Details") }}</th>
+              <th>{{ "时间" }}</th>
+              <th>{{ "分类" }}</th>
+              <th>{{ "标题" }}</th>
+              <th>{{ "追踪" }}</th>
+              <th>{{ "详情" }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="entry in projection.entries" :key="entry.eventId">
+            <tr v-for="entry in entries" :key="entry.eventId">
               <td class="audit-table__cell--time">{{ entry.timestamp }}</td>
               <td>
                 <span class="approval-card__lane">{{ eventKindLabel(entry.kind) }}</span>
@@ -75,16 +94,16 @@ defineProps<{
               </td>
               <td>
                 <details class="audit-details">
-                  <summary>{{ copy("查看详情", "View details") }}</summary>
+                  <summary>{{ "查看详情" }}</summary>
                   <div class="audit-details__body">
                     <p v-if="entry.details.length === 0" class="panel-card__body">
-                      {{ copy("无额外详情。", "No additional details.") }}
+                      {{ "无额外详情。" }}
                     </p>
                     <p v-for="detail in entry.details" :key="detail" class="panel-card__body">
                       {{ detail }}
                     </p>
                     <p class="panel-card__body">
-                      <strong>{{ copy("来源", "Source") }}:</strong>
+                      <strong>{{ "来源" }}:</strong>
                       {{ sourceLabel(entry.sourceMode) }}
                     </p>
                   </div>
@@ -96,16 +115,38 @@ defineProps<{
       </div>
       <div v-else class="panel-card__empty-state">
         <p class="panel-card__body">
-          {{ copy("当前运行暂无可回放的审计事件。", "This run has no audit events to replay yet.") }}
+          {{ "当前运行暂无可回放的审计事件。" }}
         </p>
+      </div>
+
+      <div v-if="totalEntryCount > 0" class="audit-table__footer">
+        <p class="panel-card__body">{{ visibleTimelineSummary }}</p>
+        <div class="audit-table__actions">
+          <button
+            v-if="hasMoreTimelineEntries"
+            class="ghost-button"
+            type="button"
+            @click="emit('load-more')"
+          >
+            {{ "加载更早事件" }} (+{{ timelineStep }})
+          </button>
+          <button
+            v-if="showResetWindow"
+            class="ghost-button"
+            type="button"
+            @click="emit('reset-window')"
+          >
+            {{ `回到最近 ${timelineStep} 条` }}
+          </button>
+        </div>
       </div>
     </article>
 
     <article class="panel-card audit-card">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("复盘锚点", "Replay anchors") }}</p>
-          <h2>{{ copy("关键审计信号", "Key audit signals") }}</h2>
+          <p class="section-eyebrow">{{ "复盘锚点" }}</p>
+          <h2>{{ "关键审计信号" }}</h2>
         </div>
       </div>
 
@@ -121,68 +162,68 @@ defineProps<{
       </div>
       <div v-else class="panel-card__empty-state">
         <p class="panel-card__body">
-          {{ copy("当前暂无失败、阻塞、重规划或最近验证摘要。", "No failure, blocker, replan, or validation summary is recorded yet.") }}
+          {{ "当前暂无失败、阻塞、重规划或最近验证摘要。" }}
         </p>
       </div>
+    </article>
 
-      <div class="audit-subsection">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ copy("会话分类", "Session category") }}</p>
-            <h2>{{ copy("关键执行窗口", "Key execution windows") }}</h2>
-          </div>
-          <span class="panel-chip">{{ projection.sessionEvents.length }}</span>
+    <article class="panel-card audit-card">
+      <div class="panel-card__header">
+        <div>
+          <p class="section-eyebrow">{{ "会话分类" }}</p>
+          <h2>{{ "关键执行窗口" }}</h2>
         </div>
+        <span class="panel-chip">{{ sessionEvents.length }}</span>
+      </div>
 
-        <div v-if="projection.sessionEvents.length > 0" class="audit-table-wrap">
-          <table class="audit-table audit-table--compact">
-            <thead>
-              <tr>
-                <th>{{ copy("时间", "Time") }}</th>
-                <th>{{ copy("类型", "Type") }}</th>
-                <th>{{ copy("任务", "Task") }}</th>
-                <th>{{ copy("会话", "Session") }}</th>
-                <th>{{ copy("详情", "Details") }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="event in projection.sessionEvents" :key="event.eventId">
-                <td class="audit-table__cell--time">{{ event.timestamp }}</td>
-                <td>
-                  <span class="approval-card__lane">{{ event.type }}</span>
-                </td>
-                <td>
-                  <RouterLink class="ghost-link" :to="taskLink(event.taskId)!">
-                    {{ event.taskTitle }}
-                  </RouterLink>
-                </td>
-                <td>
-                  <RouterLink class="ghost-link" :to="sessionLink(event.sessionId)!">
-                    {{ event.sessionId }}
-                  </RouterLink>
-                </td>
-                <td>
-                  <details class="audit-details">
-                    <summary>{{ copy("查看详情", "View details") }}</summary>
-                    <div class="audit-details__body">
-                      <p class="panel-card__body">{{ event.title }}</p>
-                      <p class="panel-card__body">{{ event.summary }}</p>
-                      <p class="panel-card__body">
-                        <strong>{{ copy("来源", "Source") }}:</strong>
-                        {{ sourceLabel(event.sourceMode) }}
-                      </p>
-                    </div>
-                  </details>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">
-            {{ copy("当前暂无可追踪的关键会话事件。", "No traceable key session events are available yet.") }}
-          </p>
-        </div>
+      <div v-if="sessionEvents.length > 0" class="audit-table-wrap audit-table-wrap--session-windows">
+        <table class="audit-table audit-table--compact">
+          <thead>
+            <tr>
+              <th>{{ "时间" }}</th>
+              <th>{{ "类型" }}</th>
+              <th>{{ "任务" }}</th>
+              <th>{{ "会话" }}</th>
+              <th>{{ "详情" }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="event in sessionEvents" :key="event.eventId">
+              <td class="audit-table__cell--time">{{ event.timestamp }}</td>
+              <td>
+                <span class="approval-card__lane">{{ event.type }}</span>
+              </td>
+              <td>
+                <RouterLink class="ghost-link" :to="taskLink(event.taskId)!">
+                  {{ event.taskTitle }}
+                </RouterLink>
+              </td>
+              <td>
+                <RouterLink class="ghost-link" :to="sessionLink(event.sessionId)!">
+                  {{ event.sessionId }}
+                </RouterLink>
+              </td>
+              <td>
+                <details class="audit-details">
+                  <summary>{{ "查看详情" }}</summary>
+                  <div class="audit-details__body">
+                    <p class="panel-card__body">{{ event.title }}</p>
+                    <p class="panel-card__body">{{ event.summary }}</p>
+                    <p class="panel-card__body">
+                      <strong>{{ "来源" }}:</strong>
+                      {{ sourceLabel(event.sourceMode) }}
+                    </p>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-else class="panel-card__empty-state">
+        <p class="panel-card__body">
+          {{ "当前暂无可追踪的关键会话事件。" }}
+        </p>
       </div>
     </article>
   </section>

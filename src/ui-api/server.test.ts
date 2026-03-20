@@ -94,6 +94,125 @@ try {
     assert.ok(address);
     const baseUrl = `http://127.0.0.1:${address!.port}`;
 
+    const memoryRootDir = path.join(tempRoot, "memory");
+    const memoryRecordsPath = path.join(memoryRootDir, "records.jsonl");
+    const memoryIndexPath = path.join(memoryRootDir, "index.json");
+    const seededMemoryRecords = [
+      {
+        id: "mem-started",
+        scope: "run_context",
+        tags: ["started"],
+        runId: started.runId,
+      },
+      {
+        id: "mem-legacy",
+        scope: "run_context",
+        tags: ["legacy"],
+        runId: "run-legacy",
+      },
+    ];
+    await mkdir(memoryRootDir, { recursive: true });
+    await writeFile(
+      memoryRecordsPath,
+      seededMemoryRecords.map((record) => JSON.stringify(record)).join("\n") + "\n",
+      "utf8",
+    );
+    await writeFile(
+      memoryIndexPath,
+      `${JSON.stringify(
+        {
+          records: seededMemoryRecords.map((record) => record.id),
+          byScope: {
+            run_context: seededMemoryRecords.map((record) => record.id),
+          },
+          byTag: {
+            started: ["mem-started"],
+            legacy: ["mem-legacy"],
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const multiAgentSummaryResponse = await fetch(`${baseUrl}/api/system/multi-agent/summary`);
+    assert.equal(multiAgentSummaryResponse.status, 200);
+    const multiAgentSummaryPayload = await multiAgentSummaryResponse.json() as {
+      runs: {
+        totalCount: number;
+        items: Array<{ runId: string }>;
+      };
+      memory: {
+        recordsCount: number;
+      };
+    };
+    assert.ok(multiAgentSummaryPayload.runs.totalCount >= 1);
+    assert.ok(multiAgentSummaryPayload.runs.items.some((run) => run.runId === started.runId));
+    assert.equal(multiAgentSummaryPayload.memory.recordsCount, seededMemoryRecords.length);
+
+    const invalidCleanupResponse = await fetch(`${baseUrl}/api/system/multi-agent/cleanup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clearMemory: "true",
+      }),
+    });
+    assert.equal(invalidCleanupResponse.status, 400);
+    const invalidCleanupPayload = await invalidCleanupResponse.json() as ApiErrorResponse;
+    assert.equal(invalidCleanupPayload.error.code, "bad_request");
+
+    const missingRunCleanupResponse = await fetch(`${baseUrl}/api/system/multi-agent/cleanup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        keepRunId: "run-missing",
+      }),
+    });
+    assert.equal(missingRunCleanupResponse.status, 404);
+    const missingRunCleanupPayload = await missingRunCleanupResponse.json() as ApiErrorResponse;
+    assert.equal(missingRunCleanupPayload.error.code, "not_found");
+
+    const clearMemoryResponse = await fetch(`${baseUrl}/api/system/multi-agent/cleanup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clearMemory: true,
+      }),
+    });
+    assert.equal(clearMemoryResponse.status, 200);
+    const clearMemoryPayload = await clearMemoryResponse.json() as {
+      removedRunIds: string[];
+      memory: {
+        before: number;
+        after: number;
+        removed: number;
+      };
+    };
+    assert.equal(clearMemoryPayload.removedRunIds.length, 0);
+    assert.equal(clearMemoryPayload.memory.before, seededMemoryRecords.length);
+    assert.equal(clearMemoryPayload.memory.after, 0);
+    assert.equal(clearMemoryPayload.memory.removed, seededMemoryRecords.length);
+
+    const summaryAfterClearResponse = await fetch(`${baseUrl}/api/system/multi-agent/summary`);
+    assert.equal(summaryAfterClearResponse.status, 200);
+    const summaryAfterClearPayload = await summaryAfterClearResponse.json() as {
+      runs: {
+        items: Array<{ runId: string }>;
+      };
+      memory: {
+        recordsCount: number;
+      };
+    };
+    assert.ok(summaryAfterClearPayload.runs.items.some((run) => run.runId === started.runId));
+    assert.equal(summaryAfterClearPayload.memory.recordsCount, 0);
+
     const runListResponse = await fetch(`${baseUrl}/api/projections/run-list?limit=1`);
     assert.equal(runListResponse.status, 200);
     const runListPayload = await runListResponse.json() as {

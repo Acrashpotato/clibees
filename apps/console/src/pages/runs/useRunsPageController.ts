@@ -2,7 +2,6 @@
 import { useRoute, useRouter } from "vue-router";
 import { createRun, deleteRun as deleteRunRequest, listRuns, resumeRun, type SelectedCli } from "../../api";
 import { useConsoleSettings } from "../../composables/useConsoleSettings";
-import { usePreferences } from "../../composables/usePreferences";
 import type { RunSummaryView } from "../../types";
 import { getRunApprovalsPath, getRunInspectPath, getRunTaskBoardPath, getRunWorkspacePath } from "../../workspace";
 
@@ -10,8 +9,6 @@ export function useRunsPageController() {
 const route = useRoute();
 
 const router = useRouter();
-
-const { isZh } = usePreferences();
 
 const { settings } = useConsoleSettings();
 
@@ -96,9 +93,6 @@ const selectedRun = computed(() => {
   return filteredRuns.value.find((run) => run.runId === preferredRunId) ?? filteredRuns.value[0];
 });
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 function syncRunQuery(runId: string | undefined): void {
   if (routeParamRunId.value) {
@@ -141,6 +135,10 @@ function buildRunSubmenuPath(runId: string, leaf: SubmenuLeaf): string {
 
 function selectRun(runId: string): void {
   selectedRunId.value = runId;
+  if (isRunsNewRoute.value) {
+    void router.push(buildRunSubmenuPath(runId, "manager"));
+    return;
+  }
   if (activeSubmenuLeaf.value) {
     void router.push(buildRunSubmenuPath(runId, activeSubmenuLeaf.value));
     return;
@@ -224,10 +222,7 @@ async function deleteTaskResources(run: RunSummaryView): Promise<void> {
 
   if (typeof window !== "undefined") {
     const confirmed = window.confirm(
-      copy(
-        `确认删除任务 ${run.runId} 及其所有相关资源吗？此操作不可恢复。`,
-        `Delete task ${run.runId} and all related resources? This cannot be undone.`,
-      ),
+      `确认删除任务 ${run.runId} 及其所有相关资源吗？此操作不可恢复。`,
     );
     if (!confirmed) {
       return;
@@ -282,7 +277,7 @@ function resetCreateForm(): void {
 async function createNewRun(): Promise<void> {
   const goal = createGoalInput.value.trim();
   if (!goal) {
-    createError.value = copy("请输入任务目标。", "Enter a task goal.");
+    createError.value = "请输入任务目标。";
     return;
   }
 
@@ -297,20 +292,12 @@ async function createNewRun(): Promise<void> {
     });
     resetCreateForm();
     createExpanded.value = false;
+    runSearchQuery.value = "";
     await loadRuns();
     const matched = runs.value.find((run) => run.runId === created.runId);
-    if (matched) {
-      selectRun(matched.runId);
-    }
-    if (isRunsNewRoute.value) {
-      void router.replace({
-        name: "runs",
-        query: {
-          ...route.query,
-          runId: created.runId,
-        },
-      });
-    }
+    const targetRunId = matched?.runId ?? created.runId;
+    selectedRunId.value = targetRunId;
+    await router.push(buildRunSubmenuPath(targetRunId, "manager"));
   } catch (caught) {
     createError.value = caught instanceof Error ? caught.message : String(caught);
   } finally {
@@ -383,7 +370,6 @@ onMounted(() => {
     sortedRuns,
     filteredRuns,
     selectedRun,
-    copy,
     syncRunQuery,
     ensureSelection,
     buildRunSubmenuPath,

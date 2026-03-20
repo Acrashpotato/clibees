@@ -7,7 +7,6 @@ import type {
 
 defineProps<{
   projection: SessionDetailProjectionView;
-  copy: (zh: string, en: string) => string;
   t: (key: string) => string;
   riskLabel: (riskLevel: "low" | "medium" | "high") => string;
   validationLabel: (state: SessionDetailProjectionView["validation"]["state"]) => string;
@@ -26,8 +25,8 @@ defineProps<{
     <section class="panel-card detail-card">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("工具调用", "Tool calls") }}</p>
-          <h2>{{ copy("调用与结果", "Invocations and results") }}</h2>
+          <p class="section-eyebrow">{{ "工具调用" }}</p>
+          <h2>{{ "调用与结果" }}</h2>
         </div>
         <span class="panel-chip">{{ projection.toolCalls.length }}</span>
       </div>
@@ -50,7 +49,7 @@ defineProps<{
         </article>
       </div>
       <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">{{ copy("当前没有可展示的工具调用。", "No tool calls are available to display.") }}</p>
+        <p class="panel-card__body">{{ "当前没有可展示的工具调用。" }}</p>
       </div>
     </section>
 
@@ -58,7 +57,7 @@ defineProps<{
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ t("sections.approvals") }}</p>
-          <h2>{{ copy("会话审批记录", "Session approvals") }}</h2>
+          <h2>{{ "会话审批记录" }}</h2>
         </div>
         <span class="panel-chip">{{ projection.approvals.length }}</span>
       </div>
@@ -71,25 +70,25 @@ defineProps<{
               <strong>{{ approvalStateLabel(approval) }}</strong>
             </div>
             <span class="risk-pill" :data-risk="approval.riskLevel === 'none' ? 'low' : approval.riskLevel">
-              {{ approval.riskLevel === "none" ? copy("无", "None") : riskLabel(approval.riskLevel) }}
+              {{ approval.riskLevel === "none" ? "无" : riskLabel(approval.riskLevel) }}
             </span>
           </div>
           <p>{{ approval.summary }}</p>
           <p class="panel-card__body">{{ sourceModeLabel(approval.sourceMode) }}</p>
-          <p class="panel-card__body" v-if="approval.requestedAt">{{ copy("请求时间", "Requested") }}: {{ approval.requestedAt }}</p>
-          <p class="panel-card__body" v-if="approval.decidedAt">{{ copy("决策时间", "Decided") }}: {{ approval.decidedAt }}</p>
+          <p class="panel-card__body" v-if="approval.requestedAt">{{ "请求时间" }}: {{ approval.requestedAt }}</p>
+          <p class="panel-card__body" v-if="approval.decidedAt">{{ "决策时间" }}: {{ approval.decidedAt }}</p>
         </article>
       </div>
       <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">{{ copy("当前没有会话级审批记录。", "No session-level approvals are available.") }}</p>
+        <p class="panel-card__body">{{ "当前没有会话级审批记录。" }}</p>
       </div>
     </section>
 
     <section class="panel-card detail-card">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("验证摘要", "Validation") }}</p>
-          <h2>{{ copy("会话验证状态", "Session validation state") }}</h2>
+          <p class="section-eyebrow">{{ "验证摘要" }}</p>
+          <h2>{{ "会话验证状态" }}</h2>
         </div>
         <span class="status-pill" :data-status="projection.validation.state === 'fail' ? 'failed' : projection.validation.state === 'pass' ? 'completed' : 'awaiting_approval'">
           {{ validationLabel(projection.validation.state) }}
@@ -105,7 +104,7 @@ defineProps<{
           <li v-for="detail in projection.validation.details" :key="detail">{{ detail }}</li>
         </ul>
         <p v-if="projection.validation.updatedAt" class="panel-card__body">
-          {{ copy("更新时间", "Updated") }}: {{ projection.validation.updatedAt }}
+          {{ "更新时间" }}: {{ projection.validation.updatedAt }}
         </p>
       </div>
     </section>
@@ -113,8 +112,8 @@ defineProps<{
     <section class="panel-card detail-card">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("产物摘要", "Artifacts") }}</p>
-          <h2>{{ copy("会话产物", "Session artifacts") }}</h2>
+          <p class="section-eyebrow">{{ "产物摘要" }}</p>
+          <h2>{{ "会话产物" }}</h2>
         </div>
         <span class="panel-chip">{{ projection.artifacts.totalCount }}</span>
       </div>
@@ -130,10 +129,10 @@ defineProps<{
           </div>
           <p class="panel-card__body">{{ artifact.uri }}</p>
           <button class="ghost-button detail-item-card__link" type="button" @click="toggleArtifactPreview(artifact.artifactId)">
-            {{ isArtifactExpanded(artifact.artifactId) ? copy("收起内容", "Hide content") : copy("查看内容", "View content") }}
+            {{ isArtifactExpanded(artifact.artifactId) ? "收起内容" : "查看内容" }}
           </button>
           <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewLoadingId === artifact.artifactId" class="panel-card__body">
-            {{ copy("正在加载产物内容...", "Loading artifact content...") }}
+            {{ "正在加载产物内容..." }}
           </p>
           <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewErrorById[artifact.artifactId]" class="form-error">
             {{ artifactPreviewErrorById[artifact.artifactId] }}
@@ -148,7 +147,7 @@ defineProps<{
         </article>
       </div>
       <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">{{ copy("当前没有会话级产物。", "No session artifacts are available yet.") }}</p>
+        <p class="panel-card__body">{{ "当前没有会话级产物。" }}</p>
       </div>
     </section>
   </div>

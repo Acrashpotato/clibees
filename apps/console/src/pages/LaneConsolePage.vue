@@ -12,15 +12,12 @@ import {
 
 const route = useRoute();
 const router = useRouter();
-const { isZh, t } = usePreferences();
+const { t } = usePreferences();
 
 const loading = ref(false);
 const error = ref("");
 const targetPath = ref("");
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 async function resolveLegacyRoute() {
   const runId = typeof route.params.runId === "string" ? route.params.runId : "";
@@ -29,7 +26,7 @@ async function resolveLegacyRoute() {
     : undefined;
 
   if (!runId) {
-    error.value = copy("缺少 runId，无法解析旧 lane 路由。", "Missing runId, so the legacy lane route cannot be resolved.");
+    error.value = "缺少 runId，无法解析旧 lane 路由。";
     return;
   }
 
@@ -48,10 +45,7 @@ async function resolveLegacyRoute() {
         targetPath.value = getTaskDetailPath(runId, workspace.focusTask.taskId);
       } else {
         throw new Error(
-          copy(
-            "当前 run 还没有可映射的 task 或 session 入口。",
-            "The current run does not expose a task or session entry that can receive the legacy route.",
-          ),
+          "当前 run 还没有可映射的 task 或 session 入口。",
         );
       }
     }
@@ -77,15 +71,12 @@ watch(
   <section class="workspace-page-stack">
     <div class="workspace-page-header">
       <div>
-        <p class="section-eyebrow">{{ copy("兼容路由", "Compatibility route") }}</p>
-        <h1>{{ copy("旧 lane 路由正在收敛", "Legacy lane route is converging") }}</h1>
+        <p class="section-eyebrow">{{ "兼容路由" }}</p>
+        <h1>{{ "旧 lane 路由正在收敛" }}</h1>
       </div>
       <p>
         {{
-          copy(
-            "显式 laneId 一律按 taskId 兼容映射；空的 lane 入口优先跳到活动 session，否则回落到当前 focus task。",
-            "An explicit laneId now maps to taskId, while an empty legacy lane entry prefers the active session and otherwise falls back to the current focus task.",
-          )
+          "显式 laneId 一律按 taskId 兼容映射；空的 lane 入口优先跳到活动 session，否则回落到当前 focus task。"
         }}
       </p>
     </div>
@@ -93,15 +84,15 @@ watch(
     <section class="panel-card">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("路由解析", "Route resolution") }}</p>
-          <h2>{{ loading ? copy("正在跳转到真实详情页", "Redirecting to the real detail page") : copy("旧路由解析完成", "Legacy route resolution complete") }}</h2>
+          <p class="section-eyebrow">{{ "路由解析" }}</p>
+          <h2>{{ loading ? "正在跳转到真实详情页" : "旧路由解析完成" }}</h2>
         </div>
       </div>
 
-      <p v-if="loading" class="panel-card__body">{{ copy("正在查询当前 run 的 detail 入口。", "Resolving the detail entry for the current run.") }}</p>
+      <p v-if="loading" class="panel-card__body">{{ "正在查询当前 run 的 detail 入口。" }}</p>
       <p v-else-if="targetPath" class="panel-card__body">{{ targetPath }}</p>
       <p v-else-if="error" class="panel-card__body">{{ error }}</p>
-      <p v-else class="panel-card__body">{{ copy("等待跳转。", "Waiting for redirect.") }}</p>
+      <p v-else class="panel-card__body">{{ "等待跳转。" }}</p>
 
       <div class="run-card__actions">
         <RouterLink class="ghost-link" :to="getRunWorkspacePath(typeof route.params.runId === 'string' ? route.params.runId : undefined)">

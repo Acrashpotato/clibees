@@ -19,6 +19,7 @@ export interface ExecutionRuntime {
     invocation: InvocationPlan,
   ): AsyncIterable<RunEvent>;
   interrupt(runId: string, taskId: string): Promise<void>;
+  isTaskActive?(runId: string, taskId: string): boolean;
 }
 
 export interface ProcessExecutionRuntimeDependencies {
@@ -250,13 +251,10 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
 
   async interrupt(runId: string, taskId: string): Promise<void> {
     const execution = this.activeExecutions.get(getExecutionKey(runId, taskId));
-
     if (!execution) {
       return;
     }
-
     clearTimeout(execution.timeoutHandle);
-
     if (
       execution.child.exitCode === null &&
       execution.child.signalCode === null &&
@@ -264,6 +262,10 @@ export class ProcessExecutionRuntime implements ExecutionRuntime {
     ) {
       execution.child.kill();
     }
+  }
+
+  isTaskActive(runId: string, taskId: string): boolean {
+    return this.activeExecutions.has(getExecutionKey(runId, taskId));
   }
 
   private createEvent(

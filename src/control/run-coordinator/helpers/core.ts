@@ -1,5 +1,5 @@
 import type { AgentConfig, AgentProfileConfig, MultiAgentConfig } from "../../../domain/config.js";
-import type { RunGraph, RunRecord, TaskSpec } from "../../../domain/models.js";
+import type { RunGraph, RunRecord, TaskSpec, TaskStatus } from "../../../domain/models.js";
 import { SELECTED_CLI_VALUES, type SelectedCli } from "../../../ui-api/selected-cli.js";
 import { DEFAULT_TASK_TIMEOUT_MS } from "../core.js";
 
@@ -63,6 +63,7 @@ export function buildDelegationTaskTitle(goal: string): string {
 export function buildDelegationManagerGoal(
   goal: string,
   workerAgentIds: string[],
+  availableSkills: string[] = [],
 ): string {
   const workerLine =
     workerAgentIds.length > 0
@@ -73,16 +74,24 @@ export function buildDelegationManagerGoal(
     "You are the CLI manager.",
     "Coordinate work and return JSON only.",
     "Response format:",
-    "{\"managerReply\":\"...\",\"managerDecision\":\"continue|no_more_tasks\",\"delegatedTasks\":[{\"title\":\"...\",\"goal\":\"...\",\"preferredAgent\":\"...\",\"dependsOn\":[\"upstream task title\"],\"instructions\":[\"...\"],\"requiredCapabilities\":[\"planning\"],\"expectedArtifacts\":[\"...\"],\"acceptanceCriteria\":[\"...\"]}]}",
+    "{\"managerReply\":\"...\",\"managerDecision\":\"continue|no_more_tasks\",\"delegatedTasks\":[{\"title\":\"...\",\"goal\":\"...\",\"skillId\":\"...\",\"skillArgs\":{\"k\":\"v\"},\"preferredAgent\":\"...\",\"dependsOn\":[\"upstream task title\"],\"instructions\":[\"...\"],\"requiredCapabilities\":[\"planning\"],\"expectedArtifacts\":[\"...\"],\"acceptanceCriteria\":[\"...\"]}]}",
     "Rules:",
     "- Return a valid JSON object.",
     "- managerDecision must be either continue or no_more_tasks.",
     "- If managerDecision is no_more_tasks, return delegatedTasks as an empty array.",
     "- If managerDecision is continue, delegatedTasks should contain concrete worker tasks.",
+    "- Prefer setting skillId for delegatedTasks when a known workflow skill applies.",
+    "- skillArgs is optional and should only include task-specific parameters.",
     "- Use dependsOn when one delegated task must wait for another delegated task.",
     "- In dependsOn, reference delegatedTasks by their title exactly as returned in this same JSON response.",
     "- managerReply should summarize what to do next for the user and workers.",
     "- Do not include markdown fences or extra prose.",
+    ...(availableSkills.length > 0
+      ? [
+          `Available skills: ${availableSkills.join(", ")}.`,
+          "Prefer available skills before inventing ad-hoc process templates.",
+        ]
+      : []),
     workerLine,
     `User goal: ${goal}`,
   ].join("\n");
@@ -103,14 +112,43 @@ export function isManagerCoordinationTask(task: TaskSpec): boolean {
   );
 }
 
+const TERMINAL_TASK_STATUSES = new Set<TaskStatus>([
+  "completed",
+  "failed_terminal",
+  "blocked",
+  "cancelled",
+]);
+
+export function isTaskTerminalStatus(status: TaskStatus): boolean {
+  return TERMINAL_TASK_STATUSES.has(status);
+}
+
+export function getActiveDelegationManagerTaskIds(graph: RunGraph): string[] {
+  return Object.values(graph.tasks)
+    .filter(
+      (task) =>
+        isDelegationManagerTask(task) &&
+        !isTaskTerminalStatus(task.status),
+    )
+    .map((task) => task.id);
+}
+
+export function getActiveManagerCoordinationTaskIds(graph: RunGraph): string[] {
+  return Object.values(graph.tasks)
+    .filter(
+      (task) =>
+        isManagerCoordinationTask(task) &&
+        !isTaskTerminalStatus(task.status),
+    )
+    .map((task) => task.id);
+}
+
+export function countActiveManagerCoordinationTasks(graph: RunGraph): number {
+  return getActiveManagerCoordinationTaskIds(graph).length;
+}
+
 export function hasActiveDelegationManagerTask(graph: RunGraph): boolean {
-  return Object.values(graph.tasks).some(
-    (task) =>
-      isDelegationManagerTask(task) &&
-      task.status !== "completed" &&
-      task.status !== "failed_terminal" &&
-      task.status !== "cancelled",
-  );
+  return getActiveDelegationManagerTaskIds(graph).length > 0;
 }
 
 export function isTerminalRunStatus(status: RunRecord["status"]): boolean {

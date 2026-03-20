@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
@@ -17,20 +17,17 @@ const emit = defineEmits<{
   decide: [decision: "approve" | "reject"];
 }>();
 
-const { isZh, riskLabel, t } = usePreferences();
+const { riskLabel, t } = usePreferences();
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 function decisionStateLabel(state: ApprovalQueueItemDetailView["state"]): string {
   switch (state) {
     case "pending":
-      return copy("待决", "Pending");
+      return "待决";
     case "approved":
-      return copy("已批准", "Approved");
+      return "已批准";
     default:
-      return copy("已拒绝", "Rejected");
+      return "已拒绝";
   }
 }
 
@@ -50,24 +47,24 @@ function displayRiskLevel(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): 
 }
 
 function riskLevelLabel(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): string {
-  return riskLevel === "none" ? copy("无", "None") : riskLabel(riskLevel);
+  return riskLevel === "none" ? "无" : riskLabel(riskLevel);
 }
 
 function approvalSourceLabel(sourceMode: ApprovalQueueItemDetailView["sourceMode"]): string {
   switch (sourceMode) {
     case "approval_artifact":
-      return copy("审批快照产物", "Approval artifact snapshot");
+      return "审批快照产物";
     default:
-      return copy("检查聚合回填", "Inspection fallback");
+      return "检查聚合回填";
   }
 }
 
 function sessionSourceLabel(sourceMode: NonNullable<ApprovalQueueItemDetailView["session"]>["sourceMode"]): string {
   switch (sourceMode) {
     case "run_event_backfill":
-      return copy("事件窗口回填", "Event window backfill");
+      return "事件窗口回填";
     default:
-      return copy("任务状态回填", "Task status backfill");
+      return "任务状态回填";
   }
 }
 
@@ -75,14 +72,14 @@ function actorLabel(approval: ApprovalQueueItemDetailView): string {
   if (approval.actor) {
     return approval.actor;
   }
-  return approval.state === "pending" ? copy("待决", "Pending") : copy("未记录", "Not recorded");
+  return approval.state === "pending" ? "待决" : "未记录";
 }
 
 function noteLabel(approval: ApprovalQueueItemDetailView): string {
   if (approval.note) {
     return approval.note;
   }
-  return approval.state === "pending" ? copy("未填写", "None yet") : copy("无", "None");
+  return approval.state === "pending" ? "未填写" : "无";
 }
 
 function formatCommand(actionPlan: ApprovalQueueActionPlanSnapshotView): string | undefined {
@@ -147,40 +144,40 @@ function onNoteInput(event: Event): void {
 
     <div class="approvals-page__identity-row">
       <span class="flow-pill">run {{ selectedApproval.runId }}</span>
-      <span class="flow-pill">task {{ selectedApproval.taskId ?? copy("未挂载", "unbound") }}</span>
-      <span class="flow-pill">session {{ selectedApproval.session?.sessionId ?? copy("未回填", "unbound") }}</span>
+      <span class="flow-pill">task {{ selectedApproval.taskId ?? "未挂载" }}</span>
+      <span class="flow-pill">session {{ selectedApproval.session?.sessionId ?? "未回填" }}</span>
     </div>
 
     <p class="approvals-page__summary">{{ selectedApproval.summary }}</p>
 
     <div class="approvals-page__meta-grid">
       <div class="detail-chip detail-chip--compact">
-        <span>{{ copy("请求时间", "Requested") }}</span>
+        <span>{{ "请求时间" }}</span>
         <strong>{{ selectedApproval.requestedAt }}</strong>
       </div>
       <div class="detail-chip detail-chip--compact">
-        <span>{{ copy("决策时间", "Decided") }}</span>
-        <strong>{{ selectedApproval.decidedAt ?? copy("未决", "Pending") }}</strong>
+        <span>{{ "决策时间" }}</span>
+        <strong>{{ selectedApproval.decidedAt ?? "未决" }}</strong>
       </div>
       <div class="detail-chip detail-chip--compact">
-        <span>{{ copy("审批人", "Actor") }}</span>
+        <span>{{ "审批人" }}</span>
         <strong>{{ actorLabel(selectedApproval) }}</strong>
       </div>
       <div class="detail-chip detail-chip--compact">
-        <span>{{ copy("备注", "Note") }}</span>
+        <span>{{ "备注" }}</span>
         <strong>{{ noteLabel(selectedApproval) }}</strong>
       </div>
       <div class="detail-chip detail-chip--compact">
-        <span>{{ copy("审批来源", "Approval source") }}</span>
+        <span>{{ "审批来源" }}</span>
         <strong>{{ approvalSourceLabel(selectedApproval.sourceMode) }}</strong>
       </div>
       <div class="detail-chip detail-chip--compact">
-        <span>{{ copy("会话绑定", "Session binding") }}</span>
+        <span>{{ "会话绑定" }}</span>
         <strong>
           {{
             selectedApproval.session
               ? `${selectedApproval.session.label} · ${sessionSourceLabel(selectedApproval.session.sourceMode)}`
-              : copy("当前未能稳定回填 session", "Session binding is not backfilled yet")
+              : "当前未能稳定回填 session"
           }}
         </strong>
       </div>
@@ -189,8 +186,8 @@ function onNoteInput(event: Event): void {
     <section class="approvals-page__plans">
       <div class="panel-card__header approvals-page__plans-header">
         <div>
-          <p class="section-eyebrow">{{ copy("动作快照", "Action snapshots") }}</p>
-          <h2>{{ copy("actionPlans 明细", "Action plan details") }}</h2>
+          <p class="section-eyebrow">{{ "动作快照" }}</p>
+          <h2>{{ "actionPlans 明细" }}</h2>
         </div>
         <span class="panel-chip">{{ selectedApproval.actionPlanCount }}</span>
       </div>
@@ -209,7 +206,7 @@ function onNoteInput(event: Event): void {
             </div>
             <div class="approvals-page__badge-row">
               <span class="flow-pill">
-                {{ actionPlan.requiresApproval ? copy("需审批", "Requires approval") : copy("自动执行", "Auto") }}
+                {{ actionPlan.requiresApproval ? "需审批" : "自动执行" }}
               </span>
               <span class="risk-pill" :data-risk="actionPlan.riskLevel">{{ riskLabel(actionPlan.riskLevel) }}</span>
             </div>
@@ -227,7 +224,7 @@ function onNoteInput(event: Event): void {
               <strong>{{ actionPlan.cwd ?? "-" }}</strong>
             </div>
             <div class="detail-chip detail-chip--compact approvals-page__meta-grid-item--wide">
-              <span>{{ copy("目标", "Targets") }}</span>
+              <span>{{ "目标" }}</span>
               <strong>{{ actionPlan.targets.length > 0 ? actionPlan.targets.join(", ") : "-" }}</strong>
             </div>
           </div>
@@ -236,17 +233,14 @@ function onNoteInput(event: Event): void {
       <div v-else class="panel-card__empty-state">
         <p class="panel-card__body">
           {{
-            copy(
-              "当前审批没有持久化的 actionPlans 快照。",
-              "This approval has no persisted action plan snapshot.",
-            )
+            "当前审批没有持久化的 actionPlans 快照。"
           }}
         </p>
       </div>
     </section>
 
     <label v-if="selectedApproval.state === 'pending'" class="form-label approvals-page__note-field">
-      <span>{{ copy("审批备注（可选）", "Decision note (optional)") }}</span>
+      <span>{{ "审批备注（可选）" }}</span>
       <textarea
         :value="note"
         class="text-input text-input--textarea approvals-page__note-input"
@@ -275,12 +269,12 @@ function onNoteInput(event: Event): void {
         {{ t("actions.reject") }}
       </button>
       <RouterLink v-if="workspaceTo" class="ghost-link" :to="workspaceTo">{{ t("actions.openWorkspace") }}</RouterLink>
-      <RouterLink v-if="taskTo" class="ghost-link" :to="taskTo">{{ copy("打开任务详情", "Open task detail") }}</RouterLink>
-      <RouterLink v-if="sessionTo" class="ghost-link" :to="sessionTo">{{ copy("打开会话详情", "Open session detail") }}</RouterLink>
+      <RouterLink v-if="taskTo" class="ghost-link" :to="taskTo">{{ "打开任务详情" }}</RouterLink>
+      <RouterLink v-if="sessionTo" class="ghost-link" :to="sessionTo">{{ "打开会话详情" }}</RouterLink>
     </div>
   </article>
 
   <div v-else class="panel-card__empty-state approvals-detail">
-    <p class="panel-card__body">{{ copy("请选择左侧审批项查看详情。", "Select an approval item from the inbox to view details.") }}</p>
+    <p class="panel-card__body">{{ "请选择左侧审批项查看详情。" }}</p>
   </div>
 </template>

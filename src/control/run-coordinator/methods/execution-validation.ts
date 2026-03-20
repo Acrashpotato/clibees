@@ -339,6 +339,9 @@ export async function validateTask(this: any,
         runConfig,
         services,
       );
+      if (currentGraph.tasks[task.id]?.status === "awaiting_approval") {
+        return currentGraph;
+      }
       currentGraph = services.scheduler.onTaskCompleted(currentGraph, task.id);
       await this.dependencies.runStore.saveGraph(run.runId, currentGraph);
       await this.dependencies.runStore.updateTaskStatus(run.runId, task.id, {

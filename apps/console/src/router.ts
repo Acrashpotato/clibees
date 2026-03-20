@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import ApprovalsPage from "./pages/ApprovalsPage.vue";
 import InspectPage from "./pages/InspectPage.vue";
 import ManagerPage from "./pages/ManagerPage.vue";
+import MultiAgentPage from "./pages/MultiAgentPage.vue";
 import RunsPage from "./pages/RunsPage.vue";
 import SettingsPage from "./pages/SettingsPage.vue";
 import SessionDetailPage from "./pages/SessionDetailPage.vue";
@@ -74,6 +75,11 @@ export const router = createRouter({
       path: "/settings",
       name: "settings",
       component: SettingsPage,
+    },
+    {
+      path: "/settings/multi-agent",
+      name: "settings-multi-agent",
+      component: MultiAgentPage,
     },
     {
       path: "/:pathMatch(.*)*",

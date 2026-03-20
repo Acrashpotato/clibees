@@ -30,9 +30,6 @@ export const zhMessages = {
     run: "运行范围",
   },
   controls: {
-    language: "语言",
-    localeEnglish: "EN",
-    localeChinese: "简中",
     themeDark: "暗色",
     themeLight: "亮色",
     themeToggle: "切换主题",

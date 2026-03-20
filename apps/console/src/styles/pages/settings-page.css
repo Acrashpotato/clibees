@@ -15,6 +15,11 @@
   gap: 12px;
 }
 
+.settings-entry-card {
+  display: grid;
+  gap: 10px;
+}
+
 .settings-actions-card {
   display: grid;
   gap: 10px;

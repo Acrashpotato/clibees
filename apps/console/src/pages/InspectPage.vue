@@ -1,12 +1,13 @@
 ﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { getAuditTimelineProjection } from "../api";
 import {
   createEmptyAuditTimelineProjection,
   type AuditTimelineApprovalHistoryItemView,
   type AuditTimelineEntryKind,
+  type AuditTimelineEntryView,
   type AuditTimelineProjectionView,
 } from "../audit-timeline-projection";
 import { useConsoleSettings } from "../composables/useConsoleSettings";
@@ -24,13 +25,19 @@ import {
 } from "./inspect/comp/inspect-formatters";
 import {
   getRunApprovalsPath,
-  getRunWorkspacePath,
   getSessionDetailPath,
   getTaskDetailPath,
 } from "../workspace";
 
+type InspectSupportTab = "approvals" | "validations" | "replans" | "artifacts";
+type TimelineWindow = number | "all";
+
+const TIMELINE_STEP = 100;
+const DEFAULT_TIMELINE_WINDOW = 100;
+
 const route = useRoute();
-const { isZh, riskLabel, t } = usePreferences();
+const router = useRouter();
+const { riskLabel, t } = usePreferences();
 const { settings } = useConsoleSettings();
 const projection = ref<AuditTimelineProjectionView>(createEmptyAuditTimelineProjection());
 const loading = ref(false);
@@ -44,39 +51,83 @@ const hasProjection = computed(
   () => Boolean(routeRunId.value) && projection.value.runId === routeRunId.value,
 );
 
-const summaryCards = computed(() => [
-  [copy("运行状态", "Run status"), runStatusLabel(projection.value.summary.runStatus)],
-  [copy("审计事件", "Audit events"), String(projection.value.summary.totalEventCount)],
-  [copy("审批事件", "Approval events"), String(projection.value.summary.approvalEventCount)],
-  [copy("验证事件", "Validation events"), String(projection.value.summary.validationEventCount)],
-  [copy("产物事件", "Artifact events"), String(projection.value.summary.artifactEventCount)],
-  [copy("会话事件", "Session events"), String(projection.value.summary.sessionEventCount)],
-  [copy("重规划", "Replans"), String(projection.value.summary.replanCount)],
+const coreSummaryCards = computed(() => [
+  ["运行状态", runStatusLabel(projection.value.summary.runStatus)],
+  ["审计事件", String(projection.value.summary.totalEventCount)],
   [
-    copy("最近事件", "Latest event"),
-    projection.value.summary.latestEventAt ?? copy("未记录", "Not recorded"),
+    "最近事件",
+    projection.value.summary.latestEventAt ?? "未记录",
   ],
+  ["重规划", String(projection.value.summary.replanCount)],
+]);
+
+const moreSummaryCards = computed(() => [
+  ["审批事件", String(projection.value.summary.approvalEventCount)],
+  ["验证事件", String(projection.value.summary.validationEventCount)],
+  ["产物事件", String(projection.value.summary.artifactEventCount)],
+  ["会话事件", String(projection.value.summary.sessionEventCount)],
 ]);
 
 const findings = computed(() =>
   [
-    [copy("最近失败", "Latest failure"), projection.value.summary.latestFailure],
-    [copy("最近阻塞", "Latest blocker"), projection.value.summary.latestBlocker],
-    [copy("最近验证", "Latest validation"), projection.value.summary.latestValidation],
-    [copy("最近重规划", "Latest replan"), projection.value.summary.latestReplan],
+    ["最近失败", projection.value.summary.latestFailure],
+    ["最近阻塞", projection.value.summary.latestBlocker],
+    ["最近验证", projection.value.summary.latestValidation],
+    ["最近重规划", projection.value.summary.latestReplan],
   ].filter((item): item is [string, string] => Boolean(item[1])),
 );
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
+const defaultSupportTab = computed<InspectSupportTab>(() => {
+  if (projection.value.approvals.length > 0) {
+    return "approvals";
+  }
+  if (projection.value.validations.length > 0) {
+    return "validations";
+  }
+  if (projection.value.replans.length > 0) {
+    return "replans";
+  }
+  if (projection.value.artifacts.length > 0) {
+    return "artifacts";
+  }
+  return "approvals";
+});
+
+const supportFromQuery = computed(() => parseSupportQuery(route.query.support));
+const activeSupportTab = computed<InspectSupportTab>(
+  () => supportFromQuery.value ?? defaultSupportTab.value,
+);
+
+const timelineWindowFromQuery = computed(() => parseTimelineQuery(route.query.timeline));
+const activeTimelineWindow = computed<TimelineWindow>(
+  () => timelineWindowFromQuery.value ?? DEFAULT_TIMELINE_WINDOW,
+);
+
+const visibleTimelineEntries = computed<AuditTimelineEntryView[]>(() => {
+  if (activeTimelineWindow.value === "all") {
+    return projection.value.entries;
+  }
+  return projection.value.entries.slice(0, activeTimelineWindow.value);
+});
+
+const hasMoreTimelineEntries = computed(() => {
+  if (activeTimelineWindow.value === "all") {
+    return false;
+  }
+  return projection.value.entries.length > visibleTimelineEntries.value.length;
+});
+
+const visibleTimelineSummary = computed(() =>
+  `已显示 ${visibleTimelineEntries.value.length} / ${projection.value.entries.length} 条事件`,
+);
+
 
 function textOrDash(value?: string): string {
   return value && value.trim().length > 0 ? value : "-";
 }
 
 function runStatusLabel(status: AuditTimelineProjectionView["summary"]["runStatus"]): string {
-  return formatRunStatusLabel(status, copy);
+  return formatRunStatusLabel(status);
 }
 
 function runStatusPill(
@@ -86,13 +137,13 @@ function runStatusPill(
 }
 
 function eventKindLabel(kind: AuditTimelineEntryKind): string {
-  return formatEventKindLabel(kind, copy);
+  return formatEventKindLabel(kind);
 }
 
 function approvalStateLabel(
   state: AuditTimelineApprovalHistoryItemView["state"],
 ): string {
-  return formatApprovalStateLabel(state, copy);
+  return formatApprovalStateLabel(state);
 }
 
 function approvalStatePill(
@@ -108,7 +159,96 @@ function riskTone(
 }
 
 function sourceLabel(sourceMode: string): string {
-  return formatSourceLabel(sourceMode, copy);
+  return formatSourceLabel(sourceMode);
+}
+
+function parseSupportQuery(queryValue: unknown): InspectSupportTab | undefined {
+  if (typeof queryValue !== "string") {
+    return undefined;
+  }
+  if (
+    queryValue === "approvals" ||
+    queryValue === "validations" ||
+    queryValue === "replans" ||
+    queryValue === "artifacts"
+  ) {
+    return queryValue;
+  }
+  return undefined;
+}
+
+function parseTimelineQuery(queryValue: unknown): TimelineWindow | undefined {
+  if (typeof queryValue !== "string") {
+    return undefined;
+  }
+  if (queryValue === "all") {
+    return "all";
+  }
+  const parsed = Number(queryValue);
+  if (!Number.isInteger(parsed) || parsed <= 0 || parsed % TIMELINE_STEP !== 0) {
+    return undefined;
+  }
+  return parsed;
+}
+
+function setSupportQuery(nextTab: InspectSupportTab): void {
+  void router.replace({
+    query: {
+      ...route.query,
+      support: nextTab,
+    },
+  });
+}
+
+function setTimelineQuery(nextWindow: TimelineWindow): void {
+  void router.replace({
+    query: {
+      ...route.query,
+      timeline: String(nextWindow),
+    },
+  });
+}
+
+function normalizeInspectQuery(): void {
+  const rawSupport = route.query.support;
+  const rawTimeline = route.query.timeline;
+  const hasSupportQuery = rawSupport !== undefined;
+  const hasTimelineQuery = rawTimeline !== undefined;
+  const parsedSupport = parseSupportQuery(rawSupport);
+  const parsedTimeline = parseTimelineQuery(rawTimeline);
+  const normalizeSupport = hasSupportQuery && !parsedSupport && (hasProjection.value || !routeRunId.value);
+  const normalizeTimeline = hasTimelineQuery && !parsedTimeline;
+
+  if (!normalizeSupport && !normalizeTimeline) {
+    return;
+  }
+
+  void router.replace({
+    query: {
+      ...route.query,
+      ...(normalizeSupport
+        ? { support: defaultSupportTab.value }
+        : {}),
+      ...(normalizeTimeline
+        ? { timeline: String(DEFAULT_TIMELINE_WINDOW) }
+        : {}),
+    },
+  });
+}
+
+function changeSupportTab(nextTab: InspectSupportTab): void {
+  setSupportQuery(nextTab);
+}
+
+function loadMoreTimelineEntries(): void {
+  if (activeTimelineWindow.value === "all") {
+    return;
+  }
+  setTimelineQuery(activeTimelineWindow.value + TIMELINE_STEP);
+}
+
+function resetTimelineWindow(): void {
+  setTimelineQuery(DEFAULT_TIMELINE_WINDOW);
 }
 
 function taskLink(taskId?: string): string | undefined {
@@ -164,7 +304,7 @@ async function loadAudit(showLoading = true) {
 
     if (!routeRunId.value) {
       projection.value = createEmptyAuditTimelineProjection();
-      error.value = copy("缺少 runId，无法打开审计页面。", "Missing runId, so audit page cannot be opened.");
+      error.value = "缺少 runId，无法打开审计页面。";
       return;
     }
 
@@ -177,7 +317,7 @@ async function loadAudit(showLoading = true) {
 }
 
 watch(
-  () => route.fullPath,
+  () => routeRunId.value,
   () => {
     void loadAudit();
   },
@@ -192,6 +332,14 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => [route.query.support, route.query.timeline, defaultSupportTab.value, hasProjection.value] as const,
+  () => {
+    normalizeInspectQuery();
+  },
+  { immediate: true },
+);
+
 onBeforeUnmount(() => {
   stopAutoRefresh();
 });
@@ -199,52 +347,41 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="workspace-page-stack audit-page">
-    <div class="workspace-page-header">
+    <div class="workspace-page-header audit-page__header">
       <div>
         <p class="section-eyebrow">{{ t("nav.inspect") }}</p>
-        <h1>{{ copy("审计与复盘", "Audit and replay") }}</h1>
+        <h1>{{ "审计与复盘" }}</h1>
+        <p class="audit-page__description">
+          {{
+            `Inspect 页聚焦 run ${routeRunId ?? "-"} 的审计时间线、复盘信号和 task/session 可追踪链路。`
+          }}
+        </p>
       </div>
-      <p>
-        {{
-          copy(
-            `Inspect 页聚焦 run ${routeRunId ?? "-"} 的审计时间线、复盘信号和 task/session 可追踪链路。`,
-            `Inspect focuses on run ${routeRunId ?? "-"} audit timeline, replay signals, and task/session traceability.`,
-          )
-        }}
-      </p>
-    </div>
-
-    <div class="audit-page__actions">
-      <button
-        class="icon-button audit-page__refresh"
-        type="button"
-        :disabled="loading"
-        :aria-label="t('actions.refresh')"
-        :title="t('actions.refresh')"
-        @click="loadAudit(false)"
-      >
-        <svg
-          class="audit-page__refresh-icon"
-          :class="{ 'audit-page__refresh-icon--spinning': loading }"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.8"
-          aria-hidden="true"
+      <div class="audit-page__header-actions">
+        <button
+          class="icon-button audit-page__refresh"
+          type="button"
+          :disabled="loading"
+          :aria-label="t('actions.refresh')"
+          :title="t('actions.refresh')"
+          @click="loadAudit(false)"
         >
-          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-          <path d="M21 4v6h-6" />
-        </svg>
-      </button>
-      <RouterLink
-        v-if="routeRunId"
-        class="ghost-link audit-page__action-link"
-        :to="getRunWorkspacePath(routeRunId)"
-      >
-        {{ t("actions.openWorkspace") }}
-      </RouterLink>
+          <svg
+            class="audit-page__refresh-icon"
+            :class="{ 'audit-page__refresh-icon--spinning': loading }"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+            aria-hidden="true"
+          >
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <path d="M21 4v6h-6" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <div v-if="error" class="panel-card__empty-state">
@@ -255,8 +392,8 @@ onBeforeUnmount(() => {
       <p class="panel-card__body">
         {{
           loading
-            ? copy("正在加载审计时间线。", "Loading audit timeline.")
-            : copy("所选运行暂无审计数据。", "No audit data is available for the selected run.")
+            ? "正在加载审计时间线。"
+            : "所选运行暂无审计数据。"
         }}
       </p>
     </div>
@@ -265,14 +402,11 @@ onBeforeUnmount(() => {
       <section class="status-bar workspace-hero audit-hero">
         <div class="audit-hero__top">
           <div>
-            <p class="section-eyebrow">{{ copy("审计主线", "Audit spine") }}</p>
+            <p class="section-eyebrow">{{ "审计主线" }}</p>
             <h2>{{ projection.runId }}</h2>
             <p class="workspace-hero__lead">
               {{
-                copy(
-                  "行按分类组织，可按需展开查看完整追踪详情。",
-                  "Rows are grouped by category and each row can expand to show full trace details.",
-                )
+                "行按分类组织，可按需展开查看完整追踪详情。"
               }}
             </p>
           </div>
@@ -287,27 +421,44 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="workspace-summary-grid audit-summary-grid">
-          <article v-for="card in summaryCards" :key="card[0]" class="summary-card">
+          <article v-for="card in coreSummaryCards" :key="card[0]" class="summary-card">
             <span>{{ card[0] }}</span>
             <strong>{{ card[1] }}</strong>
           </article>
         </div>
+
+        <details class="audit-hero__more">
+          <summary>{{ "更多指标" }}</summary>
+          <div class="workspace-summary-grid audit-summary-grid audit-summary-grid--more">
+            <article v-for="card in moreSummaryCards" :key="card[0]" class="summary-card">
+              <span>{{ card[0] }}</span>
+              <strong>{{ card[1] }}</strong>
+            </article>
+          </div>
+        </details>
       </section>
 
       <InspectTimelineGrid
-        :projection="projection"
+        :entries="visibleTimelineEntries"
+        :session-events="projection.sessionEvents"
+        :total-entry-count="projection.entries.length"
+        :timeline-window="activeTimelineWindow"
+        :timeline-step="TIMELINE_STEP"
+        :has-more-timeline-entries="hasMoreTimelineEntries"
+        :visible-timeline-summary="visibleTimelineSummary"
         :findings="findings"
-        :copy="copy"
         :event-kind-label="eventKindLabel"
         :source-label="sourceLabel"
         :task-link="taskLink"
         :session-link="sessionLink"
         :approval-link="approvalLink"
+        @load-more="loadMoreTimelineEntries"
+        @reset-window="resetTimelineWindow"
       />
 
       <InspectSupportGrid
         :projection="projection"
-        :copy="copy"
+        :active-support-tab="activeSupportTab"
         :risk-label="riskLabel"
         :approval-state-label="approvalStateLabel"
         :approval-state-pill="approvalStatePill"
@@ -317,6 +468,7 @@ onBeforeUnmount(() => {
         :task-link="taskLink"
         :session-link="sessionLink"
         :approval-link="approvalLink"
+        @change-support="changeSupportTab"
       />
     </template>
   </section>

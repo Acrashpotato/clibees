@@ -159,6 +159,14 @@ export async function recoverGraphForResume(this: any,
         continue;
       }
 
+      if (task.status === "awaiting_approval") {
+        await this.dependencies.runStore.updateTaskStatus(run.runId, task.id, {
+          status: "queued",
+          finishedAt: null,
+        });
+        continue;
+      }
+
       if (
         task.status === "routing" ||
         task.status === "context_building" ||

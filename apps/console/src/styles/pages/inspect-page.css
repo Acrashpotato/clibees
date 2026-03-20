@@ -3,7 +3,16 @@
   gap: 12px;
 }
 
-.audit-page__actions {
+.audit-page__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.audit-page__description {
+  margin-top: 6px;
+}
+
+.audit-page__header-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -29,6 +38,18 @@
 .audit-subsection {
   display: grid;
   gap: 12px;
+}
+
+.audit-hero__more {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.audit-hero__more summary {
+  cursor: pointer;
+  color: var(--text-secondary);
 }
 
 .audit-hero__top,
@@ -58,8 +79,12 @@
   align-items: start;
 }
 
+.audit-grid--timeline-stack {
+  grid-template-columns: 1fr;
+}
+
 .audit-grid--support {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .audit-card {
@@ -70,6 +95,15 @@
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 12px;
+}
+
+.audit-table-wrap--timeline {
+  max-height: min(64vh, 720px);
+}
+
+.audit-table-wrap--validations,
+.audit-table-wrap--session-windows {
+  height: 420px;
 }
 
 .audit-table {
@@ -131,6 +165,32 @@
   white-space: nowrap;
 }
 
+.audit-table__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.audit-table__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audit-support-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audit-support-tab[data-active="true"] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .audit-details summary {
   cursor: pointer;
   color: var(--text-secondary);
@@ -186,13 +246,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .audit-table-wrap--timeline {
+    max-height: none;
+  }
+
   .audit-hero__top,
   .audit-row {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .audit-page__actions {
+  .audit-page__header-actions {
     justify-content: flex-start;
   }
 }

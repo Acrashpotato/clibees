@@ -3,17 +3,11 @@ import { computed } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 
 import { usePreferences } from "./composables/usePreferences";
-import type { Locale } from "./i18n";
 import { isWideContentRoute as resolveWideContentRoute, resolveToolbarLabelKey } from "./route-meta";
 
 const route = useRoute();
 const router = useRouter();
-const { isDark, locale, setLocale, t, toggleTheme } = usePreferences();
-
-const localeOptions: Array<{ value: Locale; labelKey: string }> = [
-  { value: "zh-CN", labelKey: "controls.localeChinese" },
-  { value: "en", labelKey: "controls.localeEnglish" },
-];
+const { isDark, t, toggleTheme } = usePreferences();
 
 const isWideContentRoute = computed(() => resolveWideContentRoute(route.path));
 const toolbarLabelKey = computed(() => resolveToolbarLabelKey(route.path));
@@ -35,14 +29,6 @@ async function goToSettings(): Promise<void> {
     return;
   }
   await router.push("/settings");
-}
-
-function onLocaleChange(event: Event): void {
-  const nextLocale = (event.target as HTMLSelectElement).value;
-
-  if (nextLocale === "zh-CN" || nextLocale === "en") {
-    setLocale(nextLocale);
-  }
 }
 </script>
 
@@ -84,15 +70,6 @@ function onLocaleChange(event: Event): void {
             </div>
 
             <div class="app-toolbar__controls">
-              <label class="toolbar-select">
-                <span class="toolbar-select__label">{{ t("controls.language") }}</span>
-                <select :value="locale" @change="onLocaleChange">
-                  <option v-for="option in localeOptions" :key="option.value" :value="option.value">
-                    {{ t(option.labelKey) }}
-                  </option>
-                </select>
-              </label>
-
               <button
                 class="icon-button theme-toggle"
                 type="button"

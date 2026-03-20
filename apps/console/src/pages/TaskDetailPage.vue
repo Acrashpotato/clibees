@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
@@ -20,7 +20,7 @@ import {
 } from "../workspace";
 
 const route = useRoute();
-const { isZh, riskLabel, statusLabel, validationLabel, t } = usePreferences();
+const { riskLabel, statusLabel, validationLabel, t } = usePreferences();
 
 const runId = computed(() => (typeof route.params.runId === "string" ? route.params.runId : ""));
 const taskId = computed(() => (typeof route.params.taskId === "string" ? route.params.taskId : ""));
@@ -33,9 +33,6 @@ const {
   resetArtifactPreview,
 } = useArtifactPreview(() => runId.value);
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 const { projection, loading, error, loadProjection } = useEntityProjection<
   TaskDetailProjectionView,
@@ -48,10 +45,7 @@ const { projection, loading, error, loadProjection } = useEntityProjection<
   getProjectionStatus: (data) => data.overview.status,
   isTerminalStatus: (status) => status === "completed" || status === "failed",
   getMissingParamMessage: () =>
-    copy(
-      "缺少 runId 或 taskId，无法打开任务详情。",
-      "Missing runId or taskId, so task detail cannot be opened.",
-    ),
+    "缺少 runId 或 taskId，无法打开任务详情。",
   emptyRunId: "workspace",
   emptyEntityId: "task",
 });
@@ -69,35 +63,35 @@ const overview = computed(() => projection.value.overview);
 const requirementGroups = computed(() => [
   {
     id: "inputs",
-    title: copy("输入上下文", "Inputs"),
+    title: "输入上下文",
     items: overview.value.inputs,
-    empty: copy("当前没有额外输入约束。", "No additional input constraints are recorded."),
+    empty: "当前没有额外输入约束。",
   },
   {
     id: "acceptance",
-    title: copy("验收标准", "Acceptance criteria"),
+    title: "验收标准",
     items: overview.value.acceptanceCriteria,
-    empty: copy("当前没有单独的验收标准。", "No separate acceptance criteria are recorded."),
+    empty: "当前没有单独的验收标准。",
   },
   {
     id: "artifacts",
-    title: copy("预期产物", "Expected artifacts"),
+    title: "预期产物",
     items: overview.value.expectedArtifacts,
-    empty: copy("当前没有显式的预期产物。", "No explicit expected artifacts are recorded."),
+    empty: "当前没有显式的预期产物。",
   },
 ]);
 const dependencyColumns = computed(() => [
   {
     id: "upstream",
-    title: copy("上游依赖", "Upstream dependencies"),
+    title: "上游依赖",
     items: projection.value.upstream,
-    empty: copy("这个任务没有上游依赖。", "This task has no upstream dependencies."),
+    empty: "这个任务没有上游依赖。",
   },
   {
     id: "downstream",
-    title: copy("下游影响", "Downstream tasks"),
+    title: "下游影响",
     items: projection.value.downstream,
-    empty: copy("这个任务当前没有下游任务。", "This task currently has no downstream tasks."),
+    empty: "这个任务当前没有下游任务。",
   },
 ]);
 const primarySession = computed(() =>
@@ -113,7 +107,7 @@ const summaryCards = computed(() => [
   },
   {
     id: "sessions",
-    label: copy("会话数", "Sessions"),
+    label: "会话数",
     value: String(overview.value.sessionCount),
   },
   {
@@ -128,7 +122,7 @@ const summaryCards = computed(() => [
   },
   {
     id: "artifacts",
-    label: copy("产物数", "Artifacts"),
+    label: "产物数",
     value: String(overview.value.artifactCount),
   },
   {
@@ -141,35 +135,35 @@ const summaryCards = computed(() => [
 function sessionSourceLabel(sourceMode: TaskDetailSessionSourceMode): string {
   switch (sourceMode) {
     case "task_session":
-      return copy("真实 taskSession", "Persisted taskSession");
+      return "真实 taskSession";
     case "run_event_backfill":
-      return copy("事件回填", "Event backfill");
+      return "事件回填";
     default:
-      return copy("状态回填", "Status backfill");
+      return "状态回填";
   }
 }
 
 function approvalStateLabel(state: "pending" | "approved" | "rejected"): string {
   switch (state) {
     case "pending":
-      return copy("待决", "Pending");
+      return "待决";
     case "approved":
-      return copy("已批准", "Approved");
+      return "已批准";
     default:
-      return copy("已拒绝", "Rejected");
+      return "已拒绝";
   }
 }
 
 function sourceModeLabel(sourceMode: string): string {
   switch (sourceMode) {
     case "approval_request":
-      return copy("审批请求", "Approval request");
+      return "审批请求";
     case "inspection_approval":
-      return copy("审批快照", "Approval snapshot");
+      return "审批快照";
     case "validation_record":
-      return copy("验证记录", "Validation record");
+      return "验证记录";
     default:
-      return copy("状态回填", "Status backfill");
+      return "状态回填";
   }
 }
 
@@ -194,15 +188,12 @@ function workspaceLink(): string {
   <section class="workspace-page-stack detail-page">
     <div class="workspace-page-header detail-page__header">
       <div>
-        <p class="section-eyebrow">{{ copy("任务详情", "Task detail") }}</p>
+        <p class="section-eyebrow">{{ "任务详情" }}</p>
         <h1>{{ overview.title }}</h1>
       </div>
       <p>
         {{
-          copy(
-            "详情页基于任务图与运行事件聚合依赖、会话、审批、验证和产物，并持续刷新。",
-            "The detail page aggregates dependencies, sessions, approvals, validation, and artifacts from the run graph and run events, and refreshes continuously.",
-          )
+          "详情页基于任务图与运行事件聚合依赖、会话、审批、验证和产物，并持续刷新。"
         }}
       </p>
     </div>
@@ -211,10 +202,10 @@ function workspaceLink(): string {
       <button class="ghost-button" type="button" :disabled="loading" @click="loadProjection(false)">
         {{ t("actions.refresh") }}
       </button>
-      <RouterLink class="ghost-link" :to="boardLink()">{{ copy("返回任务板", "Back to board") }}</RouterLink>
+      <RouterLink class="ghost-link" :to="boardLink()">{{ "返回任务板" }}</RouterLink>
       <RouterLink class="ghost-link" :to="workspaceLink()">{{ t("actions.backToWorkspace") }}</RouterLink>
       <RouterLink v-if="primarySession && sessionLink(primarySession.sessionId)" class="primary-link" :to="sessionLink(primarySession.sessionId)!">
-        {{ copy("打开活动会话", "Open active session") }}
+        {{ "打开活动会话" }}
       </RouterLink>
     </div>
 
@@ -244,30 +235,30 @@ function workspaceLink(): string {
     </section>
 
     <div v-if="loading && !error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ copy("正在加载任务详情。", "Loading task detail.") }}</p>
+      <p class="panel-card__body">{{ "正在加载任务详情。" }}</p>
     </div>
 
     <div class="detail-grid detail-grid--primary">
       <section class="panel-card detail-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("任务概况", "Task overview") }}</p>
-            <h2>{{ copy("任务目标与当前判断", "Goal and current assessment") }}</h2>
+            <p class="section-eyebrow">{{ "任务概况" }}</p>
+            <h2>{{ "任务目标与当前判断" }}</h2>
           </div>
           <span class="panel-chip">{{ overview.kind }}</span>
         </div>
 
         <div class="focus-panel__status-block">
           <strong class="focus-panel__status">{{ overview.latestActivitySummary }}</strong>
-          <p class="panel-card__body">{{ overview.goal || copy("当前没有单独的任务 goal 文本。", "No dedicated task goal text is recorded yet.") }}</p>
+          <p class="panel-card__body">{{ overview.goal || "当前没有单独的任务 goal 文本。" }}</p>
         </div>
       </section>
 
       <section class="panel-card detail-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("需求边界", "Execution contract") }}</p>
-            <h2>{{ copy("输入、验收与预期产物", "Inputs, acceptance, and expected artifacts") }}</h2>
+            <p class="section-eyebrow">{{ "需求边界" }}</p>
+            <h2>{{ "输入、验收与预期产物" }}</h2>
           </div>
         </div>
 
@@ -287,8 +278,8 @@ function workspaceLink(): string {
       <section class="panel-card detail-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("依赖关系", "Dependencies") }}</p>
-            <h2>{{ copy("上游与下游任务", "Upstream and downstream tasks") }}</h2>
+            <p class="section-eyebrow">{{ "依赖关系" }}</p>
+            <h2>{{ "上游与下游任务" }}</h2>
           </div>
         </div>
 
@@ -307,7 +298,7 @@ function workspaceLink(): string {
                 <p>{{ item.statusReason }}</p>
                 <p class="panel-card__body">{{ item.latestActivitySummary }}</p>
                 <RouterLink class="ghost-link detail-item-card__link" :to="taskLink(item)">
-                  {{ copy("打开任务详情", "Open task detail") }}
+                  {{ "打开任务详情" }}
                 </RouterLink>
               </article>
             </div>
@@ -319,8 +310,8 @@ function workspaceLink(): string {
       <section class="panel-card detail-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("执行会话", "Sessions") }}</p>
-            <h2>{{ copy("任务绑定的会话视图", "Sessions attached to this task") }}</h2>
+            <p class="section-eyebrow">{{ "执行会话" }}</p>
+            <h2>{{ "任务绑定的会话视图" }}</h2>
           </div>
           <span class="panel-chip">{{ projection.sessions.length }}</span>
         </div>
@@ -335,7 +326,7 @@ function workspaceLink(): string {
               <span class="status-pill" :data-status="session.status">{{ statusLabel(session.status) }}</span>
             </div>
             <div class="detail-chip detail-chip--compact">
-              <span>{{ copy("来源", "Source") }}</span>
+              <span>{{ "来源" }}</span>
               <strong>{{ sessionSourceLabel(session.sourceMode) }}</strong>
             </div>
             <div class="detail-chip detail-chip--compact">
@@ -348,12 +339,12 @@ function workspaceLink(): string {
             </div>
             <p>{{ session.latestActivitySummary }}</p>
             <RouterLink v-if="sessionLink(session.sessionId)" class="ghost-link detail-item-card__link" :to="sessionLink(session.sessionId)!">
-              {{ copy("打开会话详情", "Open session detail") }}
+              {{ "打开会话详情" }}
             </RouterLink>
           </article>
         </div>
         <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前没有可回放的会话窗口。", "No replayable session window is currently available.") }}</p>
+          <p class="panel-card__body">{{ "当前没有可回放的会话窗口。" }}</p>
         </div>
       </section>
     </div>
@@ -362,8 +353,8 @@ function workspaceLink(): string {
       <section class="panel-card detail-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("验证摘要", "Validation") }}</p>
-            <h2>{{ copy("当前验证结论", "Current validation assessment") }}</h2>
+            <p class="section-eyebrow">{{ "验证摘要" }}</p>
+            <h2>{{ "当前验证结论" }}</h2>
           </div>
           <span class="status-pill" :data-status="projection.validation.state === 'fail' ? 'failed' : projection.validation.state === 'pass' ? 'completed' : 'awaiting_approval'">
             {{ validationLabel(projection.validation.state) }}
@@ -379,7 +370,7 @@ function workspaceLink(): string {
             <li v-for="detail in projection.validation.details" :key="detail">{{ detail }}</li>
           </ul>
           <p v-if="projection.validation.updatedAt" class="panel-card__body">
-            {{ copy("更新时间", "Updated") }}: {{ projection.validation.updatedAt }}
+            {{ "更新时间" }}: {{ projection.validation.updatedAt }}
           </p>
         </div>
       </section>
@@ -387,43 +378,43 @@ function workspaceLink(): string {
       <section class="panel-card detail-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("最近审批", "Latest approval") }}</p>
-            <h2>{{ copy("最近一次审批快照", "Latest approval snapshot") }}</h2>
+            <p class="section-eyebrow">{{ "最近审批" }}</p>
+            <h2>{{ "最近一次审批快照" }}</h2>
           </div>
         </div>
 
         <template v-if="projection.latestApproval">
           <div class="detail-stack">
             <div class="detail-chip detail-chip--compact">
-              <span>{{ copy("审批状态", "State") }}</span>
+              <span>{{ "审批状态" }}</span>
               <strong>{{ approvalStateLabel(projection.latestApproval.state) }}</strong>
             </div>
             <div class="detail-chip detail-chip--compact">
-              <span>{{ copy("来源", "Source") }}</span>
+              <span>{{ "来源" }}</span>
               <strong>{{ sourceModeLabel(projection.latestApproval.sourceMode) }}</strong>
             </div>
             <p>{{ projection.latestApproval.summary }}</p>
             <p class="panel-card__body" v-if="projection.latestApproval.requestedAt">
-              {{ copy("请求时间", "Requested") }}: {{ projection.latestApproval.requestedAt }}
+              {{ "请求时间" }}: {{ projection.latestApproval.requestedAt }}
             </p>
             <p class="panel-card__body" v-if="projection.latestApproval.decidedAt">
-              {{ copy("决策时间", "Decided") }}: {{ projection.latestApproval.decidedAt }}
+              {{ "决策时间" }}: {{ projection.latestApproval.decidedAt }}
             </p>
             <p class="panel-card__body" v-if="projection.latestApproval.actor">
-              {{ copy("审批人", "Actor") }}: {{ projection.latestApproval.actor }}
+              {{ "审批人" }}: {{ projection.latestApproval.actor }}
             </p>
           </div>
         </template>
         <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前没有审批快照。", "No approval snapshot is available for this task.") }}</p>
+          <p class="panel-card__body">{{ "当前没有审批快照。" }}</p>
         </div>
       </section>
 
       <section class="panel-card detail-card detail-card--wide">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("产物摘要", "Artifacts") }}</p>
-            <h2>{{ copy("最近产物与高亮", "Recent artifacts and highlights") }}</h2>
+            <p class="section-eyebrow">{{ "产物摘要" }}</p>
+            <h2>{{ "最近产物与高亮" }}</h2>
           </div>
           <span class="panel-chip">{{ projection.artifacts.totalCount }}</span>
         </div>
@@ -439,10 +430,10 @@ function workspaceLink(): string {
             </div>
             <p class="panel-card__body">{{ artifact.uri }}</p>
             <button class="ghost-button detail-item-card__link" type="button" @click="toggleArtifactPreview(artifact.artifactId)">
-              {{ isArtifactExpanded(artifact.artifactId) ? copy("收起内容", "Hide content") : copy("查看内容", "View content") }}
+              {{ isArtifactExpanded(artifact.artifactId) ? "收起内容" : "查看内容" }}
             </button>
             <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewLoadingId === artifact.artifactId" class="panel-card__body">
-              {{ copy("正在加载产物内容...", "Loading artifact content...") }}
+              {{ "正在加载产物内容..." }}
             </p>
             <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewErrorById[artifact.artifactId]" class="form-error">
               {{ artifactPreviewErrorById[artifact.artifactId] }}
@@ -457,7 +448,7 @@ function workspaceLink(): string {
           </article>
         </div>
         <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前没有可展示的 task 产物。", "No task artifacts are available to display yet.") }}</p>
+          <p class="panel-card__body">{{ "当前没有可展示的 task 产物。" }}</p>
         </div>
       </section>
     </div>

@@ -8,10 +8,8 @@ import {
   type WorkerpollProjectionView,
   type WorkerpollTaskItem,
 } from "../workerpoll-projection";
-import { usePreferences } from "../composables/usePreferences";
 
 const route = useRoute();
-const { isZh } = usePreferences();
 
 const runId = computed(() =>
   typeof route.params.runId === "string" ? route.params.runId : "",
@@ -27,40 +25,37 @@ const riskTasks = computed(() =>
 const summaryCards = computed(() => [
   {
     id: "workers",
-    label: copy("员工数量", "Workers"),
+    label: "员工数量",
     value: String(projection.value.summary.workerCount),
   },
   {
     id: "dynamic",
-    label: copy("动态员工", "Dynamic workers"),
+    label: "动态员工",
     value: String(projection.value.summary.dynamicWorkerCount),
   },
   {
     id: "tasks",
-    label: copy("任务数量", "Tasks"),
+    label: "任务数量",
     value: String(projection.value.summary.taskCount),
   },
   {
     id: "uncovered",
-    label: copy("未覆盖任务", "Uncovered tasks"),
+    label: "未覆盖任务",
     value: String(projection.value.summary.uncoveredTaskCount),
   },
 ]);
 
-function copy(zh: string, en: string): string {
-  return isZh.value ? zh : en;
-}
 
 function matchLabel(task: WorkerpollTaskItem): string {
   switch (task.matchStatus) {
     case "matched":
-      return copy("匹配", "Matched");
+      return "匹配";
     case "mismatched":
-      return copy("不匹配", "Mismatched");
+      return "不匹配";
     case "capability_gap":
-      return copy("能力缺口", "Capability gap");
+      return "能力缺口";
     default:
-      return copy("未分配", "Unassigned");
+      return "未分配";
   }
 }
 
@@ -77,7 +72,7 @@ function matchPill(task: WorkerpollTaskItem): "completed" | "awaiting_approval" 
 async function loadProjection(targetRunId: string): Promise<void> {
   if (!targetRunId) {
     projection.value = createEmptyWorkerpollProjection();
-    error.value = copy("缺少 runId，无法打开工位池页面。", "Missing runId, so workerpoll page cannot be opened.");
+    error.value = "缺少 runId，无法打开工位池页面。";
     return;
   }
 
@@ -105,8 +100,8 @@ watch(
   <section class="workspace-page-stack workerpoll-page">
     <div class="workspace-page-header">
       <div>
-        <p class="section-eyebrow">{{ copy("员工调度", "Workerpool") }}</p>
-        <h1>{{ copy("员工匹配看板", "Worker matching board") }}</h1>
+        <p class="section-eyebrow">{{ "员工调度" }}</p>
+        <h1>{{ "员工匹配看板" }}</h1>
       </div>
       <div class="workerpoll-toolbar">
         <span class="flow-pill">run {{ runId || "-" }}</span>
@@ -116,7 +111,7 @@ watch(
           :disabled="loading || !runId"
           @click="runId && loadProjection(runId)"
         >
-          {{ copy("刷新", "Refresh") }}
+          {{ "刷新" }}
         </button>
       </div>
     </div>
@@ -126,7 +121,7 @@ watch(
     <section class="status-bar workspace-hero">
       <div class="panel-card__header">
         <div>
-          <p class="section-eyebrow">{{ copy("运行摘要", "Run summary") }}</p>
+          <p class="section-eyebrow">{{ "运行摘要" }}</p>
           <h2>{{ projection.run.goal }}</h2>
         </div>
         <div class="section-actions">
@@ -147,8 +142,8 @@ watch(
       <article class="panel-card workerpoll-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("员工清单", "Workers") }}</p>
-            <h2>{{ copy("可用员工能力", "Worker capabilities") }}</h2>
+            <p class="section-eyebrow">{{ "员工清单" }}</p>
+            <h2>{{ "可用员工能力" }}</h2>
           </div>
           <span class="panel-chip">{{ projection.workers.length }}</span>
         </div>
@@ -160,22 +155,22 @@ watch(
               <span class="flow-pill">{{ worker.source }}</span>
             </div>
             <div class="run-card__stats">
-              <span>{{ copy("角色", "Role") }} {{ worker.profileIds.join(", ") || "-" }}</span>
-              <span>{{ copy("能力", "Capabilities") }} {{ worker.capabilities.join(", ") || "-" }}</span>
+              <span>{{ "角色" }} {{ worker.profileIds.join(", ") || "-" }}</span>
+              <span>{{ "能力" }} {{ worker.capabilities.join(", ") || "-" }}</span>
               <span v-if="worker.command">{{ worker.command }}</span>
             </div>
           </article>
         </div>
         <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ copy("当前无员工数据。", "No worker data yet.") }}</p>
+          <p class="panel-card__body">{{ "当前无员工数据。" }}</p>
         </div>
       </article>
 
       <article class="panel-card workerpoll-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ copy("任务匹配", "Task matching") }}</p>
-            <h2>{{ copy("高风险 / 缺口任务", "Risk and gap tasks") }}</h2>
+            <p class="section-eyebrow">{{ "任务匹配" }}</p>
+            <h2>{{ "高风险 / 缺口任务" }}</h2>
           </div>
           <span class="panel-chip">{{ riskTasks.length }}</span>
         </div>
@@ -187,15 +182,15 @@ watch(
               <span class="status-pill" :data-status="matchPill(task)">{{ matchLabel(task) }}</span>
             </div>
             <div class="run-card__stats">
-              <span>{{ copy("需求", "Need") }} {{ task.requiredCapabilities.join(", ") || "-" }}</span>
-              <span>{{ copy("分配", "Assigned") }} {{ task.assignedAgent ?? "-" }}</span>
-              <span>{{ copy("候选", "Candidates") }} {{ task.compatibleWorkers.join(", ") || "-" }}</span>
+              <span>{{ "需求" }} {{ task.requiredCapabilities.join(", ") || "-" }}</span>
+              <span>{{ "分配" }} {{ task.assignedAgent ?? "-" }}</span>
+              <span>{{ "候选" }} {{ task.compatibleWorkers.join(", ") || "-" }}</span>
             </div>
           </article>
         </div>
         <div v-else class="panel-card__empty-state">
           <p class="panel-card__body">
-            {{ copy("当前所有任务均已匹配。", "All tasks are matched in the current projection.") }}
+            {{ "当前所有任务均已匹配。" }}
           </p>
         </div>
       </article>
