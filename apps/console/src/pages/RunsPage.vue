@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { NButton, NCheckbox, NInput, NSelect, NTag } from "naive-ui";
-import { RouterLink, RouterView } from "vue-router";
+import { NButton, NCheckbox, NInput, NSelect, NTabPane, NTabs, NTag } from "naive-ui";
+import { RouterView } from "vue-router";
 
 import ManagerPage from "./ManagerPage.vue";
 import { useRunsPageController } from "./runs/useRunsPageController";
@@ -37,10 +37,6 @@ const {
   syncRunQuery,
   ensureSelection,
   buildRunSubmenuPath,
-  getRunWorkspacePath,
-  getRunTaskBoardPath,
-  getRunApprovalsPath,
-  getRunInspectPath,
   selectRun,
   employeeInitial,
   statusTone,
@@ -54,12 +50,64 @@ const {
   createNewRun,
 } = useRunsPageController();
 
+type RunsSubmenuTab = "manager" | "workerpoll" | "workspace" | "tasks" | "approvals" | "inspect";
+
+const runSubmenuTabs = [
+  {
+    name: "manager" as const,
+    label: "总管",
+  },
+  {
+    name: "workerpoll" as const,
+    label: "工位池",
+  },
+  {
+    name: "workspace" as const,
+    label: "工作台",
+  },
+  {
+    name: "tasks" as const,
+    label: "执行车道",
+  },
+  {
+    name: "approvals" as const,
+    label: "审批",
+  },
+  {
+    name: "inspect" as const,
+    label: "审计",
+  },
+] satisfies ReadonlyArray<{
+  name: RunsSubmenuTab;
+  label: string;
+}>;
+
 const cliSelectOptions = computed(() =>
   cliOptions.map((cli) => ({
     label: cli,
     value: cli,
   })),
 );
+
+const activeRunsSubmenuTab = computed<RunsSubmenuTab>(() => activeSubmenuLeaf.value ?? "manager");
+
+function switchRunSubmenu(nextTab: string): void {
+  if (!selectedRun.value) {
+    return;
+  }
+
+  const nextLeaf = runSubmenuTabs.find((tab) => tab.name === nextTab)?.name;
+  if (!nextLeaf) {
+    return;
+  }
+
+  const nextPath = buildRunSubmenuPath(selectedRun.value.runId, nextLeaf);
+  if (route.fullPath === nextPath) {
+    return;
+  }
+
+  void router.push(nextPath);
+}
 </script>
 
 <template>
@@ -232,48 +280,21 @@ const cliSelectOptions = computed(() =>
           </header>
 
           <nav class="runs-submenu-bar" :aria-label="'运行二级入口'">
-            <RouterLink
-              class="runs-submenu-button"
-              :class="{ 'runs-submenu-button--active': !isSubmenuRoute || activeSubmenuLeaf === 'manager' }"
-              :to="buildRunSubmenuPath(selectedRun.runId, 'manager')"
+            <n-tabs
+              class="runs-submenu-tabs"
+              type="segment"
+              animated
+              :value="activeRunsSubmenuTab"
+              :default-value="'manager'"
+              @update:value="switchRunSubmenu"
             >
-              {{ "总管" }}
-            </RouterLink>
-            <RouterLink
-              class="runs-submenu-button"
-              :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'workerpoll' }"
-              :to="buildRunSubmenuPath(selectedRun.runId, 'workerpoll')"
-            >
-              {{ "工位池" }}
-            </RouterLink>
-            <RouterLink
-              class="runs-submenu-button"
-              :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'workspace' }"
-              :to="getRunWorkspacePath(selectedRun.runId)"
-            >
-              {{ "工作台" }}
-            </RouterLink>
-            <RouterLink
-              class="runs-submenu-button"
-              :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'tasks' }"
-              :to="getRunTaskBoardPath(selectedRun.runId)"
-            >
-              {{ "执行车道" }}
-            </RouterLink>
-            <RouterLink
-              class="runs-submenu-button"
-              :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'approvals' }"
-              :to="getRunApprovalsPath(selectedRun.runId)"
-            >
-              {{ "审批" }}
-            </RouterLink>
-            <RouterLink
-              class="runs-submenu-button"
-              :class="{ 'runs-submenu-button--active': activeSubmenuLeaf === 'inspect' }"
-              :to="getRunInspectPath(selectedRun.runId)"
-            >
-              {{ "审计" }}
-            </RouterLink>
+              <n-tab-pane
+                v-for="tab in runSubmenuTabs"
+                :key="tab.name"
+                :name="tab.name"
+                :tab="tab.label"
+              />
+            </n-tabs>
           </nav>
 
           <section v-if="isSubmenuRoute" class="runs-submenu-shell">
@@ -316,4 +337,3 @@ const cliSelectOptions = computed(() =>
     </div>
   </section>
 </template>
-
