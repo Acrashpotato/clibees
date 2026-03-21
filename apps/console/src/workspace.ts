@@ -1,6 +1,9 @@
-﻿import type { ActionQueueItem, WorkspaceTaskCardView, WorkspaceView } from "./view-models";
+import type { ActionQueueItem, WorkspaceTaskCardView, WorkspaceView } from "./view-models";
 import type { Locale } from "./i18n";
 import { translate } from "./i18n";
+
+export type TaskDetailSection = "summary" | "dependencies" | "sessions" | "artifacts";
+export type SessionDetailSection = "live" | "support" | "artifacts";
 
 export function getRunWorkspacePath(runId?: string): string {
   return runId ? `/runs/${encodeURIComponent(runId)}/workspace` : "/runs";
@@ -18,12 +21,20 @@ export function getRunInspectPath(runId?: string): string {
   return runId ? `/runs/${encodeURIComponent(runId)}/inspect` : "/runs";
 }
 
-export function getTaskDetailPath(runId: string, taskId: string): string {
-  return `/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}`;
+export function getTaskDetailPath(
+  runId: string,
+  taskId: string,
+  section: TaskDetailSection = "summary",
+): string {
+  return `/runs/${encodeURIComponent(runId)}/tasks/${encodeURIComponent(taskId)}/${section}`;
 }
 
-export function getSessionDetailPath(runId: string, sessionId: string): string {
-  return `/runs/${encodeURIComponent(runId)}/sessions/${encodeURIComponent(sessionId)}`;
+export function getSessionDetailPath(
+  runId: string,
+  sessionId: string,
+  section: SessionDetailSection = "live",
+): string {
+  return `/runs/${encodeURIComponent(runId)}/sessions/${encodeURIComponent(sessionId)}/${section}`;
 }
 
 export function getTaskConsolePath(runId: string, taskId?: string): string {
@@ -126,4 +137,3 @@ export function createEmptyWorkspace(runId = "workspace"): WorkspaceView {
     canResume: false,
   };
 }
-

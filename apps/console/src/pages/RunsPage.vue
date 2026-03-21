@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { NButton, NCheckbox, NInput, NSelect, NTabPane, NTabs, NTag } from "naive-ui";
 import { RouterView } from "vue-router";
 
+import { useChunkedRender } from "../composables/useChunkedRender";
 import ManagerPage from "./ManagerPage.vue";
 import { useRunsPageController } from "./runs/useRunsPageController";
 
@@ -90,6 +91,11 @@ const cliSelectOptions = computed(() =>
 );
 
 const activeRunsSubmenuTab = computed<RunsSubmenuTab>(() => activeSubmenuLeaf.value ?? "manager");
+const {
+  visibleItems: visibleRuns,
+  hasMore: hasMoreRuns,
+  loadMore: loadMoreRuns,
+} = useChunkedRender(filteredRuns, { initialSize: 30, step: 30 });
 
 function switchRunSubmenu(nextTab: string): void {
   if (!selectedRun.value) {
@@ -141,7 +147,7 @@ function switchRunSubmenu(nextTab: string): void {
 
         <div v-else class="runs-list">
           <div
-            v-for="run in filteredRuns"
+            v-for="run in visibleRuns"
             :key="run.runId"
             class="runs-list-item"
             role="button"
@@ -192,6 +198,15 @@ function switchRunSubmenu(nextTab: string): void {
               </n-button>
             </span>
           </div>
+          <n-button
+            v-if="hasMoreRuns"
+            class="runs-list__load-more"
+            quaternary
+            size="small"
+            @click="loadMoreRuns"
+          >
+            {{ "加载更多任务" }}
+          </n-button>
         </div>
       </aside>
 

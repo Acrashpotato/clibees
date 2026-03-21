@@ -11,9 +11,11 @@ import {
   NSelect,
   NSpace,
   NSwitch,
+  NTabPane,
+  NTabs,
   NTag,
 } from "naive-ui";
-import { RouterLink } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import {
   useConsoleSettings,
@@ -23,10 +25,33 @@ import {
   type RunOpenTarget,
 } from "../composables/useConsoleSettings";
 
+type SettingsSection = "run" | "approvals" | "inspect" | "workspace";
+
+const route = useRoute();
+const router = useRouter();
 const { defaultConsoleSettings, limits, saveConsoleSettings, settings } = useConsoleSettings();
 
 const form = ref<ConsoleSettings>(cloneSettings(settings.value));
 const flashMessage = ref("");
+
+const sectionTabs = [
+  { id: "run" as const, label: "运行" },
+  { id: "approvals" as const, label: "审批" },
+  { id: "inspect" as const, label: "审计" },
+  { id: "workspace" as const, label: "Workspace" },
+] satisfies ReadonlyArray<{ id: SettingsSection; label: string }>;
+
+const routeNameToSection: Partial<Record<string, SettingsSection>> = {
+  "settings-run": "run",
+  "settings-approvals": "approvals",
+  "settings-inspect": "inspect",
+  "settings-workspace": "workspace",
+};
+
+const activeSection = computed<SettingsSection>(() => {
+  const routeName = typeof route.name === "string" ? route.name : "";
+  return routeNameToSection[routeName] ?? "run";
+});
 
 const hasChanges = computed(
   () => JSON.stringify(form.value) !== JSON.stringify(settings.value),
@@ -75,7 +100,7 @@ const summaryCards = computed(() => [
   },
 ]);
 
-const runCliOptions = [
+const cliSelectOptions = [
   { label: "codex", value: "codex" },
   { label: "codefree", value: "codefree" },
   { label: "claude", value: "claude" },
@@ -202,6 +227,14 @@ function restoreDefaults() {
   form.value = cloneSettings(defaultConsoleSettings);
   flashMessage.value = "已加载默认值，点击保存后才会生效。";
 }
+
+function switchSection(nextSection: string): void {
+  const section = sectionTabs.find((tab) => tab.id === nextSection)?.id;
+  if (!section || section === activeSection.value) {
+    return;
+  }
+  void router.push(`/settings/${section}`);
+}
 </script>
 
 <template>
@@ -218,43 +251,53 @@ function restoreDefaults() {
       </p>
     </div>
 
-    <section class="panel-card settings-entry-card">
-      <div class="panel-card__header">
-        <div>
-          <p class="section-eyebrow">.multi-agent</p>
-          <h2>{{ "运行数据管理" }}</h2>
-        </div>
-        <RouterLink class="primary-link" to="/settings/multi-agent">
-          {{ "打开管理页" }}
-        </RouterLink>
-      </div>
-      <p class="form-hint">
-        {{
-          "查看 .multi-agent/state 和 .multi-agent/memory 占用，并执行保留 run / 清理 memory 操作。"
-        }}
-      </p>
-    </section>
+    <div class="settings-page__body">
+      <n-tabs
+        type="segment"
+        display-directive="if"
+        :value="activeSection"
+        :default-value="'run'"
+        @update:value="switchSection"
+      >
+        <n-tab-pane v-for="tab in sectionTabs" :key="tab.id" :name="tab.id" :tab="tab.label" />
+      </n-tabs>
 
-    <section class="panel-card settings-snapshot">
-      <div class="panel-card__header">
-        <div>
-          <p class="section-eyebrow">{{ "当前草稿" }}</p>
-          <h2>{{ "生效配置快照" }}</h2>
+      <section class="panel-card settings-entry-card">
+        <div class="panel-card__header">
+          <div>
+            <p class="section-eyebrow">.multi-agent</p>
+            <h2>{{ "运行数据管理" }}</h2>
+          </div>
+          <RouterLink class="primary-link" to="/settings/multi-agent">
+            {{ "打开管理页" }}
+          </RouterLink>
         </div>
-        <n-tag :type="hasChanges ? 'warning' : 'success'" size="small" round>
-          {{ hasChanges ? "未保存" : "已同步" }}
-        </n-tag>
-      </div>
-      <div class="settings-summary-grid">
-        <article v-for="card in summaryCards" :key="card.id" class="summary-card">
-          <span>{{ card.label }}</span>
-          <strong :title="card.value">{{ card.value }}</strong>
-        </article>
-      </div>
-    </section>
+        <p class="form-hint">
+          {{
+            "查看 .multi-agent/state 和 .multi-agent/memory 占用，并执行保留 run / 清理 memory 操作。"
+          }}
+        </p>
+      </section>
 
-    <div class="settings-grid">
-      <section class="panel-card settings-card">
+      <section class="panel-card settings-snapshot">
+        <div class="panel-card__header">
+          <div>
+            <p class="section-eyebrow">{{ "当前草稿" }}</p>
+            <h2>{{ "生效配置快照" }}</h2>
+          </div>
+          <n-tag :type="hasChanges ? 'warning' : 'success'" size="small" round>
+            {{ hasChanges ? "未保存" : "已同步" }}
+          </n-tag>
+        </div>
+        <div class="settings-summary-grid">
+          <article v-for="card in summaryCards" :key="card.id" class="summary-card">
+            <span>{{ card.label }}</span>
+            <strong :title="card.value">{{ card.value }}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section v-if="activeSection === 'run'" class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "运行创建" }}</p>
@@ -266,7 +309,7 @@ function restoreDefaults() {
           <n-form-item :label="'默认 CLI'" class="settings-field">
             <n-select
               v-model:value="form.runDefaultCli"
-              :options="runCliOptions"
+              :options="cliSelectOptions"
             />
           </n-form-item>
 
@@ -301,7 +344,7 @@ function restoreDefaults() {
         </n-form>
       </section>
 
-      <section class="panel-card settings-card">
+      <section v-else-if="activeSection === 'approvals'" class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "审批页" }}</p>
@@ -339,7 +382,7 @@ function restoreDefaults() {
         </n-form>
       </section>
 
-      <section class="panel-card settings-card">
+      <section v-else-if="activeSection === 'inspect'" class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "审计页" }}</p>
@@ -375,7 +418,7 @@ function restoreDefaults() {
         </n-form>
       </section>
 
-      <section class="panel-card settings-card">
+      <section v-else class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">Workspace</p>
@@ -396,30 +439,30 @@ function restoreDefaults() {
           </n-form-item>
         </n-form>
       </section>
-    </div>
 
-    <section class="panel-card settings-actions-card">
-      <div class="settings-actions">
-        <n-button type="primary" :disabled="!hasChanges" @click="saveForm">
-          {{ "保存设置" }}
-        </n-button>
-        <n-button quaternary :disabled="!hasChanges" @click="resetDraft">
-          {{ "撤销修改" }}
-        </n-button>
-        <n-button quaternary @click="restoreDefaults">
-          {{ "恢复默认" }}
-        </n-button>
-      </div>
-      <n-alert
-        class="settings-feedback"
-        :type="flashMessage ? 'success' : 'info'"
-        :show-icon="false"
-      >
-        {{
-          flashMessage ||
-            "修改后点击“保存设置”才会应用到 Runs / Approvals / Inspect / Workspace 页面。"
-        }}
-      </n-alert>
-    </section>
+      <section class="panel-card settings-actions-card">
+        <div class="settings-actions">
+          <n-button type="primary" :disabled="!hasChanges" @click="saveForm">
+            {{ "保存设置" }}
+          </n-button>
+          <n-button quaternary :disabled="!hasChanges" @click="resetDraft">
+            {{ "撤销修改" }}
+          </n-button>
+          <n-button quaternary @click="restoreDefaults">
+            {{ "恢复默认" }}
+          </n-button>
+        </div>
+        <n-alert
+          class="settings-feedback"
+          :type="flashMessage ? 'success' : 'info'"
+          :show-icon="false"
+        >
+          {{
+            flashMessage ||
+              "修改后点击“保存设置”才会应用到 Runs / Approvals / Inspect / Workspace 页面。"
+          }}
+        </n-alert>
+      </section>
+    </div>
   </section>
 </template>

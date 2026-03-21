@@ -4,6 +4,7 @@ import { NButton, NInput, NTag } from "naive-ui";
 import { useRoute } from "vue-router";
 
 import { getManagerChatProjection, interactSession } from "../api";
+import { useChunkedRender } from "../composables/useChunkedRender";
 import {
   createEmptyManagerChatProjection,
   type ManagerChatProjectionView,
@@ -28,6 +29,30 @@ const error = ref("");
 const messageInput = ref("");
 
 const managerSessionId = computed(() => projection.value.managerSession?.sessionId);
+const {
+  visibleItems: visibleTimeline,
+  hasMore: hasMoreTimeline,
+  loadMore: loadMoreTimeline,
+} = useChunkedRender(computed(() => projection.value.timeline), {
+  initialSize: 40,
+  step: 40,
+});
+const {
+  visibleItems: visibleWorkerQueue,
+  hasMore: hasMoreWorkerQueue,
+  loadMore: loadMoreWorkerQueue,
+} = useChunkedRender(computed(() => projection.value.workerQueue), {
+  initialSize: 20,
+  step: 20,
+});
+const {
+  visibleItems: visiblePendingApprovals,
+  hasMore: hasMorePendingApprovals,
+  loadMore: loadMorePendingApprovals,
+} = useChunkedRender(computed(() => projection.value.pendingApprovals), {
+  initialSize: 20,
+  step: 20,
+});
 
 async function loadProjection(targetRunId: string): Promise<void> {
   if (!targetRunId) {
@@ -125,7 +150,7 @@ watch(
 </script>
 
 <template>
-  <section class="workspace-page-stack">
+  <section class="workspace-page-stack manager-page">
     <header class="workspace-page-header">
       <div>
         <p class="section-eyebrow">{{ "总管面板" }}</p>
@@ -156,7 +181,7 @@ watch(
             {{ "暂无消息。" }}
           </p>
           <article
-            v-for="message in projection.timeline"
+            v-for="message in visibleTimeline"
             :key="message.messageId"
             class="manager-message"
             :data-role="message.role"
@@ -168,6 +193,9 @@ watch(
             </header>
             <p>{{ message.body }}</p>
           </article>
+          <n-button v-if="hasMoreTimeline" quaternary size="small" @click="loadMoreTimeline">
+            {{ "加载更多消息" }}
+          </n-button>
         </div>
 
         <div class="manager-chat-panel__composer">
@@ -190,13 +218,16 @@ watch(
             <p>{{ "当前没有员工任务。" }}</p>
           </div>
           <div v-else class="manager-queue-list">
-            <article v-for="worker in projection.workerQueue" :key="worker.taskId" class="manager-queue-item">
+            <article v-for="worker in visibleWorkerQueue" :key="worker.taskId" class="manager-queue-item">
               <header>
                 <strong>{{ worker.title }}</strong>
                 <n-tag :type="statusTagType(worker.status)">{{ worker.status }}</n-tag>
               </header>
               <p>{{ worker.agentId }} · {{ worker.lastActivityAt }}</p>
             </article>
+            <n-button v-if="hasMoreWorkerQueue" quaternary size="small" @click="loadMoreWorkerQueue">
+              {{ "加载更多员工任务" }}
+            </n-button>
           </div>
         </article>
 
@@ -206,7 +237,7 @@ watch(
             <p>{{ "无待审批项。" }}</p>
           </div>
           <div v-else class="manager-approval-list">
-            <article v-for="approval in projection.pendingApprovals" :key="approval.requestId">
+            <article v-for="approval in visiblePendingApprovals" :key="approval.requestId">
               <header>
                 <strong>{{ approval.requestId }}</strong>
                 <n-tag :type="riskTagType(approval.riskLevel)">
@@ -215,10 +246,12 @@ watch(
               </header>
               <p>{{ approval.summary }}</p>
             </article>
+            <n-button v-if="hasMorePendingApprovals" quaternary size="small" @click="loadMorePendingApprovals">
+              {{ "加载更多审批项" }}
+            </n-button>
           </div>
         </article>
       </aside>
     </section>
   </section>
 </template>
-

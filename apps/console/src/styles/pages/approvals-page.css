@@ -5,6 +5,13 @@
   gap: 16px;
 }
 
+.approvals-page {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
 .approvals-page__summary-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -21,21 +28,29 @@
   grid-template-columns: minmax(340px, 0.95fr) minmax(0, 1.05fr);
   gap: 12px;
   align-items: start;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .approvals-inbox {
   align-content: start;
+  min-height: 0;
+  height: 100%;
 }
 
 .approvals-inbox.n-card > .n-card__content {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
+  min-height: 0;
 }
 
 .approvals-inbox__list {
   display: grid;
   gap: 10px;
-  max-height: min(68vh, 860px);
+  min-height: 0;
+  height: 100%;
   overflow: auto;
   padding-right: 4px;
 }
@@ -131,11 +146,33 @@
 
 .approvals-detail {
   align-content: start;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.approvals-detail.n-card > .n-card__content {
+  min-height: 0;
 }
 
 .approval-card--decision.n-card > .n-card__content {
   display: grid;
   gap: 14px;
+}
+
+.approvals-detail__tabs {
+  min-height: 0;
+}
+
+.approvals-detail__tabs .n-tabs-pane-wrapper,
+.approvals-detail__tabs .n-tab-pane {
+  min-height: 0;
+}
+
+.approvals-detail__tabs .n-tab-pane {
+  display: grid;
+  gap: 12px;
 }
 
 .approvals-page__command {
@@ -164,27 +201,4 @@
 
 .approvals-page__note-input {
   min-height: 88px;
-}
-
-@media (max-width: 1240px) {
-  .approvals-mailboard,
-  .approvals-page__summary-grid,
-  .approvals-page__meta-grid,
-  .approvals-page__meta-grid--plans {
-    grid-template-columns: 1fr;
-  }
-
-  .approvals-page__meta-grid-item--wide {
-    grid-column: auto;
-  }
-}
-
-@media (max-width: 720px) {
-  .approvals-hero__header,
-  .approvals-hero__controls,
-  .approvals-inbox__item-top,
-  .approvals-page__card-top {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }

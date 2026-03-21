@@ -206,86 +206,87 @@ onMounted(() => {
       </p>
     </div>
 
-    <section class="panel-card settings-snapshot">
-      <div class="panel-card__header">
-        <div>
-          <p class="section-eyebrow">{{ "当前状态" }}</p>
-          <h2>{{ "数据占用摘要" }}</h2>
+    <div class="settings-page__body">
+      <section class="panel-card settings-snapshot">
+        <div class="panel-card__header">
+          <div>
+            <p class="section-eyebrow">{{ "当前状态" }}</p>
+            <h2>{{ "数据占用摘要" }}</h2>
+          </div>
+          <n-button quaternary :disabled="loading || actionLoading" @click="refreshSummary">
+            {{ loading ? "刷新中..." : "刷新" }}
+          </n-button>
         </div>
-        <n-button quaternary :disabled="loading || actionLoading" @click="refreshSummary">
-          {{ loading ? "刷新中..." : "刷新" }}
-        </n-button>
-      </div>
-
-      <div class="settings-summary-grid">
-        <article v-for="card in summaryCards" :key="card.id" class="summary-card">
-          <span>{{ card.label }}</span>
-          <strong>{{ card.value }}</strong>
-        </article>
-      </div>
-
-      <p class="form-hint">{{ "state 根目录：" }} {{ summary?.stateRootDir ?? "-" }}</p>
-      <p class="form-hint">{{ "memory 根目录：" }} {{ summary?.memoryRootDir ?? "-" }}</p>
-      <p v-if="errorMessage" class="settings-error">{{ errorMessage }}</p>
-      <p v-if="actionMessage" class="settings-success">{{ actionMessage }}</p>
-    </section>
-
-    <section class="panel-card settings-card">
-      <div class="panel-card__header">
-        <div>
-          <p class="section-eyebrow">{{ "保留策略" }}</p>
-          <h2>{{ "选择要保留的 run" }}</h2>
+  
+        <div class="settings-summary-grid">
+          <article v-for="card in summaryCards" :key="card.id" class="summary-card">
+            <span>{{ card.label }}</span>
+            <strong>{{ card.value }}</strong>
+          </article>
         </div>
-      </div>
 
-      <div v-if="hasRuns" class="multi-agent-run-list">
-        <n-radio-group v-model:value="keepRunId" name="keep-run-id">
-          <label
-            v-for="run in summary?.runs.items ?? []"
-            :key="run.runId"
-            class="multi-agent-run-item"
+        <p class="form-hint">{{ "state 根目录：" }} {{ summary?.stateRootDir ?? "-" }}</p>
+        <p class="form-hint">{{ "memory 根目录：" }} {{ summary?.memoryRootDir ?? "-" }}</p>
+        <p v-if="errorMessage" class="settings-error">{{ errorMessage }}</p>
+        <p v-if="actionMessage" class="settings-success">{{ actionMessage }}</p>
+      </section>
+
+      <section class="panel-card settings-card">
+        <div class="panel-card__header">
+          <div>
+            <p class="section-eyebrow">{{ "保留策略" }}</p>
+            <h2>{{ "选择要保留的 run" }}</h2>
+          </div>
+        </div>
+
+        <div v-if="hasRuns" class="multi-agent-run-list">
+          <n-radio-group v-model:value="keepRunId" name="keep-run-id">
+            <label
+              v-for="run in summary?.runs.items ?? []"
+              :key="run.runId"
+              class="multi-agent-run-item"
+            >
+              <n-radio :value="run.runId" />
+              <div>
+                <strong>{{ run.runId }}</strong>
+                <p class="form-hint">{{ "更新时间：" }} {{ formatTime(run.updatedAt) }}</p>
+                <p class="form-hint">{{ "占用：" }} {{ formatBytes(run.totalBytes) }}</p>
+              </div>
+            </label>
+          </n-radio-group>
+        </div>
+        <p v-else class="form-hint">{{ "当前没有 run 目录。" }}</p>
+      </section>
+
+      <section class="panel-card settings-actions-card">
+        <div class="settings-actions">
+          <n-button
+            type="primary"
+            :disabled="actionLoading || !selectedRunExists"
+            @click="cleanupRuns(false)"
           >
-            <n-radio :value="run.runId" />
-            <div>
-              <strong>{{ run.runId }}</strong>
-              <p class="form-hint">{{ "更新时间：" }} {{ formatTime(run.updatedAt) }}</p>
-              <p class="form-hint">{{ "占用：" }} {{ formatBytes(run.totalBytes) }}</p>
-            </div>
-          </label>
-        </n-radio-group>
-      </div>
-      <p v-else class="form-hint">{{ "当前没有 run 目录。" }}</p>
-    </section>
-
-    <section class="panel-card settings-actions-card">
-      <div class="settings-actions">
-        <n-button
-          type="primary"
-          :disabled="actionLoading || !selectedRunExists"
-          @click="cleanupRuns(false)"
-        >
-          {{ actionLoading ? "处理中..." : "仅保留选中 run" }}
-        </n-button>
-        <n-button
-          quaternary
-          :disabled="actionLoading || !selectedRunExists"
-          @click="cleanupRuns(true)"
-        >
-          {{ "保留选中 run + 清理 memory" }}
-        </n-button>
-        <n-button quaternary :disabled="actionLoading" @click="clearMemoryOnly">
-          {{ "仅清空 memory" }}
-        </n-button>
-      </div>
-      <p class="form-hint">
-        {{
-          "清理操作不可恢复，建议先确认保留 run 是否正确。"
-        }}
-      </p>
-      <RouterLink class="ghost-link" to="/settings">
-        {{ "返回设置页" }}
-      </RouterLink>
-    </section>
+            {{ actionLoading ? "处理中..." : "仅保留选中 run" }}
+          </n-button>
+          <n-button
+            quaternary
+            :disabled="actionLoading || !selectedRunExists"
+            @click="cleanupRuns(true)"
+          >
+            {{ "保留选中 run + 清理 memory" }}
+          </n-button>
+          <n-button quaternary :disabled="actionLoading" @click="clearMemoryOnly">
+            {{ "仅清空 memory" }}
+          </n-button>
+        </div>
+        <p class="form-hint">
+          {{
+            "清理操作不可恢复，建议先确认保留 run 是否正确。"
+          }}
+        </p>
+        <RouterLink class="ghost-link" to="/settings">
+          {{ "返回设置页" }}
+        </RouterLink>
+      </section>
+    </div>
   </section>
 </template>
-

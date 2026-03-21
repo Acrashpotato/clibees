@@ -1,6 +1,19 @@
 .audit-page {
   display: grid;
   gap: 12px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.audit-page__body {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  align-content: start;
 }
 
 .audit-page__header {
@@ -77,7 +90,7 @@
 }
 
 .audit-table-wrap--timeline {
-  max-height: min(64vh, 720px);
+  max-height: 420px;
 }
 
 .audit-table-wrap--validations,
@@ -176,39 +189,4 @@
 
 .detail-chip--row {
   align-items: start;
-}
-
-@media (max-width: 1360px) {
-  .audit-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .audit-summary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1100px) {
-  .audit-grid--support {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .audit-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .audit-table-wrap--timeline {
-    max-height: none;
-  }
-
-  .audit-hero__top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .audit-page__header-actions {
-    justify-content: flex-start;
-  }
 }

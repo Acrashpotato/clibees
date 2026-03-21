@@ -114,7 +114,7 @@ function riskTagType(riskLevel: AuditTimelineApprovalHistoryItemView["riskLevel"
         <n-tag size="small" round>{{ activeSupportCount }}</n-tag>
       </div>
 
-      <n-tabs :value="activeSupportTab" type="segment" animated @update:value="switchSupportTab">
+      <n-tabs :value="activeSupportTab" type="segment" animated display-directive="if" @update:value="switchSupportTab">
         <n-tab-pane
           v-for="tab in supportTabs"
           :key="tab.id"
@@ -435,4 +435,3 @@ function riskTagType(riskLevel: AuditTimelineApprovalHistoryItemView["riskLevel"
     </n-card>
   </section>
 </template>
-

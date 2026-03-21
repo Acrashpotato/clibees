@@ -7,8 +7,44 @@
   gap: 16px;
 }
 
+.task-board-page {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.task-board-page__body {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  align-content: start;
+}
+
 .task-board-node-rail {
   gap: 20px;
+  min-height: 0;
+}
+
+.task-board-selected {
+  min-height: 0;
+  height: 100%;
+}
+
+.task-board-selected.n-card > .n-card__content {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.task-board-node-rail.n-card > .n-card__content {
+  display: grid;
+  gap: 20px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: 0;
 }
 
 .task-board-hero__top,
@@ -83,6 +119,8 @@
 
 .task-board-node-rail__viewport {
   overflow: auto;
+  min-height: 0;
+  height: 420px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 22px;
@@ -310,6 +348,15 @@
 
 .task-board-node-detail {
   margin-top: 2px;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.task-board-node-detail--panel {
+  margin-top: 0;
+  max-height: none;
+  height: 100%;
 }
 
 .task-node-card {
@@ -375,6 +422,9 @@
 .task-board-edge-list {
   display: grid;
   gap: 10px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .task-board-edge {
@@ -392,39 +442,4 @@
 
 .task-board-edge[data-state="blocked"] {
   border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
-}
-
-@media (max-width: 1240px) {
-  .task-board-summary-grid,
-  .task-node-card__meta {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .task-board-hero__top,
-  .task-node-card__top,
-  .task-node-card__section-header,
-  .task-node-card__footer,
-  .task-board-node-rail__toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .task-board-node-rail__viewport {
-    padding: 8px;
-  }
-
-  .task-board-link-legend {
-    gap: 8px 12px;
-  }
-
-  .task-board-link-legend__item {
-    width: 100%;
-    white-space: normal;
-  }
-
-  .task-board-flow-label {
-    font-size: 0.64rem;
-  }
 }

@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { NAlert, NButton, NCard, NEmpty, NTag } from "naive-ui";
-import { RouterLink } from "vue-router";
+import { computed, watch } from "vue";
+import { NAlert, NButton, NCard, NEmpty, NTabPane, NTabs, NTag } from "naive-ui";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import { useWorkspaceLanesPage } from "./workspace-lanes/useWorkspaceLanesPage";
+
+type TaskBoardPanel = "graph" | "selected-task" | "edges";
+
+const route = useRoute();
+const router = useRouter();
 
 const {
   riskLabel,
@@ -46,6 +52,53 @@ const {
   taskPath,
 } = useWorkspaceLanesPage();
 
+const boardPanels = [
+  { id: "graph" as const, label: "图谱" },
+  { id: "selected-task" as const, label: "当前任务" },
+  { id: "edges" as const, label: "依赖边" },
+] satisfies ReadonlyArray<{ id: TaskBoardPanel; label: string }>;
+
+const panelFromQuery = computed<TaskBoardPanel | undefined>(() => {
+  const panel = route.query.panel;
+  if (panel === "graph" || panel === "selected-task" || panel === "edges") {
+    return panel;
+  }
+  return undefined;
+});
+
+const activePanel = computed<TaskBoardPanel>(() => panelFromQuery.value ?? "graph");
+
+watch(
+  () => route.query.panel,
+  (panel) => {
+    if (panel === undefined || panelFromQuery.value) {
+      return;
+    }
+    void router.replace({
+      query: {
+        ...route.query,
+        panel: "graph",
+      },
+    });
+  },
+  { immediate: true },
+);
+
+function switchPanel(nextPanel: string): void {
+  if (nextPanel !== "graph" && nextPanel !== "selected-task" && nextPanel !== "edges") {
+    return;
+  }
+  if (nextPanel === activePanel.value) {
+    return;
+  }
+  void router.replace({
+    query: {
+      ...route.query,
+      panel: nextPanel,
+    },
+  });
+}
+
 function statusTagType(status: string): "default" | "info" | "success" | "warning" | "error" {
   switch (status) {
     case "running":
@@ -88,7 +141,8 @@ function riskTagType(riskLevel: string): "default" | "warning" | "error" {
       </p>
     </div>
 
-    <n-card class="status-bar workspace-hero task-board-hero" size="small">
+    <div class="task-board-page__body">
+      <n-card class="status-bar workspace-hero task-board-hero" size="small">
       <div class="task-board-hero__top">
         <div>
           <p class="section-eyebrow">{{ "任务图" }}</p>
@@ -166,283 +220,319 @@ function riskTagType(riskLevel: string): "default" | "warning" | "error" {
       size="small"
     />
 
-    <template v-else>
-      <n-card class="panel-card task-board-node-rail" size="small">
-        <div class="task-board-node-rail__toolbar">
-          <div>
-            <p class="section-eyebrow">{{ "切换集合" }}</p>
-            <h2>{{ "横向节点卡片" }}</h2>
-          </div>
-          <div class="task-board-node-rail__controls">
-            <n-button quaternary size="small" :disabled="!hasPreviousTask" @click="showPreviousTask">
-              {{ "上一个" }}
-            </n-button>
-            <span class="flow-pill">{{ selectedTaskOrdinal }} / {{ orderedTasks.length }}</span>
-            <n-button quaternary size="small" :disabled="!hasNextTask" @click="showNextTask">
-              {{ "下一个" }}
-            </n-button>
-            <n-button quaternary size="small" @click="toggleGraphFullscreen">
-              {{ graphFullscreen ? "退出全屏" : "全屏展开" }}
-            </n-button>
-          </div>
-        </div>
-        <div class="task-board-link-legend">
-          <span class="task-board-link-legend__item" data-link="explicit">
-            <span class="task-board-link-legend__line"></span>
-            <span>{{ "Solid = dependency flow (A -> B)" }}</span>
-          </span>
-          <span class="task-board-link-legend__item" data-link="sequence">
-            <span class="task-board-link-legend__line"></span>
-            <span>{{ "Dashed = browse order flow" }}</span>
-          </span>
-        </div>
-        <div ref="graphViewportRef" class="task-board-node-rail__viewport">
-          <div class="task-board-node-rail__canvas" :style="taskGraphCanvasStyle">
-            <svg class="task-board-flow-map" :viewBox="taskGraphViewBox" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <marker
-                  id="task-flow-arrow-explicit"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="8"
-                  markerHeight="8"
-                  markerUnits="strokeWidth"
-                  orient="auto"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 z" class="task-board-flow-arrow"></path>
-                </marker>
-                <marker
-                  id="task-flow-arrow-sequence"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="6"
-                  markerHeight="6"
-                  markerUnits="strokeWidth"
-                  orient="auto"
-                >
-                  <path d="M 1 1 L 9 5 L 1 9" class="task-board-flow-arrow task-board-flow-arrow--sequence"></path>
-                </marker>
-              </defs>
-              <path
-                v-for="link in taskGraphLinks"
-                :key="link.key"
-                :id="link.pathId"
-                class="task-board-flow-link"
-                :data-link="link.linkType"
-                :data-state="link.state"
-                :data-related="isLinkRelated(link, selectedTask?.taskId)"
-                :data-direction="linkDirection(link, selectedTask?.taskId)"
-                :d="link.path"
-              />
-              <template v-for="link in taskGraphLinks" :key="`label:${link.key}`">
-                <text
-                  v-if="showLinkLabel(link)"
-                  class="task-board-flow-label"
-                  :data-related="isLinkRelated(link, selectedTask?.taskId)"
-                >
-                  <textPath :href="`#${link.pathId}`" startOffset="50%">
-                    {{ link.fromTaskId }} → {{ link.toTaskId }}
-                  </textPath>
-                </text>
-              </template>
-            </svg>
-
-            <button
-              v-for="node in taskGraphNodes"
-              :key="node.taskId"
-              type="button"
-              class="task-board-node-toggle task-board-node-toggle--graph"
-              :style="node.style"
-              :data-active="node.task.taskId === selectedTask?.taskId"
-              :data-current="node.task.taskId === currentTaskId"
-              :data-status="node.task.status"
-              @click="selectTask(node.task.taskId)"
-            >
-              <span class="task-board-node-port task-board-node-port--left" aria-hidden="true"></span>
-              <span class="task-board-node-port task-board-node-port--right" aria-hidden="true"></span>
-              <span class="task-board-node-port task-board-node-port--bottom" aria-hidden="true"></span>
-              <div class="task-board-node-toggle__top">
-                <span class="lane-panel__eyebrow">{{ orderedTaskPosition(node.task.taskId) }} - {{ node.task.taskId }}</span>
-                <span class="status-pill" :data-status="node.task.status">{{ statusLabel(node.task.status) }}</span>
-              </div>
-              <strong>{{ node.task.title }}</strong>
-              <div class="task-board-node-toggle__meta">
-                <span class="risk-pill" :data-risk="node.task.riskLevel">{{ riskLabel(node.task.riskLevel) }}</span>
-                <span class="task-board-node-toggle__deps">{{ t("fields.upstreamDeps") }} {{ node.task.dependsOn.length }}</span>
-              </div>
-              <span class="task-board-node-toggle__depth">Depth {{ node.depth }}</span>
-            </button>
-          </div>
-        </div>
-
-        <article
-          v-if="selectedTask"
-          class="task-node-card task-board-node-detail"
-          :data-current="selectedTask.taskId === currentTaskId"
-          :data-status="selectedTask.status"
+      <template v-else>
+        <n-tabs
+          type="segment"
+          :value="activePanel"
+          :default-value="'graph'"
+          display-directive="if"
+          @update:value="switchPanel"
         >
-          <div class="task-node-card__top">
+          <n-tab-pane v-for="panel in boardPanels" :key="panel.id" :name="panel.id" :tab="panel.label" />
+        </n-tabs>
+
+        <n-card v-if="activePanel === 'graph'" class="panel-card task-board-node-rail" size="small">
+          <div class="task-board-node-rail__toolbar">
             <div>
-              <p class="lane-panel__eyebrow">{{ selectedTask.taskId }}</p>
-              <h3>{{ selectedTask.title }}</h3>
+              <p class="section-eyebrow">{{ "图谱视图" }}</p>
+              <h2>{{ "横向节点卡片" }}</h2>
             </div>
-            <div class="lane-panel__badges">
-              <n-tag :type="statusTagType(selectedTask.status)" size="small">
-                {{ statusLabel(selectedTask.status) }}
-              </n-tag>
-              <n-tag :type="riskTagType(selectedTask.riskLevel)" size="small">
-                {{ riskLabel(selectedTask.riskLevel) }}
-              </n-tag>
+            <div class="task-board-node-rail__controls">
+              <n-button quaternary size="small" :disabled="!hasPreviousTask" @click="showPreviousTask">
+                {{ "上一个" }}
+              </n-button>
+              <span class="flow-pill">{{ selectedTaskOrdinal }} / {{ orderedTasks.length }}</span>
+              <n-button quaternary size="small" :disabled="!hasNextTask" @click="showNextTask">
+                {{ "下一个" }}
+              </n-button>
+              <n-button quaternary size="small" @click="toggleGraphFullscreen">
+                {{ graphFullscreen ? "退出全屏" : "全屏展开" }}
+              </n-button>
+            </div>
+          </div>
+          <div class="task-board-link-legend">
+            <span class="task-board-link-legend__item" data-link="explicit">
+              <span class="task-board-link-legend__line"></span>
+              <span>{{ "Solid = dependency flow (A -> B)" }}</span>
+            </span>
+            <span class="task-board-link-legend__item" data-link="sequence">
+              <span class="task-board-link-legend__line"></span>
+              <span>{{ "Dashed = browse order flow" }}</span>
+            </span>
+          </div>
+          <div ref="graphViewportRef" class="task-board-node-rail__viewport">
+            <div class="task-board-node-rail__canvas" :style="taskGraphCanvasStyle">
+              <svg class="task-board-flow-map" :viewBox="taskGraphViewBox" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <marker
+                    id="task-flow-arrow-explicit"
+                    viewBox="0 0 10 10"
+                    refX="8"
+                    refY="5"
+                    markerWidth="8"
+                    markerHeight="8"
+                    markerUnits="strokeWidth"
+                    orient="auto"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" class="task-board-flow-arrow"></path>
+                  </marker>
+                  <marker
+                    id="task-flow-arrow-sequence"
+                    viewBox="0 0 10 10"
+                    refX="8"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    markerUnits="strokeWidth"
+                    orient="auto"
+                  >
+                    <path d="M 1 1 L 9 5 L 1 9" class="task-board-flow-arrow task-board-flow-arrow--sequence"></path>
+                  </marker>
+                </defs>
+                <path
+                  v-for="link in taskGraphLinks"
+                  :key="link.key"
+                  :id="link.pathId"
+                  class="task-board-flow-link"
+                  :data-link="link.linkType"
+                  :data-state="link.state"
+                  :data-related="isLinkRelated(link, selectedTask?.taskId)"
+                  :data-direction="linkDirection(link, selectedTask?.taskId)"
+                  :d="link.path"
+                />
+                <template v-for="link in taskGraphLinks" :key="`label:${link.key}`">
+                  <text
+                    v-if="showLinkLabel(link)"
+                    class="task-board-flow-label"
+                    :data-related="isLinkRelated(link, selectedTask?.taskId)"
+                  >
+                    <textPath :href="`#${link.pathId}`" startOffset="50%">
+                      {{ link.fromTaskId }} → {{ link.toTaskId }}
+                    </textPath>
+                  </text>
+                </template>
+              </svg>
+
+              <button
+                v-for="node in taskGraphNodes"
+                :key="node.taskId"
+                type="button"
+                class="task-board-node-toggle task-board-node-toggle--graph"
+                :style="node.style"
+                :data-active="node.task.taskId === selectedTask?.taskId"
+                :data-current="node.task.taskId === currentTaskId"
+                :data-status="node.task.status"
+                @click="selectTask(node.task.taskId)"
+              >
+                <span class="task-board-node-port task-board-node-port--left" aria-hidden="true"></span>
+                <span class="task-board-node-port task-board-node-port--right" aria-hidden="true"></span>
+                <span class="task-board-node-port task-board-node-port--bottom" aria-hidden="true"></span>
+                <div class="task-board-node-toggle__top">
+                  <span class="lane-panel__eyebrow">{{ orderedTaskPosition(node.task.taskId) }} - {{ node.task.taskId }}</span>
+                  <span class="status-pill" :data-status="node.task.status">{{ statusLabel(node.task.status) }}</span>
+                </div>
+                <strong>{{ node.task.title }}</strong>
+                <div class="task-board-node-toggle__meta">
+                  <span class="risk-pill" :data-risk="node.task.riskLevel">{{ riskLabel(node.task.riskLevel) }}</span>
+                  <span class="task-board-node-toggle__deps">{{ t("fields.upstreamDeps") }} {{ node.task.dependsOn.length }}</span>
+                </div>
+                <span class="task-board-node-toggle__depth">Depth {{ node.depth }}</span>
+              </button>
+            </div>
+          </div>
+        </n-card>
+
+        <n-card v-else-if="activePanel === 'selected-task'" class="panel-card task-board-selected" size="small">
+          <div class="panel-card__header">
+            <div>
+              <p class="section-eyebrow">{{ "任务详情分区" }}</p>
+              <h2>{{ selectedTask?.title ?? "当前未选择任务" }}</h2>
+            </div>
+            <div class="task-board-node-rail__controls">
+              <n-button quaternary size="small" :disabled="!hasPreviousTask" @click="showPreviousTask">
+                {{ "上一个" }}
+              </n-button>
+              <span class="flow-pill">{{ selectedTaskOrdinal }} / {{ orderedTasks.length }}</span>
+              <n-button quaternary size="small" :disabled="!hasNextTask" @click="showNextTask">
+                {{ "下一个" }}
+              </n-button>
             </div>
           </div>
 
-          <div class="task-node-card__meta">
-            <div class="summary-card">
-              <span>{{ t("fields.owner") }}</span>
-              <strong>{{ selectedTask.ownerLabel }}</strong>
-            </div>
-            <div class="summary-card">
-              <span>{{ "任务类型" }}</span>
-              <strong>{{ selectedTask.kind }}</strong>
-            </div>
-            <div class="summary-card">
-              <span>{{ t("fields.lastActivity") }}</span>
-              <strong>{{ selectedTask.latestActivityAt }}</strong>
-            </div>
-            <div class="summary-card">
-              <span>{{ "下游任务" }}</span>
-              <strong>{{ selectedTask.downstreamTaskIds.length }}</strong>
-            </div>
-          </div>
-
-          <section class="task-node-card__section">
-            <strong>{{ selectedTask.statusReason }}</strong>
-            <p class="panel-card__body">{{ selectedTask.latestActivitySummary }}</p>
-            <p v-if="selectedTask.waitingReason" class="task-node-card__reason">{{ selectedTask.waitingReason }}</p>
-          </section>
-
-          <section class="task-node-card__section">
-            <div class="task-node-card__section-header">
-              <strong>{{ "依赖关系" }}</strong>
-              <span class="flow-pill">{{ "深度" }} {{ selectedTask.depth }}</span>
-            </div>
-            <div class="task-node-card__list">
-              <span v-if="selectedTask.dependsOn.length === 0" class="task-node-card__pill">
-                {{ "无上游依赖" }}
-              </span>
-              <span
-                v-for="dependencyId in selectedTask.dependsOn"
-                :key="dependencyId"
-                class="task-node-card__pill"
-              >
-                {{ "依赖" }} {{ dependencyId }}
-              </span>
-            </div>
-            <div class="task-node-card__list">
-              <span v-if="selectedTask.downstreamTaskIds.length === 0" class="task-node-card__pill">
-                {{ "无下游任务" }}
-              </span>
-              <span
-                v-for="downstreamTaskId in selectedTask.downstreamTaskIds"
-                :key="downstreamTaskId"
-                class="task-node-card__pill"
-              >
-                {{ "下游" }} {{ downstreamTaskId }}
-              </span>
-            </div>
-          </section>
-
-          <section class="task-node-card__section">
-            <div class="task-node-card__section-header">
-              <strong>{{ "任务与会话" }}</strong>
-              <span class="flow-pill">{{ sessionTitle(selectedTask) }}</span>
-            </div>
-            <template v-if="selectedTask.activeSession">
-              <div class="task-node-card__meta">
-                <div class="summary-card">
-                  <span>{{ t("fields.agent") }}</span>
-                  <strong>{{ selectedTask.activeSession.agentId }}</strong>
-                </div>
-                <div class="summary-card">
-                  <span>{{ t("fields.approvals") }}</span>
-                  <strong>{{ selectedTask.activeSession.pendingApprovalCount }}</strong>
-                </div>
-                <div class="summary-card">
-                  <span>{{ t("fields.lastActivity") }}</span>
-                  <strong>{{ selectedTask.activeSession.lastActivityAt }}</strong>
-                </div>
-                <div class="summary-card">
-                  <span>{{ "会话来源" }}</span>
-                  <strong>{{ sourceModeLabel(selectedTask.activeSession.sourceMode) }}</strong>
-                </div>
+          <article
+            v-if="selectedTask"
+            class="task-node-card task-board-node-detail task-board-node-detail--panel"
+            :data-current="selectedTask.taskId === currentTaskId"
+            :data-status="selectedTask.status"
+          >
+            <div class="task-node-card__top">
+              <div>
+                <p class="lane-panel__eyebrow">{{ selectedTask.taskId }}</p>
+                <h3>{{ selectedTask.title }}</h3>
               </div>
-            </template>
-            <p class="panel-card__body">{{ sessionRelation(selectedTask) }}</p>
-          </section>
-
-          <section class="task-node-card__section">
-            <div class="task-node-card__section-header">
-              <strong>{{ "重试与重排队" }}</strong>
-              <span class="flow-pill">{{ sourceModeLabel(selectedTask.retry.sourceMode) }}</span>
+              <div class="lane-panel__badges">
+                <n-tag :type="statusTagType(selectedTask.status)" size="small">
+                  {{ statusLabel(selectedTask.status) }}
+                </n-tag>
+                <n-tag :type="riskTagType(selectedTask.riskLevel)" size="small">
+                  {{ riskLabel(selectedTask.riskLevel) }}
+                </n-tag>
+              </div>
             </div>
+
             <div class="task-node-card__meta">
               <div class="summary-card">
-                <span>{{ "已尝试次数" }}</span>
-                <strong>{{ selectedTask.retry.attempts ?? "-" }}</strong>
+                <span>{{ t("fields.owner") }}</span>
+                <strong>{{ selectedTask.ownerLabel }}</strong>
               </div>
               <div class="summary-card">
-                <span>{{ "最大尝试次数" }}</span>
-                <strong>{{ selectedTask.retry.maxAttempts }}</strong>
+                <span>{{ "任务类型" }}</span>
+                <strong>{{ selectedTask.kind }}</strong>
               </div>
               <div class="summary-card">
-                <span>{{ "可重试" }}</span>
-                <strong>{{ selectedTask.retry.retryable ? "是" : "否" }}</strong>
+                <span>{{ t("fields.lastActivity") }}</span>
+                <strong>{{ selectedTask.latestActivityAt }}</strong>
               </div>
               <div class="summary-card">
-                <span>{{ "建议重排队" }}</span>
-                <strong>{{ selectedTask.retry.requeueRecommended ? "建议" : "否" }}</strong>
+                <span>{{ "下游任务" }}</span>
+                <strong>{{ selectedTask.downstreamTaskIds.length }}</strong>
               </div>
             </div>
-            <p class="panel-card__body">{{ retrySummary(selectedTask) }}</p>
-            <p v-if="selectedTask.retry.lastFailureAt" class="task-node-card__reason">
-              {{ "最近失败时间" }}: {{ selectedTask.retry.lastFailureAt }}
-            </p>
-          </section>
 
-          <div class="task-node-card__footer">
-            <RouterLink v-if="taskPath(selectedTask.taskId)" class="ghost-link" :to="taskPath(selectedTask.taskId)!">
-              {{ "打开任务/会话入口" }}
-            </RouterLink>
-          </div>
-        </article>
-      </n-card>
+            <section class="task-node-card__section">
+              <strong>{{ selectedTask.statusReason }}</strong>
+              <p class="panel-card__body">{{ selectedTask.latestActivitySummary }}</p>
+              <p v-if="selectedTask.waitingReason" class="task-node-card__reason">{{ selectedTask.waitingReason }}</p>
+            </section>
 
-      <n-card class="panel-card task-board-edges" size="small">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ "依赖边" }}</p>
-            <h2>{{ "显式依赖关系" }}</h2>
-          </div>
-          <n-tag size="small" round>{{ projection.edges.length }}</n-tag>
-        </div>
+            <section class="task-node-card__section">
+              <div class="task-node-card__section-header">
+                <strong>{{ "依赖关系" }}</strong>
+                <span class="flow-pill">{{ "深度" }} {{ selectedTask.depth }}</span>
+              </div>
+              <div class="task-node-card__list">
+                <span v-if="selectedTask.dependsOn.length === 0" class="task-node-card__pill">
+                  {{ "无上游依赖" }}
+                </span>
+                <span
+                  v-for="dependencyId in selectedTask.dependsOn"
+                  :key="dependencyId"
+                  class="task-node-card__pill"
+                >
+                  {{ "依赖" }} {{ dependencyId }}
+                </span>
+              </div>
+              <div class="task-node-card__list">
+                <span v-if="selectedTask.downstreamTaskIds.length === 0" class="task-node-card__pill">
+                  {{ "无下游任务" }}
+                </span>
+                <span
+                  v-for="downstreamTaskId in selectedTask.downstreamTaskIds"
+                  :key="downstreamTaskId"
+                  class="task-node-card__pill"
+                >
+                  {{ "下游" }} {{ downstreamTaskId }}
+                </span>
+              </div>
+            </section>
 
-        <div class="task-board-edge-list">
-          <article
-            v-for="edge in orderedEdges"
-            :key="edge.edgeId"
-            class="summary-card task-board-edge"
-            :data-state="edge.state"
-          >
-            <div class="task-node-card__section-header">
-              <strong>{{ edge.fromTaskId }} -> {{ edge.toTaskId }}</strong>
-              <span class="flow-pill">{{ edgeStateLabel(edge.state) }}</span>
+            <section class="task-node-card__section">
+              <div class="task-node-card__section-header">
+                <strong>{{ "任务与会话" }}</strong>
+                <span class="flow-pill">{{ sessionTitle(selectedTask) }}</span>
+              </div>
+              <template v-if="selectedTask.activeSession">
+                <div class="task-node-card__meta">
+                  <div class="summary-card">
+                    <span>{{ t("fields.agent") }}</span>
+                    <strong>{{ selectedTask.activeSession.agentId }}</strong>
+                  </div>
+                  <div class="summary-card">
+                    <span>{{ t("fields.approvals") }}</span>
+                    <strong>{{ selectedTask.activeSession.pendingApprovalCount }}</strong>
+                  </div>
+                  <div class="summary-card">
+                    <span>{{ t("fields.lastActivity") }}</span>
+                    <strong>{{ selectedTask.activeSession.lastActivityAt }}</strong>
+                  </div>
+                  <div class="summary-card">
+                    <span>{{ "会话来源" }}</span>
+                    <strong>{{ sourceModeLabel(selectedTask.activeSession.sourceMode) }}</strong>
+                  </div>
+                </div>
+              </template>
+              <p class="panel-card__body">{{ sessionRelation(selectedTask) }}</p>
+            </section>
+
+            <section class="task-node-card__section">
+              <div class="task-node-card__section-header">
+                <strong>{{ "重试与重排队" }}</strong>
+                <span class="flow-pill">{{ sourceModeLabel(selectedTask.retry.sourceMode) }}</span>
+              </div>
+              <div class="task-node-card__meta">
+                <div class="summary-card">
+                  <span>{{ "已尝试次数" }}</span>
+                  <strong>{{ selectedTask.retry.attempts ?? "-" }}</strong>
+                </div>
+                <div class="summary-card">
+                  <span>{{ "最大尝试次数" }}</span>
+                  <strong>{{ selectedTask.retry.maxAttempts }}</strong>
+                </div>
+                <div class="summary-card">
+                  <span>{{ "可重试" }}</span>
+                  <strong>{{ selectedTask.retry.retryable ? "是" : "否" }}</strong>
+                </div>
+                <div class="summary-card">
+                  <span>{{ "建议重排队" }}</span>
+                  <strong>{{ selectedTask.retry.requeueRecommended ? "建议" : "否" }}</strong>
+                </div>
+              </div>
+              <p class="panel-card__body">{{ retrySummary(selectedTask) }}</p>
+              <p v-if="selectedTask.retry.lastFailureAt" class="task-node-card__reason">
+                {{ "最近失败时间" }}: {{ selectedTask.retry.lastFailureAt }}
+              </p>
+            </section>
+
+            <div class="task-node-card__footer">
+              <RouterLink v-if="taskPath(selectedTask.taskId)" class="ghost-link" :to="taskPath(selectedTask.taskId)!">
+                {{ "打开任务/会话入口" }}
+              </RouterLink>
             </div>
-            <p class="panel-card__body">{{ dependencySummary(edge) }}</p>
           </article>
-        </div>
-      </n-card>
-    </template>
+
+          <n-empty
+            v-else
+            class="panel-card__empty-state"
+            :description="'请先在图谱分区选择一个任务。'"
+            size="small"
+          />
+        </n-card>
+
+        <n-card v-else class="panel-card task-board-edges" size="small">
+          <div class="panel-card__header">
+            <div>
+              <p class="section-eyebrow">{{ "依赖边" }}</p>
+              <h2>{{ "显式依赖关系" }}</h2>
+            </div>
+            <n-tag size="small" round>{{ projection.edges.length }}</n-tag>
+          </div>
+
+          <div class="task-board-edge-list">
+            <article
+              v-for="edge in orderedEdges"
+              :key="edge.edgeId"
+              class="summary-card task-board-edge"
+              :data-state="edge.state"
+            >
+              <div class="task-node-card__section-header">
+                <strong>{{ edge.fromTaskId }} -> {{ edge.toTaskId }}</strong>
+                <span class="flow-pill">{{ edgeStateLabel(edge.state) }}</span>
+              </div>
+              <p class="panel-card__body">{{ dependencySummary(edge) }}</p>
+            </article>
+          </div>
+        </n-card>
+      </template>
+    </div>
   </section>
 </template>

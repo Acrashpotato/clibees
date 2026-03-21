@@ -1,5 +1,6 @@
 .app-shell {
-  min-height: 100vh;
+  min-height: 0;
+  height: 100%;
 }
 
 .app-toolbar--naive {
@@ -36,14 +37,19 @@
 
 .app-shell__content {
   padding: 16px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .app-content {
   max-width: 1360px;
   margin: 0 auto;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  overflow: hidden;
 }
 
 .app-content.app-content--wide {
   max-width: none;
 }
-

@@ -73,7 +73,7 @@ export function useWorkspaceLanesPage() {
   }
 
   watch(
-    () => route.fullPath,
+    runScopeId,
     () => {
       void loadProjection();
     },

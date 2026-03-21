@@ -17,6 +17,7 @@ import {
   type ApprovalQueueItemDetailView,
   type ApprovalQueueProjectionView,
 } from "../approval-projection";
+import { useChunkedRender } from "../composables/useChunkedRender";
 import { useConsoleSettings } from "../composables/useConsoleSettings";
 import { usePreferences } from "../composables/usePreferences";
 import { getRunWorkspacePath } from "../workspace";
@@ -50,6 +51,16 @@ const filteredApprovals = computed(() =>
     ? approvals.value
     : approvals.value.filter((item) => item.state === stateFilter.value),
 );
+const {
+  visibleCount: visibleApprovalCount,
+  visibleItems: visibleApprovals,
+  hasMore: hasMoreApprovals,
+  loadMore: loadMoreApprovals,
+  reset: resetVisibleApprovals,
+} = useChunkedRender(filteredApprovals, {
+  initialSize: 40,
+  step: 40,
+});
 const selectedApproval = computed(() =>
   filteredApprovals.value.find((item) => item.requestId === selectedRequestId.value),
 );
@@ -336,6 +347,20 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => [filteredApprovals.value, selectedRequestId.value] as const,
+  ([items, selectedId]) => {
+    if (!selectedId) {
+      return;
+    }
+    const selectedIndex = items.findIndex((item) => item.requestId === selectedId);
+    if (selectedIndex < 0 || selectedIndex < visibleApprovalCount.value) {
+      return;
+    }
+    resetVisibleApprovals(selectedIndex + 1);
+  },
+);
+
 onBeforeUnmount(() => {
   stopAutoRefresh();
 });
@@ -426,7 +451,7 @@ onBeforeUnmount(() => {
 
         <div v-if="filteredApprovals.length > 0" class="approvals-inbox__list">
           <button
-            v-for="approval in filteredApprovals"
+            v-for="approval in visibleApprovals"
             :key="approval.requestId"
             class="approval-card approvals-inbox__item"
             :class="{ 'approvals-inbox__item--active': approval.requestId === selectedApproval?.requestId }"
@@ -449,6 +474,9 @@ onBeforeUnmount(() => {
               <span class="flow-pill">{{ decisionTimeLabel(approval) }}</span>
             </div>
           </button>
+          <n-button v-if="hasMoreApprovals" quaternary size="small" @click="loadMoreApprovals">
+            {{ "加载更多审批项" }}
+          </n-button>
         </div>
         <n-empty
           v-else
@@ -475,4 +503,3 @@ onBeforeUnmount(() => {
     />
   </section>
 </template>
-

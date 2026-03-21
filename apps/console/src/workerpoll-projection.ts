@@ -26,6 +26,7 @@ export interface WorkerpollSummary {
   workerCount: number;
   dynamicWorkerCount: number;
   uncoveredTaskCount: number;
+  excludedManagerTaskCount: number;
 }
 
 export interface WorkerpollWorkerItem {
@@ -51,6 +52,7 @@ export interface WorkerpollTaskItem {
   selectedWorker?: string;
   dependsOn: string[];
   matchStatus: WorkerpollMatchStatus;
+  isManagerTask: boolean;
   lastActivityAt: string;
 }
 
@@ -79,9 +81,9 @@ export function createEmptyWorkerpollProjection(runId = "workerpoll"): Workerpol
       workerCount: 0,
       dynamicWorkerCount: 0,
       uncoveredTaskCount: 0,
+      excludedManagerTaskCount: 0,
     },
     workers: [],
     tasks: [],
   };
 }
-

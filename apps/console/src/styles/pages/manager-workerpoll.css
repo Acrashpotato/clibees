@@ -1,3 +1,7 @@
+.manager-page {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .manager-toolbar,
 .workerpoll-toolbar {
   display: flex;
@@ -15,11 +19,16 @@
   display: grid;
   grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1fr);
   gap: 12px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .manager-chat-panel {
   display: grid;
   gap: 12px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
 }
 
 .manager-chat-panel__header {
@@ -37,7 +46,8 @@
 .manager-chat-panel__timeline {
   display: grid;
   gap: 8px;
-  max-height: 56vh;
+  min-height: 0;
+  height: 100%;
   overflow: auto;
   padding-right: 4px;
 }
@@ -98,11 +108,17 @@
 .manager-side {
   display: grid;
   gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  align-content: start;
 }
 
 .manager-side-card {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  align-content: start;
 }
 
 .manager-queue-list,
@@ -110,6 +126,10 @@
 .workerpoll-list {
   display: grid;
   gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  padding-right: 2px;
 }
 
 .manager-queue-item,
@@ -138,30 +158,25 @@
 .workerpoll-page {
   display: grid;
   gap: 12px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
 .workerpoll-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .workerpoll-card {
   display: grid;
   gap: 10px;
   align-content: start;
-}
-
-@media (max-width: 1120px) {
-  .manager-layout,
-  .workerpoll-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .manager-toolbar,
-  .workerpoll-toolbar {
-    justify-content: flex-start;
-  }
+  min-height: 0;
+  overflow: hidden;
 }

@@ -7,6 +7,8 @@ import {
   NCollapse,
   NCollapseItem,
   NEmpty,
+  NTabPane,
+  NTabs,
   NTag,
 } from "naive-ui";
 import { useRoute, useRouter } from "vue-router";
@@ -39,6 +41,7 @@ import {
 } from "../workspace";
 
 type InspectSupportTab = "approvals" | "validations" | "replans" | "artifacts";
+type InspectPanel = "timeline" | "support";
 type TimelineWindow = number | "all";
 
 const TIMELINE_STEP = 100;
@@ -103,6 +106,8 @@ const supportFromQuery = computed(() => parseSupportQuery(route.query.support));
 const activeSupportTab = computed<InspectSupportTab>(
   () => supportFromQuery.value ?? defaultSupportTab.value,
 );
+const panelFromQuery = computed(() => parsePanelQuery(route.query.panel));
+const activePanel = computed<InspectPanel>(() => panelFromQuery.value ?? "timeline");
 
 const timelineWindowFromQuery = computed(() => parseTimelineQuery(route.query.timeline));
 const activeTimelineWindow = computed<TimelineWindow>(
@@ -194,6 +199,13 @@ function parseSupportQuery(queryValue: unknown): InspectSupportTab | undefined {
   return undefined;
 }
 
+function parsePanelQuery(queryValue: unknown): InspectPanel | undefined {
+  if (queryValue === "timeline" || queryValue === "support") {
+    return queryValue;
+  }
+  return undefined;
+}
+
 function parseTimelineQuery(queryValue: unknown): TimelineWindow | undefined {
   if (typeof queryValue !== "string") {
     return undefined;
@@ -206,6 +218,15 @@ function parseTimelineQuery(queryValue: unknown): TimelineWindow | undefined {
     return undefined;
   }
   return parsed;
+}
+
+function setPanelQuery(nextPanel: InspectPanel): void {
+  void router.replace({
+    query: {
+      ...route.query,
+      panel: nextPanel,
+    },
+  });
 }
 
 function setSupportQuery(nextTab: InspectSupportTab): void {
@@ -227,26 +248,37 @@ function setTimelineQuery(nextWindow: TimelineWindow): void {
 }
 
 function normalizeInspectQuery(): void {
+  const rawPanel = route.query.panel;
   const rawSupport = route.query.support;
   const rawTimeline = route.query.timeline;
+  const hasPanelQuery = rawPanel !== undefined;
   const hasSupportQuery = rawSupport !== undefined;
   const hasTimelineQuery = rawTimeline !== undefined;
+  const parsedPanel = parsePanelQuery(rawPanel);
   const parsedSupport = parseSupportQuery(rawSupport);
   const parsedTimeline = parseTimelineQuery(rawTimeline);
+  const normalizePanel = hasPanelQuery && !parsedPanel;
   const normalizeSupport = hasSupportQuery && !parsedSupport && (hasProjection.value || !routeRunId.value);
   const normalizeTimeline = hasTimelineQuery && !parsedTimeline;
 
-  if (!normalizeSupport && !normalizeTimeline) {
+  if (!normalizePanel && !normalizeSupport && !normalizeTimeline) {
     return;
   }
 
   void router.replace({
     query: {
       ...route.query,
+      ...(normalizePanel ? { panel: "timeline" } : {}),
       ...(normalizeSupport ? { support: defaultSupportTab.value } : {}),
       ...(normalizeTimeline ? { timeline: String(DEFAULT_TIMELINE_WINDOW) } : {}),
     },
   });
+}
+
+function changePanel(nextPanel: string): void {
+  if (nextPanel === "timeline" || nextPanel === "support") {
+    setPanelQuery(nextPanel);
+  }
 }
 
 function changeSupportTab(nextTab: InspectSupportTab): void {
@@ -346,7 +378,7 @@ watch(
 );
 
 watch(
-  () => [route.query.support, route.query.timeline, defaultSupportTab.value, hasProjection.value] as const,
+  () => [route.query.panel, route.query.support, route.query.timeline, defaultSupportTab.value, hasProjection.value] as const,
   () => {
     normalizeInspectQuery();
   },
@@ -395,7 +427,7 @@ onBeforeUnmount(() => {
       size="small"
     />
 
-    <template v-else>
+    <section v-else class="audit-page__body">
       <n-card class="status-bar workspace-hero audit-hero" size="small">
         <div class="audit-hero__top">
           <div>
@@ -436,7 +468,19 @@ onBeforeUnmount(() => {
         </n-collapse>
       </n-card>
 
+      <n-tabs
+        type="segment"
+        display-directive="if"
+        :value="activePanel"
+        :default-value="'timeline'"
+        @update:value="changePanel"
+      >
+        <n-tab-pane name="timeline" :tab="'时间线'" />
+        <n-tab-pane name="support" :tab="'支持分区'" />
+      </n-tabs>
+
       <InspectTimelineGrid
+        v-if="activePanel === 'timeline'"
         :entries="visibleTimelineEntries"
         :session-events="projection.sessionEvents"
         :total-entry-count="projection.entries.length"
@@ -455,6 +499,7 @@ onBeforeUnmount(() => {
       />
 
       <InspectSupportGrid
+        v-else
         :projection="projection"
         :active-support-tab="activeSupportTab"
         :risk-label="riskLabel"
@@ -468,7 +513,6 @@ onBeforeUnmount(() => {
         :approval-link="approvalLink"
         @change-support="changeSupportTab"
       />
-    </template>
+    </section>
   </section>
 </template>
-

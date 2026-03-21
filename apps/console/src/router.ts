@@ -62,18 +62,62 @@ export const router = createRouter({
       component: RunsPage,
     },
     {
-      path: "/runs/:runId/tasks/:taskId",
-      name: "task-detail",
+      path: "/runs/:runId/tasks/:taskId/summary",
+      name: "task-detail-summary",
       component: TaskDetailPage,
     },
     {
-      path: "/runs/:runId/sessions/:sessionId",
-      name: "session-detail",
+      path: "/runs/:runId/tasks/:taskId/dependencies",
+      name: "task-detail-dependencies",
+      component: TaskDetailPage,
+    },
+    {
+      path: "/runs/:runId/tasks/:taskId/sessions",
+      name: "task-detail-sessions",
+      component: TaskDetailPage,
+    },
+    {
+      path: "/runs/:runId/tasks/:taskId/artifacts",
+      name: "task-detail-artifacts",
+      component: TaskDetailPage,
+    },
+    {
+      path: "/runs/:runId/sessions/:sessionId/live",
+      name: "session-detail-live",
+      component: SessionDetailPage,
+    },
+    {
+      path: "/runs/:runId/sessions/:sessionId/support",
+      name: "session-detail-support",
+      component: SessionDetailPage,
+    },
+    {
+      path: "/runs/:runId/sessions/:sessionId/artifacts",
+      name: "session-detail-artifacts",
       component: SessionDetailPage,
     },
     {
       path: "/settings",
-      name: "settings",
+      redirect: "/settings/run",
+    },
+    {
+      path: "/settings/run",
+      name: "settings-run",
+      component: SettingsPage,
+    },
+    {
+      path: "/settings/approvals",
+      name: "settings-approvals",
+      component: SettingsPage,
+    },
+    {
+      path: "/settings/inspect",
+      name: "settings-inspect",
+      component: SettingsPage,
+    },
+    {
+      path: "/settings/workspace",
+      name: "settings-workspace",
       component: SettingsPage,
     },
     {

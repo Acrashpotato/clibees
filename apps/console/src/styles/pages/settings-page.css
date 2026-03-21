@@ -1,6 +1,19 @@
 .settings-page {
   display: grid;
   gap: 16px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.settings-page__body {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  align-content: start;
 }
 
 .settings-grid {
@@ -84,32 +97,4 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-}
-
-@media (max-width: 1400px) {
-  .settings-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .settings-summary-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 980px) {
-  .settings-grid,
-  .settings-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .settings-actions {
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 720px) {
-  .settings-grid,
-  .settings-summary-grid {
-    grid-template-columns: 1fr;
-  }
 }

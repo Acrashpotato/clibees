@@ -1,12 +1,16 @@
 .multi-agent-page {
   display: grid;
   gap: 16px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .multi-agent-run-list {
   display: grid;
   gap: 10px;
-  max-height: 420px;
+  min-height: 0;
+  height: 100%;
   overflow: auto;
   padding-right: 4px;
 }

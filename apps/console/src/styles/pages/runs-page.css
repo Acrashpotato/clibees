@@ -1,7 +1,9 @@
 .runs-page {
   width: 100%;
-  min-height: calc(100vh - 126px);
-  min-height: calc(100dvh - 126px);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .runs-layout {
@@ -11,6 +13,7 @@
   align-items: stretch;
   min-height: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 .runs-list-pane {
@@ -52,6 +55,10 @@
   padding-right: 2px;
   align-content: start;
   grid-auto-rows: max-content;
+}
+
+.runs-list__load-more {
+  justify-self: center;
 }
 
 .runs-list-item {
@@ -352,41 +359,4 @@
 
 .runs-create-card__checkbox input {
   margin: 0;
-}
-
-@media (max-width: 1160px) {
-  .runs-layout {
-    grid-template-columns: 320px minmax(0, 1fr);
-  }
-
-  .runs-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 920px) {
-  .runs-page {
-    min-height: auto;
-  }
-
-  .runs-layout {
-    grid-template-columns: 1fr;
-    min-height: auto;
-  }
-
-  .runs-list-pane {
-    max-height: 46vh;
-  }
-
-  .runs-summary-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .runs-detail-header,
-  .runs-create-card__header {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }

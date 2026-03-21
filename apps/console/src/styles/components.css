@@ -9,6 +9,17 @@
   gap: 12px;
 }
 
+.workspace-page-stack {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  align-content: start;
+}
+
+.workspace-page-stack > * {
+  min-width: 0;
+}
+
 .workspace-page-header {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
@@ -330,26 +341,4 @@
   border-radius: 12px;
   border: 1px dashed var(--line);
   background: var(--panel-subtle);
-}
-
-@media (max-width: 1080px) {
-  .workspace-page-header {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-}
-
-@media (max-width: 720px) {
-  .workspace-page-header {
-    gap: 10px;
-  }
-
-  .workspace-hero__meta {
-    justify-content: flex-start;
-  }
-
-  .panel-card,
-  .status-bar {
-    padding: 12px;
-  }
 }

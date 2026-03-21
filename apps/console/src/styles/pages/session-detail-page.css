@@ -7,6 +7,22 @@
   gap: 16px;
 }
 
+.detail-page {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.detail-page__body {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+  align-content: start;
+}
+
 .detail-card.n-card > .n-card__content,
 .detail-hero.n-card > .n-card__content {
   display: grid;
@@ -86,7 +102,7 @@
 .live-workspace__events-list {
   display: grid;
   gap: 10px;
-  max-height: min(52vh, 720px);
+  max-height: 420px;
   overflow: auto;
   padding-right: 4px;
 }
@@ -142,24 +158,4 @@
 
 .chat-item__meta {
   align-items: center;
-}
-
-@media (max-width: 1240px) {
-  .detail-summary-grid,
-  .detail-grid--primary,
-  .detail-grid--support,
-  .live-workspace {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .detail-page__header,
-  .detail-hero__top,
-  .detail-item-card__top,
-  .detail-terminal-actions,
-  .live-workspace__events-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
