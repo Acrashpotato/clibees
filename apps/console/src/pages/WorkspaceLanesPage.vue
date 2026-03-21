@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
-import { NAlert, NButton, NCard, NEmpty, NTabPane, NTabs, NTag } from "naive-ui";
+import { NAlert, NButton, NCard, NCollapse, NCollapseItem, NEmpty, NTabPane, NTabs, NTag } from "naive-ui";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import { useWorkspaceLanesPage } from "./workspace-lanes/useWorkspaceLanesPage";
@@ -129,80 +129,68 @@ function riskTagType(riskLevel: string): "default" | "warning" | "error" {
 
 <template>
   <section class="workspace-page-stack task-board-page">
-    <div class="workspace-page-header">
-      <div>
-        <p class="section-eyebrow">{{ "执行车道" }}</p>
-        <h1>{{ "任务 DAG 与会话绑定" }}</h1>
-      </div>
-      <p>
-        {{
-          "该页面展示任务图中的节点状态、依赖关系、归属与会话关系。"
-        }}
-      </p>
+    <div class="task-board-toolbar">
+      <n-button quaternary size="small" :disabled="loading" @click="loadProjection(false)">
+        {{ t("actions.refresh") }}
+      </n-button>
+      <n-button type="primary" size="small" :disabled="mutating || !runId" @click="handleResume">
+        {{ mutating ? t("actions.resuming") : t("actions.resumeRun") }}
+      </n-button>
     </div>
 
     <div class="task-board-page__body">
-      <n-card class="status-bar workspace-hero task-board-hero" size="small">
-      <div class="task-board-hero__top">
-        <div>
-          <p class="section-eyebrow">{{ "任务图" }}</p>
-          <h1>{{ selectedTask?.title ?? currentTask?.title ?? "当前运行任务看板" }}</h1>
-          <p class="workspace-hero__lead">
-            {{
-              selectedTask
-                ? `当前查看任务 ${selectedTask.taskId}，图版本 ${projection.graphRevision}。`
-                : `运行 ${projection.runId || runId} 的任务看板，图版本 ${projection.graphRevision}。`
-            }}
-          </p>
-        </div>
+      <n-collapse class="task-board-summary">
+        <n-collapse-item title="任务图摘要" name="task-board-summary">
+          <n-card class="status-bar workspace-hero task-board-hero" size="small">
+            <div class="task-board-hero__top">
+              <div>
+                <p class="section-eyebrow">{{ "任务图" }}</p>
+                <h1>{{ selectedTask?.title ?? currentTask?.title ?? "当前运行任务看板" }}</h1>
+              </div>
 
-        <div class="workspace-hero__meta">
-          <span class="flow-pill">{{ "运行" }} {{ projection.runId || runId }}</span>
-          <span class="flow-pill">{{ "图版本" }} {{ projection.graphRevision }}</span>
-          <n-button quaternary size="small" :disabled="loading" @click="loadProjection(false)">
-            {{ t("actions.refresh") }}
-          </n-button>
-          <n-button type="primary" size="small" :disabled="mutating || !runId" @click="handleResume">
-            {{ mutating ? t("actions.resuming") : t("actions.resumeRun") }}
-          </n-button>
-        </div>
-      </div>
+              <div class="workspace-hero__meta">
+                <span class="flow-pill">{{ "运行" }} {{ projection.runId || runId }}</span>
+                <span class="flow-pill">{{ "图版本" }} {{ projection.graphRevision }}</span>
+              </div>
+            </div>
 
-      <div class="workspace-summary-grid task-board-summary-grid">
-        <article class="summary-card">
-          <span>{{ "任务总数" }}</span>
-          <strong>{{ projection.summary.totalTaskCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ t("fields.activeTasks") }}</span>
-          <strong>{{ projection.summary.activeTaskCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ t("fields.activeSessions") }}</span>
-          <strong>{{ projection.summary.activeSessionCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ t("fields.approvals") }}</span>
-          <strong>{{ projection.summary.pendingApprovalCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ t("fields.blocked") }}</span>
-          <strong>{{ projection.summary.blockedTaskCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ "失败任务" }}</span>
-          <strong>{{ projection.summary.failedTaskCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ "依赖边数" }}</span>
-          <strong>{{ projection.summary.dependencyEdgeCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ "已完成" }}</span>
-          <strong>{{ projection.summary.completedTaskCount }}</strong>
-        </article>
-      </div>
-    </n-card>
+            <div class="workspace-summary-grid task-board-summary-grid">
+              <article class="summary-card">
+                <span>{{ "任务总数" }}</span>
+                <strong>{{ projection.summary.totalTaskCount }}</strong>
+              </article>
+              <article class="summary-card">
+                <span>{{ t("fields.activeTasks") }}</span>
+                <strong>{{ projection.summary.activeTaskCount }}</strong>
+              </article>
+              <article class="summary-card">
+                <span>{{ t("fields.activeSessions") }}</span>
+                <strong>{{ projection.summary.activeSessionCount }}</strong>
+              </article>
+              <article class="summary-card">
+                <span>{{ t("fields.approvals") }}</span>
+                <strong>{{ projection.summary.pendingApprovalCount }}</strong>
+              </article>
+              <article class="summary-card">
+                <span>{{ t("fields.blocked") }}</span>
+                <strong>{{ projection.summary.blockedTaskCount }}</strong>
+              </article>
+              <article class="summary-card">
+                <span>{{ "失败任务" }}</span>
+                <strong>{{ projection.summary.failedTaskCount }}</strong>
+              </article>
+              <article class="summary-card">
+                <span>{{ "依赖边数" }}</span>
+                <strong>{{ projection.summary.dependencyEdgeCount }}</strong>
+              </article>
+              <article class="summary-card">
+                <span>{{ "已完成" }}</span>
+                <strong>{{ projection.summary.completedTaskCount }}</strong>
+              </article>
+            </div>
+          </n-card>
+        </n-collapse-item>
+      </n-collapse>
 
     <n-alert v-if="error" type="error" :show-icon="false">{{ error }}</n-alert>
 

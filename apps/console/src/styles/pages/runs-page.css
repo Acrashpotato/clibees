@@ -211,9 +211,9 @@
 
 .runs-detail-pane {
   display: grid;
-  align-content: start;
+  align-content: stretch;
   gap: 14px;
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
   height: 100%;
 }
@@ -226,7 +226,7 @@
 .runs-submenu-shell {
   min-height: 0;
   height: 100%;
-  overflow: auto;
+  overflow: hidden;
   padding-right: 2px;
 }
 
@@ -308,17 +308,11 @@
   white-space: nowrap;
 }
 
-.runs-summary-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.runs-summary-card {
-  gap: 8px;
-}
-
 .runs-create-card {
   display: grid;
   gap: 12px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .runs-create-card__header {

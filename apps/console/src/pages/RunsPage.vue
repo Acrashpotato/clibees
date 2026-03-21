@@ -32,11 +32,8 @@ const {
   submenuLeafByName,
   activeSubmenuLeaf,
   isSubmenuRoute,
-  sortedRuns,
   filteredRuns,
   selectedRun,
-  syncRunQuery,
-  ensureSelection,
   buildRunSubmenuPath,
   selectRun,
   employeeInitial,
@@ -45,9 +42,7 @@ const {
   resumeSelectedRun,
   copyRunId,
   deleteTaskResources,
-  backToSubmenuHub,
   toggleCreatePanel,
-  resetCreateForm,
   createNewRun,
 } = useRunsPageController();
 
@@ -113,6 +108,21 @@ function switchRunSubmenu(nextTab: string): void {
   }
 
   void router.push(nextPath);
+}
+
+function runStatusTagType(status: ReturnType<typeof statusTone>): "info" | "warning" | "success" | "error" | "default" {
+  switch (status) {
+    case "running":
+      return "info";
+    case "awaiting_approval":
+      return "warning";
+    case "completed":
+      return "success";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
 }
 </script>
 
@@ -210,7 +220,7 @@ function switchRunSubmenu(nextTab: string): void {
         </div>
       </aside>
 
-      <main class="runs-detail-pane" :class="{ 'runs-detail-pane--submenu': isSubmenuRoute }">
+      <main class="runs-detail-pane" :class="{ 'runs-detail-pane--submenu': !createExpanded && Boolean(selectedRun) }">
         <article v-if="createExpanded" class="panel-card runs-create-card">
           <header class="runs-create-card__header">
             <h2>{{ "新建任务" }}</h2>
@@ -255,40 +265,18 @@ function switchRunSubmenu(nextTab: string): void {
               </span>
               <div>
                 <h2>{{ selectedRun.goal }}</h2>
-                <p>{{ selectedRun.runId }}</p>
+                <p>{{ selectedRun.runId }} · {{ selectedRun.stage }}</p>
               </div>
             </div>
 
             <div class="runs-detail-header__actions">
-              <n-tag :type="statusTone(selectedRun.status) === 'failed' ? 'error' : statusTone(selectedRun.status) === 'completed' ? 'success' : statusTone(selectedRun.status) === 'awaiting_approval' ? 'warning' : 'info'">
+              <n-tag :type="runStatusTagType(statusTone(selectedRun.status))">
                 {{ selectedRun.status }}
               </n-tag>
               <n-button quaternary :disabled="resuming" @click="resumeSelectedRun">
                 {{ resuming ? "恢复中..." : "恢复任务" }}
               </n-button>
-              <n-button
-                v-if="isSubmenuRoute"
-                class="runs-detail-header__back"
-                quaternary
-                circle
-                :aria-label="'返回菜单'"
-                :title="'返回菜单'"
-                @click="backToSubmenuHub"
-              >
-                <svg
-                  class="runs-detail-header__back-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.8"
-                  aria-hidden="true"
-                >
-                  <path d="M15 5 8 12l7 7" />
-                </svg>
-              </n-button>
-              <n-button v-else quaternary @click="copyRunId">
+              <n-button quaternary @click="copyRunId">
                 {{ copying ? "已复制" : "复制 ID" }}
               </n-button>
             </div>
@@ -312,37 +300,10 @@ function switchRunSubmenu(nextTab: string): void {
             </n-tabs>
           </nav>
 
-          <section v-if="isSubmenuRoute" class="runs-submenu-shell">
-            <RouterView />
+          <section class="runs-submenu-shell">
+            <RouterView v-if="isSubmenuRoute" />
+            <ManagerPage v-else :run-id-override="selectedRun.runId" />
           </section>
-
-          <template v-else>
-            <ManagerPage :run-id-override="selectedRun.runId" />
-
-            <section class="workspace-summary-grid runs-summary-grid">
-              <article class="summary-card">
-                <span>{{ "阶段" }}</span>
-                <strong>{{ selectedRun.stage }}</strong>
-              </article>
-              <article class="summary-card">
-                <span>{{ "活跃任务" }}</span>
-                <strong>{{ selectedRun.activeTaskCount }}</strong>
-              </article>
-              <article class="summary-card">
-                <span>{{ "活跃会话" }}</span>
-                <strong>{{ selectedRun.activeSessionCount }}</strong>
-              </article>
-              <article class="summary-card">
-                <span>{{ "待审批" }}</span>
-                <strong>{{ selectedRun.pendingApprovalCount }}</strong>
-              </article>
-            </section>
-
-            <article class="panel-card runs-summary-card">
-              <p class="section-eyebrow">{{ "最近动态" }}</p>
-              <p class="panel-card__body">{{ selectedRun.summary }}</p>
-            </article>
-          </template>
         </template>
 
         <div v-else class="panel-card__empty-state">

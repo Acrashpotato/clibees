@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { NButton, NTag } from "naive-ui";
+import { NButton, NCollapse, NCollapseItem, NTag } from "naive-ui";
 import { useRoute } from "vue-router";
 
 import { getWorkerpollProjection } from "../api";
@@ -135,44 +135,42 @@ watch(
 
 <template>
   <section class="workspace-page-stack workerpoll-page">
-    <div class="workspace-page-header">
-      <div>
-        <p class="section-eyebrow">{{ "员工调度" }}</p>
-        <h1>{{ "员工匹配看板" }}</h1>
-      </div>
-      <div class="workerpoll-toolbar">
-        <span class="flow-pill">run {{ runId || "-" }}</span>
-        <n-button
-          quaternary
-          :disabled="loading || !runId"
-          @click="runId && loadProjection(runId)"
-        >
-          {{ "刷新" }}
-        </n-button>
-      </div>
+    <div class="workerpoll-toolbar">
+      <n-tag :type="statusTagType(projection.run.status)">{{ projection.run.status }}</n-tag>
+      <n-button
+        quaternary
+        :disabled="loading || !runId"
+        @click="runId && loadProjection(runId)"
+      >
+        {{ "刷新" }}
+      </n-button>
     </div>
 
     <p v-if="error" class="form-error">{{ error }}</p>
 
-    <section class="status-bar workspace-hero">
-      <div class="panel-card__header">
-        <div>
-          <p class="section-eyebrow">{{ "运行摘要" }}</p>
-          <h2>{{ projection.run.goal }}</h2>
-        </div>
-        <div class="section-actions">
-          <n-tag :type="statusTagType(projection.run.status)">{{ projection.run.status }}</n-tag>
-          <span class="flow-pill">{{ projection.generatedAt || "-" }}</span>
-        </div>
-      </div>
+    <n-collapse class="workerpoll-summary">
+      <n-collapse-item title="运行摘要" name="workerpoll-summary">
+        <section class="status-bar workspace-hero">
+          <div class="panel-card__header">
+            <div>
+              <p class="section-eyebrow">{{ "运行摘要" }}</p>
+              <h2>{{ projection.run.goal }}</h2>
+            </div>
+            <div class="section-actions">
+              <span class="flow-pill">run {{ runId || "-" }}</span>
+              <span class="flow-pill">{{ projection.generatedAt || "-" }}</span>
+            </div>
+          </div>
 
-      <div class="workspace-summary-grid">
-        <article v-for="card in summaryCards" :key="card.id" class="summary-card">
-          <span>{{ card.label }}</span>
-          <strong>{{ card.value }}</strong>
-        </article>
-      </div>
-    </section>
+          <div class="workspace-summary-grid">
+            <article v-for="card in summaryCards" :key="card.id" class="summary-card">
+              <span>{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+            </article>
+          </div>
+        </section>
+      </n-collapse-item>
+    </n-collapse>
 
     <section class="workerpoll-grid">
       <article class="panel-card workerpoll-card">
@@ -184,24 +182,26 @@ watch(
           <span class="panel-chip">{{ projection.workers.length }}</span>
         </div>
 
-        <div v-if="projection.workers.length > 0" class="workerpoll-list">
-          <article v-for="worker in visibleWorkers" :key="worker.agentId" class="run-card">
-            <div class="run-card__header">
-              <strong>{{ worker.agentId }}</strong>
-              <span class="flow-pill">{{ worker.source }}</span>
-            </div>
-            <div class="run-card__stats">
-              <span>{{ "角色" }} {{ worker.profileIds.join(", ") || "-" }}</span>
-              <span>{{ "能力" }} {{ worker.capabilities.join(", ") || "-" }}</span>
-              <span v-if="worker.command">{{ worker.command }}</span>
-            </div>
-          </article>
-          <n-button v-if="hasMoreWorkers" quaternary size="small" @click="loadMoreWorkers">
-            {{ "加载更多员工" }}
-          </n-button>
-        </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ "当前无员工数据。" }}</p>
+        <div class="workerpoll-card__body">
+          <div v-if="projection.workers.length > 0" class="workerpoll-list">
+            <article v-for="worker in visibleWorkers" :key="worker.agentId" class="run-card">
+              <div class="run-card__header">
+                <strong>{{ worker.agentId }}</strong>
+                <span class="flow-pill">{{ worker.source }}</span>
+              </div>
+              <div class="run-card__stats">
+                <span>{{ "角色" }} {{ worker.profileIds.join(", ") || "-" }}</span>
+                <span>{{ "能力" }} {{ worker.capabilities.join(", ") || "-" }}</span>
+                <span v-if="worker.command">{{ worker.command }}</span>
+              </div>
+            </article>
+            <n-button v-if="hasMoreWorkers" quaternary size="small" @click="loadMoreWorkers">
+              {{ "加载更多员工" }}
+            </n-button>
+          </div>
+          <div v-else class="panel-card__empty-state">
+            <p class="panel-card__body">{{ "当前无员工数据。" }}</p>
+          </div>
         </div>
       </article>
 
@@ -213,30 +213,32 @@ watch(
           </div>
           <span class="panel-chip">{{ unmatchedTasks.length }}</span>
         </div>
-        <p v-if="excludedManagerTaskCount > 0" class="panel-card__body">
-          {{ `已排除管理任务 ${excludedManagerTaskCount} 条` }}
-        </p>
-
-        <div v-if="unmatchedTasks.length > 0" class="workerpoll-list">
-          <article v-for="task in visibleUnmatchedTasks" :key="task.taskId" class="run-card">
-            <div class="run-card__header">
-              <strong>{{ task.title }}</strong>
-              <span class="status-pill" :data-status="matchPill(task)">{{ matchLabel(task) }}</span>
-            </div>
-            <div class="run-card__stats">
-              <span>{{ "需求" }} {{ task.requiredCapabilities.join(", ") || "-" }}</span>
-              <span>{{ "分配" }} {{ task.assignedAgent ?? "-" }}</span>
-              <span>{{ "候选" }} {{ task.compatibleWorkers.join(", ") || "-" }}</span>
-            </div>
-          </article>
-          <n-button v-if="hasMoreUnmatchedTasks" quaternary size="small" @click="loadMoreUnmatchedTasks">
-            {{ "加载更多未匹配任务" }}
-          </n-button>
-        </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">
-            {{ "当前所有任务均已匹配。" }}
+        <div class="workerpoll-card__body">
+          <p v-if="excludedManagerTaskCount > 0" class="panel-card__body">
+            {{ `已排除管理任务 ${excludedManagerTaskCount} 条` }}
           </p>
+
+          <div v-if="unmatchedTasks.length > 0" class="workerpoll-list">
+            <article v-for="task in visibleUnmatchedTasks" :key="task.taskId" class="run-card">
+              <div class="run-card__header">
+                <strong>{{ task.title }}</strong>
+                <span class="status-pill" :data-status="matchPill(task)">{{ matchLabel(task) }}</span>
+              </div>
+              <div class="run-card__stats">
+                <span>{{ "需求" }} {{ task.requiredCapabilities.join(", ") || "-" }}</span>
+                <span>{{ "分配" }} {{ task.assignedAgent ?? "-" }}</span>
+                <span>{{ "候选" }} {{ task.compatibleWorkers.join(", ") || "-" }}</span>
+              </div>
+            </article>
+            <n-button v-if="hasMoreUnmatchedTasks" quaternary size="small" @click="loadMoreUnmatchedTasks">
+              {{ "加载更多未匹配任务" }}
+            </n-button>
+          </div>
+          <div v-else class="panel-card__empty-state">
+            <p class="panel-card__body">
+              {{ "当前所有任务均已匹配。" }}
+            </p>
+          </div>
         </div>
       </article>
     </section>

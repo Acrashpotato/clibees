@@ -151,18 +151,12 @@ watch(
 
 <template>
   <section class="workspace-page-stack manager-page">
-    <header class="workspace-page-header">
-      <div>
-        <p class="section-eyebrow">{{ "总管面板" }}</p>
-        <h1>{{ "总管-员工协作" }}</h1>
-      </div>
-      <div class="manager-toolbar">
-        <span class="flow-pill">run {{ runId || "-" }}</span>
-        <n-button quaternary :disabled="loading || !runId" @click="runId && loadProjection(runId)">
-          {{ "刷新" }}
-        </n-button>
-      </div>
-    </header>
+    <div class="manager-toolbar">
+      <n-tag :type="statusTagType(projection.run.status)">{{ projection.run.status }}</n-tag>
+      <n-button quaternary :disabled="loading || !runId" @click="runId && loadProjection(runId)">
+        {{ "刷新" }}
+      </n-button>
+    </div>
 
     <p v-if="error" class="manager-error">{{ error }}</p>
 

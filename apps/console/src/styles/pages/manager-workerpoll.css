@@ -164,6 +164,15 @@
   grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
+.workerpoll-summary {
+  min-height: 0;
+}
+
+.workerpoll-summary .n-collapse-item {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .workerpoll-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -176,7 +185,15 @@
 .workerpoll-card {
   display: grid;
   gap: 10px;
-  align-content: start;
   min-height: 0;
   overflow: hidden;
+}
+
+.workerpoll-card__body {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  align-content: start;
+  padding-right: 2px;
 }

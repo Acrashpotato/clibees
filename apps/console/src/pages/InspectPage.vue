@@ -392,28 +392,20 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="workspace-page-stack audit-page">
-    <div class="workspace-page-header audit-page__header">
-      <div>
-        <p class="section-eyebrow">{{ t("nav.inspect") }}</p>
-        <h1>{{ "审计与复盘" }}</h1>
-        <p class="audit-page__description">
-          {{
-            `Inspect 页聚焦 run ${routeRunId ?? "-"} 的审计时间线、复盘信号和 task/session 可追踪链路。`
-          }}
-        </p>
-      </div>
-      <div class="audit-page__header-actions">
-        <n-button
-          quaternary
-          size="small"
-          :disabled="loading"
-          :aria-label="t('actions.refresh')"
-          :title="t('actions.refresh')"
-          @click="loadAudit(false)"
-        >
-          {{ t("actions.refresh") }}
-        </n-button>
-      </div>
+    <div class="audit-page__header-actions">
+      <n-tag :type="runStatusTagType(projection.summary.runStatus)" size="small">
+        {{ runStatusLabel(projection.summary.runStatus) }}
+      </n-tag>
+      <n-button
+        quaternary
+        size="small"
+        :disabled="loading"
+        :aria-label="t('actions.refresh')"
+        :title="t('actions.refresh')"
+        @click="loadAudit(false)"
+      >
+        {{ t("actions.refresh") }}
+      </n-button>
     </div>
 
     <n-alert v-if="error" type="error" :show-icon="false">
@@ -428,45 +420,34 @@ onBeforeUnmount(() => {
     />
 
     <section v-else class="audit-page__body">
-      <n-card class="status-bar workspace-hero audit-hero" size="small">
-        <div class="audit-hero__top">
-          <div>
-            <p class="section-eyebrow">{{ "审计主线" }}</p>
-            <h2>{{ projection.runId }}</h2>
-            <p class="workspace-hero__lead">
-              {{
-                "行按分类组织，可按需展开查看完整追踪详情。"
-              }}
-            </p>
-          </div>
-          <div class="audit-badges">
-            <n-tag :type="runStatusTagType(projection.summary.runStatus)" size="small">
-              {{ runStatusLabel(projection.summary.runStatus) }}
-            </n-tag>
-            <span class="flow-pill">run {{ projection.runId }}</span>
-            <span class="flow-pill">graph {{ projection.graphRevision }}</span>
-            <span class="flow-pill">{{ projection.generatedAt || "-" }}</span>
-          </div>
-        </div>
-
-        <div class="workspace-summary-grid audit-summary-grid">
-          <article v-for="card in coreSummaryCards" :key="card[0]" class="summary-card">
-            <span>{{ card[0] }}</span>
-            <strong>{{ card[1] }}</strong>
-          </article>
-        </div>
-
-        <n-collapse>
-          <n-collapse-item title="更多指标" name="more-metrics">
-            <div class="workspace-summary-grid audit-summary-grid audit-summary-grid--more">
-              <article v-for="card in moreSummaryCards" :key="card[0]" class="summary-card">
+      <n-collapse class="audit-summary">
+        <n-collapse-item title="审计摘要" name="audit-summary">
+          <n-card class="status-bar workspace-hero audit-hero" size="small">
+            <div class="audit-badges">
+              <span class="flow-pill">run {{ projection.runId }}</span>
+              <span class="flow-pill">graph {{ projection.graphRevision }}</span>
+              <span class="flow-pill">{{ projection.generatedAt || "-" }}</span>
+            </div>
+            <div class="workspace-summary-grid audit-summary-grid">
+              <article v-for="card in coreSummaryCards" :key="card[0]" class="summary-card">
                 <span>{{ card[0] }}</span>
                 <strong>{{ card[1] }}</strong>
               </article>
             </div>
-          </n-collapse-item>
-        </n-collapse>
-      </n-card>
+
+            <n-collapse>
+              <n-collapse-item title="更多指标" name="more-metrics">
+                <div class="workspace-summary-grid audit-summary-grid audit-summary-grid--more">
+                  <article v-for="card in moreSummaryCards" :key="card[0]" class="summary-card">
+                    <span>{{ card[0] }}</span>
+                    <strong>{{ card[1] }}</strong>
+                  </article>
+                </div>
+              </n-collapse-item>
+            </n-collapse>
+          </n-card>
+        </n-collapse-item>
+      </n-collapse>
 
       <n-tabs
         type="segment"

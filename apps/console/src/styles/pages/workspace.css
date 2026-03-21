@@ -4,7 +4,7 @@
   min-height: 0;
   height: 100%;
   overflow: hidden;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .workspace-page-stack {

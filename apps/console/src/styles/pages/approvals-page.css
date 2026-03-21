@@ -16,6 +16,10 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.approvals-summary {
+  min-height: 0;
+}
+
 .approvals-hero__header,
 .approvals-page__card-top {
   display: flex;

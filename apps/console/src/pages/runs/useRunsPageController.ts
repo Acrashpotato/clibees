@@ -22,6 +22,8 @@ const runSearchQuery = ref("");
 
 const loading = ref(false);
 
+const hasLoadedRuns = ref(false);
+
 const error = ref("");
 
 const resuming = ref(false);
@@ -183,6 +185,7 @@ async function loadRuns(): Promise<void> {
     error.value = caught instanceof Error ? caught.message : String(caught);
   } finally {
     loading.value = false;
+    hasLoadedRuns.value = true;
   }
 }
 
@@ -352,6 +355,20 @@ watch(
     if (filteredRuns.value.some((run) => run.runId === routeRunId)) {
       selectedRunId.value = routeRunId;
     }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [routeParamRunId.value, loading.value, hasLoadedRuns.value, runs.value] as const,
+  ([routeRunId, isLoading, didLoadRuns, allRuns]) => {
+    if (!routeRunId || isLoading || !didLoadRuns) {
+      return;
+    }
+    if (allRuns.some((run) => run.runId === routeRunId)) {
+      return;
+    }
+    void router.replace({ name: "runs" });
   },
   { immediate: true },
 );

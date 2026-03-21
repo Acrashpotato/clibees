@@ -4,6 +4,8 @@ import {
   NAlert,
   NButton,
   NCard,
+  NCollapse,
+  NCollapseItem,
   NEmpty,
   NRadioButton,
   NRadioGroup,
@@ -368,57 +370,43 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="workspace-page-stack approvals-page">
-    <div class="workspace-page-header">
-      <div>
-        <p class="section-eyebrow">{{ t("nav.approvals") }}</p>
-        <h1>{{ "审批队列" }}</h1>
-      </div>
-      <p>
-        {{
-          `仅查看 run ${scopedRunId ?? "-"} 的审批请求、task/session 绑定与 action plan 快照。`
-        }}
-      </p>
+    <div class="approvals-page__actions">
+      <RouterLink
+        v-if="scopedRunId"
+        class="ghost-link approvals-hero__link"
+        :to="getRunWorkspacePath(scopedRunId)"
+      >
+        {{ t("actions.openWorkspace") }}
+      </RouterLink>
+      <n-button
+        quaternary
+        size="small"
+        :disabled="loading"
+        :aria-label="t('actions.refresh')"
+        :title="t('actions.refresh')"
+        @click="loadProjection(false)"
+      >
+        {{ t("actions.refresh") }}
+      </n-button>
+      <n-tag size="small" round>{{ projection.summary.totalCount }}</n-tag>
     </div>
 
     <n-alert v-if="error" type="error" :show-icon="false">
       {{ error }}
     </n-alert>
 
-    <n-card class="status-bar workspace-hero approvals-hero" size="small">
-      <div class="approvals-hero__header">
-        <div>
-          <p class="section-eyebrow">{{ "审批摘要" }}</p>
-          <h2>{{ "基于审批事实归一化" }}</h2>
-        </div>
-        <div class="approvals-hero__controls">
-          <RouterLink
-            v-if="scopedRunId"
-            class="ghost-link approvals-hero__link"
-            :to="getRunWorkspacePath(scopedRunId)"
-          >
-            {{ t("actions.openWorkspace") }}
-          </RouterLink>
-          <n-button
-            quaternary
-            size="small"
-            :disabled="loading"
-            :aria-label="t('actions.refresh')"
-            :title="t('actions.refresh')"
-            @click="loadProjection(false)"
-          >
-            {{ t("actions.refresh") }}
-          </n-button>
-          <n-tag size="small" round>{{ projection.summary.totalCount }}</n-tag>
-        </div>
-      </div>
-
-      <div class="workspace-summary-grid approvals-page__summary-grid">
-        <article v-for="card in summaryCards" :key="card.id" class="summary-card">
-          <span>{{ card.label }}</span>
-          <strong>{{ card.value }}</strong>
-        </article>
-      </div>
-    </n-card>
+    <n-collapse class="approvals-summary">
+      <n-collapse-item title="审批摘要" name="approvals-summary">
+        <n-card class="status-bar workspace-hero approvals-hero" size="small">
+          <div class="workspace-summary-grid approvals-page__summary-grid">
+            <article v-for="card in summaryCards" :key="card.id" class="summary-card">
+              <span>{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+            </article>
+          </div>
+        </n-card>
+      </n-collapse-item>
+    </n-collapse>
 
     <n-empty
       v-if="loading && approvals.length === 0 && !error"

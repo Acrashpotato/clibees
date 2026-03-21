@@ -25,6 +25,10 @@
   margin-top: 6px;
 }
 
+.audit-summary {
+  min-height: 0;
+}
+
 .audit-page__header-actions {
   display: flex;
   align-items: center;
