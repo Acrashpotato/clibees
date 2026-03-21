@@ -1,5 +1,14 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NEmpty,
+  NRadioButton,
+  NRadioGroup,
+  NTag,
+} from "naive-ui";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import { approveRequest, getApprovalQueueProjection, rejectRequest } from "../api";
@@ -24,6 +33,7 @@ const actingId = ref("");
 const notes = ref<Record<string, string>>({});
 const selectedRequestId = ref("");
 const stateFilter = ref<"all" | "pending" | "approved" | "rejected">(settings.value.approvalsDefaultFilter);
+const filterStates = ["pending", "approved", "rejected", "all"] as const;
 let autoRefreshHandle: ReturnType<typeof setInterval> | undefined;
 
 const activeId = computed(() => (typeof route.query.requestId === "string" ? route.query.requestId : undefined));
@@ -71,7 +81,6 @@ const summaryCards = computed(() => [
   },
 ]);
 
-
 function stateFilterLabel(state: "all" | "pending" | "approved" | "rejected"): string {
   switch (state) {
     case "pending":
@@ -84,8 +93,6 @@ function stateFilterLabel(state: "all" | "pending" | "approved" | "rejected"): s
       return "全部";
   }
 }
-
-
 
 function displayRiskLevel(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): "low" | "medium" | "high" {
   return riskLevel === "none" ? "low" : riskLevel;
@@ -106,14 +113,25 @@ function decisionStateLabel(state: ApprovalQueueItemDetailView["state"]): string
   }
 }
 
-function decisionStatePill(state: ApprovalQueueItemDetailView["state"]): "awaiting_approval" | "completed" | "failed" {
+function decisionTagType(state: ApprovalQueueItemDetailView["state"]): "warning" | "success" | "error" {
   switch (state) {
     case "pending":
-      return "awaiting_approval";
+      return "warning";
     case "approved":
-      return "completed";
+      return "success";
     default:
-      return "failed";
+      return "error";
+  }
+}
+
+function riskTagType(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): "default" | "warning" | "error" {
+  switch (riskLevel) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "default";
   }
 }
 
@@ -128,13 +146,6 @@ function snippet(summary: string): string {
   }
   return `${normalized.slice(0, 107)}...`;
 }
-
-
-
-
-
-
-
 
 async function loadProjection(showLoading = true) {
   if (loading.value && !showLoading) {
@@ -344,11 +355,11 @@ onBeforeUnmount(() => {
       </p>
     </div>
 
-    <div v-if="error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ error }}</p>
-    </div>
+    <n-alert v-if="error" type="error" :show-icon="false">
+      {{ error }}
+    </n-alert>
 
-    <section class="status-bar workspace-hero approvals-hero">
+    <n-card class="status-bar workspace-hero approvals-hero" size="small">
       <div class="approvals-hero__header">
         <div>
           <p class="section-eyebrow">{{ "审批摘要" }}</p>
@@ -362,30 +373,17 @@ onBeforeUnmount(() => {
           >
             {{ t("actions.openWorkspace") }}
           </RouterLink>
-          <button
-            class="icon-button approvals-hero__refresh"
-            type="button"
+          <n-button
+            quaternary
+            size="small"
             :disabled="loading"
             :aria-label="t('actions.refresh')"
             :title="t('actions.refresh')"
             @click="loadProjection(false)"
           >
-            <svg
-              class="approvals-hero__refresh-icon"
-              :class="{ 'approvals-hero__refresh-icon--spinning': loading }"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.8"
-              aria-hidden="true"
-            >
-              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-              <path d="M21 4v6h-6" />
-            </svg>
-          </button>
-          <span class="panel-chip">{{ projection.summary.totalCount }}</span>
+            {{ t("actions.refresh") }}
+          </n-button>
+          <n-tag size="small" round>{{ projection.summary.totalCount }}</n-tag>
         </div>
       </div>
 
@@ -395,33 +393,35 @@ onBeforeUnmount(() => {
           <strong>{{ card.value }}</strong>
         </article>
       </div>
-    </section>
+    </n-card>
 
-    <div v-if="loading && approvals.length === 0 && !error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ "正在加载审批队列。" }}</p>
-    </div>
+    <n-empty
+      v-if="loading && approvals.length === 0 && !error"
+      class="panel-card__empty-state"
+      :description="'正在加载审批队列。'"
+      size="small"
+    />
 
     <section v-else-if="approvals.length > 0" class="approvals-mailboard">
-      <aside class="panel-card approvals-inbox">
+      <n-card class="panel-card approvals-inbox" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "审批收件箱" }}</p>
             <h2>{{ "逐条处理" }}</h2>
           </div>
-          <span class="panel-chip">{{ filteredApprovals.length }}</span>
+          <n-tag size="small" round>{{ filteredApprovals.length }}</n-tag>
         </div>
 
         <div class="approvals-filter-row">
-          <button
-            v-for="state in ['pending', 'approved', 'rejected', 'all'] as const"
-            :key="state"
-            class="ghost-button approvals-filter-chip"
-            type="button"
-            :data-active="stateFilter === state"
-            @click="stateFilter = state"
-          >
-            {{ stateFilterLabel(state) }} | {{ stateCounts[state] }}
-          </button>
+          <n-radio-group v-model:value="stateFilter" size="small">
+            <n-radio-button
+              v-for="state in filterStates"
+              :key="state"
+              :value="state"
+            >
+              {{ stateFilterLabel(state) }} | {{ stateCounts[state] }}
+            </n-radio-button>
+          </n-radio-group>
         </div>
 
         <div v-if="filteredApprovals.length > 0" class="approvals-inbox__list">
@@ -436,24 +436,27 @@ onBeforeUnmount(() => {
           >
             <div class="approvals-inbox__item-top">
               <span class="approval-card__lane">{{ approval.requestId }}</span>
-              <span class="status-pill" :data-status="decisionStatePill(approval.state)">
+              <n-tag :type="decisionTagType(approval.state)" size="small">
                 {{ decisionStateLabel(approval.state) }}
-              </span>
+              </n-tag>
             </div>
             <strong>{{ approval.taskTitle }}</strong>
             <p class="panel-card__body">{{ snippet(approval.summary) }}</p>
             <div class="approvals-page__badge-row">
-              <span class="risk-pill" :data-risk="displayRiskLevel(approval.riskLevel)">
+              <n-tag :type="riskTagType(approval.riskLevel)" size="small">
                 {{ riskLevelLabel(approval.riskLevel) }}
-              </span>
+              </n-tag>
               <span class="flow-pill">{{ decisionTimeLabel(approval) }}</span>
             </div>
           </button>
         </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ "当前筛选条件下没有审批项。" }}</p>
-        </div>
-      </aside>
+        <n-empty
+          v-else
+          class="panel-card__empty-state"
+          :description="'当前筛选条件下没有审批项。'"
+          size="small"
+        />
+      </n-card>
 
       <ApprovalDetailPanel
         :selected-approval="selectedApproval"
@@ -464,16 +467,12 @@ onBeforeUnmount(() => {
       />
     </section>
 
-    <div v-else class="panel-card__empty-state">
-      <p class="panel-card__body">
-        {{
-          loading
-            ? "正在加载审批队列。"
-            : "当前没有可展示的审批请求。"
-        }}
-      </p>
-    </div>
+    <n-empty
+      v-else
+      class="panel-card__empty-state"
+      :description="loading ? '正在加载审批队列。' : '当前没有可展示的审批请求。'"
+      size="small"
+    />
   </section>
 </template>
-
 

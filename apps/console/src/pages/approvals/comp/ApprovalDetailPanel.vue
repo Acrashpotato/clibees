@@ -1,5 +1,14 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed } from "vue";
+import {
+  NButton,
+  NCard,
+  NCollapse,
+  NCollapseItem,
+  NEmpty,
+  NInput,
+  NTag,
+} from "naive-ui";
 import { RouterLink } from "vue-router";
 
 import { usePreferences } from "../../../composables/usePreferences";
@@ -19,7 +28,6 @@ const emit = defineEmits<{
 
 const { riskLabel, t } = usePreferences();
 
-
 function decisionStateLabel(state: ApprovalQueueItemDetailView["state"]): string {
   switch (state) {
     case "pending":
@@ -31,14 +39,14 @@ function decisionStateLabel(state: ApprovalQueueItemDetailView["state"]): string
   }
 }
 
-function decisionStatePill(state: ApprovalQueueItemDetailView["state"]): "awaiting_approval" | "completed" | "failed" {
+function decisionTagType(state: ApprovalQueueItemDetailView["state"]): "warning" | "success" | "error" {
   switch (state) {
     case "pending":
-      return "awaiting_approval";
+      return "warning";
     case "approved":
-      return "completed";
+      return "success";
     default:
-      return "failed";
+      return "error";
   }
 }
 
@@ -48,6 +56,17 @@ function displayRiskLevel(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): 
 
 function riskLevelLabel(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): string {
   return riskLevel === "none" ? "无" : riskLabel(riskLevel);
+}
+
+function riskTagType(riskLevel: ApprovalQueueItemDetailView["riskLevel"]): "default" | "warning" | "error" {
+  switch (riskLevel) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "default";
+  }
 }
 
 function approvalSourceLabel(sourceMode: ApprovalQueueItemDetailView["sourceMode"]): string {
@@ -89,6 +108,17 @@ function formatCommand(actionPlan: ApprovalQueueActionPlanSnapshotView): string 
   return [actionPlan.command, ...actionPlan.args].join(" ");
 }
 
+function actionPlanRiskType(riskLevel: ApprovalQueueActionPlanSnapshotView["riskLevel"]): "default" | "warning" | "error" {
+  switch (riskLevel) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "default";
+  }
+}
+
 const taskTo = computed(() => {
   if (!props.selectedApproval?.taskId) {
     return undefined;
@@ -115,16 +145,13 @@ function onApprove(): void {
 function onReject(): void {
   emit("decide", "reject");
 }
-
-function onNoteInput(event: Event): void {
-  emit("update:note", (event.target as HTMLTextAreaElement).value);
-}
 </script>
 
 <template>
-  <article
+  <n-card
     v-if="selectedApproval"
     class="approval-card approval-card--decision panel-card approvals-detail"
+    size="small"
     :data-risk="displayRiskLevel(selectedApproval.riskLevel)"
   >
     <div class="approvals-page__card-top">
@@ -133,12 +160,12 @@ function onNoteInput(event: Event): void {
         <h2>{{ selectedApproval.taskTitle }}</h2>
       </div>
       <div class="approvals-page__badge-row">
-        <span class="status-pill" :data-status="decisionStatePill(selectedApproval.state)">
+        <n-tag :type="decisionTagType(selectedApproval.state)" size="small">
           {{ decisionStateLabel(selectedApproval.state) }}
-        </span>
-        <span class="risk-pill" :data-risk="displayRiskLevel(selectedApproval.riskLevel)">
+        </n-tag>
+        <n-tag :type="riskTagType(selectedApproval.riskLevel)" size="small">
           {{ riskLevelLabel(selectedApproval.riskLevel) }}
-        </span>
+        </n-tag>
       </div>
     </div>
 
@@ -189,27 +216,23 @@ function onNoteInput(event: Event): void {
           <p class="section-eyebrow">{{ "动作快照" }}</p>
           <h2>{{ "actionPlans 明细" }}</h2>
         </div>
-        <span class="panel-chip">{{ selectedApproval.actionPlanCount }}</span>
+        <n-tag size="small" round>{{ selectedApproval.actionPlanCount }}</n-tag>
       </div>
 
-      <div v-if="selectedApproval.actionPlans.length > 0" class="approvals-page__plan-list">
-        <article
+      <n-collapse v-if="selectedApproval.actionPlans.length > 0" accordion>
+        <n-collapse-item
           v-for="actionPlan in selectedApproval.actionPlans"
           :key="actionPlan.actionPlanId"
-          class="approval-card approvals-page__plan-card"
-          :data-risk="actionPlan.riskLevel"
+          :title="`${actionPlan.kind} · ${actionPlan.reason}`"
+          :name="actionPlan.actionPlanId"
         >
-          <div class="approvals-page__plan-top">
-            <div>
-              <span class="approval-card__lane">{{ actionPlan.kind }}</span>
-              <strong>{{ actionPlan.reason }}</strong>
-            </div>
-            <div class="approvals-page__badge-row">
-              <span class="flow-pill">
-                {{ actionPlan.requiresApproval ? "需审批" : "自动执行" }}
-              </span>
-              <span class="risk-pill" :data-risk="actionPlan.riskLevel">{{ riskLabel(actionPlan.riskLevel) }}</span>
-            </div>
+          <div class="approvals-page__badge-row">
+            <n-tag size="small">
+              {{ actionPlan.requiresApproval ? "需审批" : "自动执行" }}
+            </n-tag>
+            <n-tag :type="actionPlanRiskType(actionPlan.riskLevel)" size="small">
+              {{ riskLabel(actionPlan.riskLevel) }}
+            </n-tag>
           </div>
 
           <pre v-if="formatCommand(actionPlan)" class="approvals-page__command">{{ formatCommand(actionPlan) }}</pre>
@@ -228,53 +251,58 @@ function onNoteInput(event: Event): void {
               <strong>{{ actionPlan.targets.length > 0 ? actionPlan.targets.join(", ") : "-" }}</strong>
             </div>
           </div>
-        </article>
-      </div>
-      <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">
-          {{
-            "当前审批没有持久化的 actionPlans 快照。"
-          }}
-        </p>
-      </div>
+        </n-collapse-item>
+      </n-collapse>
+      <n-empty
+        v-else
+        class="panel-card__empty-state"
+        :description="'当前审批没有持久化的 actionPlans 快照。'"
+        size="small"
+      />
     </section>
 
-    <label v-if="selectedApproval.state === 'pending'" class="form-label approvals-page__note-field">
-      <span>{{ "审批备注（可选）" }}</span>
-      <textarea
+    <div v-if="selectedApproval.state === 'pending'" class="approvals-page__note-field">
+      <span class="form-label">{{ "审批备注（可选）" }}</span>
+      <n-input
         :value="note"
-        class="text-input text-input--textarea approvals-page__note-input"
+        type="textarea"
+        class="approvals-page__note-input"
         :disabled="actingId === selectedApproval.requestId"
-        @input="onNoteInput"
-      ></textarea>
-    </label>
+        :autosize="{ minRows: 3, maxRows: 6 }"
+        @update:value="emit('update:note', $event)"
+      />
+    </div>
 
     <div class="run-card__actions">
-      <button
+      <n-button
         v-if="selectedApproval.state === 'pending'"
-        class="primary-button"
-        type="button"
+        type="primary"
+        size="small"
         :disabled="actingId === selectedApproval.requestId"
         @click="onApprove"
       >
         {{ actingId === selectedApproval.requestId ? t("actions.processing") : t("actions.approve") }}
-      </button>
-      <button
+      </n-button>
+      <n-button
         v-if="selectedApproval.state === 'pending'"
-        class="ghost-button"
-        type="button"
+        quaternary
+        size="small"
         :disabled="actingId === selectedApproval.requestId"
         @click="onReject"
       >
         {{ t("actions.reject") }}
-      </button>
+      </n-button>
       <RouterLink v-if="workspaceTo" class="ghost-link" :to="workspaceTo">{{ t("actions.openWorkspace") }}</RouterLink>
       <RouterLink v-if="taskTo" class="ghost-link" :to="taskTo">{{ "打开任务详情" }}</RouterLink>
       <RouterLink v-if="sessionTo" class="ghost-link" :to="sessionTo">{{ "打开会话详情" }}</RouterLink>
     </div>
-  </article>
+  </n-card>
 
-  <div v-else class="panel-card__empty-state approvals-detail">
-    <p class="panel-card__body">{{ "请选择左侧审批项查看详情。" }}</p>
-  </div>
+  <n-empty
+    v-else
+    class="panel-card approvals-detail"
+    :description="'请选择左侧审批项查看详情。'"
+    size="small"
+  />
 </template>
+

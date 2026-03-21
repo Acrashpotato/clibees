@@ -2,9 +2,9 @@
 
 @import "./tokens.css";
 @import "./base.css";
+@import "./naive-migration.css";
 @import "./layout.css";
 @import "./components.css";
-@import "./legacy-scoped.css";
 @import "./pages/runs-page.css";
 @import "./pages/manager-workerpoll.css";
 @import "./pages/approvals-page.css";

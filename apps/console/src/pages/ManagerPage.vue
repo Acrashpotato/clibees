@@ -1,5 +1,6 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { NButton, NInput, NTag } from "naive-ui";
 import { useRoute } from "vue-router";
 
 import { getManagerChatProjection, interactSession } from "../api";
@@ -27,7 +28,6 @@ const error = ref("");
 const messageInput = ref("");
 
 const managerSessionId = computed(() => projection.value.managerSession?.sessionId);
-
 
 async function loadProjection(targetRunId: string): Promise<void> {
   if (!targetRunId) {
@@ -89,6 +89,32 @@ function messageRoleLabel(role: string): string {
   }
 }
 
+function statusTagType(status: string): "default" | "info" | "success" | "warning" | "error" {
+  switch (status) {
+    case "running":
+      return "info";
+    case "completed":
+      return "success";
+    case "awaiting_approval":
+      return "warning";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+function riskTagType(riskLevel: string): "default" | "warning" | "error" {
+  switch (riskLevel) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "default";
+  }
+}
+
 watch(
   () => runId.value,
   (nextRunId) => {
@@ -107,9 +133,9 @@ watch(
       </div>
       <div class="manager-toolbar">
         <span class="flow-pill">run {{ runId || "-" }}</span>
-        <button class="ghost-button" type="button" :disabled="loading || !runId" @click="runId && loadProjection(runId)">
+        <n-button quaternary :disabled="loading || !runId" @click="runId && loadProjection(runId)">
           {{ "刷新" }}
-        </button>
+        </n-button>
       </div>
     </header>
 
@@ -119,9 +145,9 @@ watch(
       <article class="panel-card manager-chat-panel">
         <header class="manager-chat-panel__header">
           <h2>{{ "总管对话时间线" }}</h2>
-          <span class="status-pill" :data-status="projection.run.status">
+          <n-tag :type="statusTagType(projection.run.status)">
             {{ projection.run.status }}
-          </span>
+          </n-tag>
         </header>
 
         <div class="manager-chat-panel__timeline">
@@ -145,14 +171,15 @@ watch(
         </div>
 
         <div class="manager-chat-panel__composer">
-          <textarea
-            v-model="messageInput"
-            rows="4"
+          <n-input
+            v-model:value="messageInput"
+            type="textarea"
+            :autosize="{ minRows: 4, maxRows: 8 }"
             :placeholder="'给总管发送新指令...'"
-          ></textarea>
-          <button class="primary-button" type="button" :disabled="sending || !messageInput.trim()" @click="sendMessage">
+          />
+          <n-button type="primary" :disabled="sending || !messageInput.trim()" @click="sendMessage">
             {{ sending ? "发送中..." : "发送并触发执行" }}
-          </button>
+          </n-button>
         </div>
       </article>
 
@@ -166,7 +193,7 @@ watch(
             <article v-for="worker in projection.workerQueue" :key="worker.taskId" class="manager-queue-item">
               <header>
                 <strong>{{ worker.title }}</strong>
-                <span class="status-pill" :data-status="worker.status">{{ worker.status }}</span>
+                <n-tag :type="statusTagType(worker.status)">{{ worker.status }}</n-tag>
               </header>
               <p>{{ worker.agentId }} · {{ worker.lastActivityAt }}</p>
             </article>
@@ -182,7 +209,9 @@ watch(
             <article v-for="approval in projection.pendingApprovals" :key="approval.requestId">
               <header>
                 <strong>{{ approval.requestId }}</strong>
-                <span class="risk-pill" :data-risk="approval.riskLevel">{{ approval.riskLevel }}</span>
+                <n-tag :type="riskTagType(approval.riskLevel)">
+                  {{ approval.riskLevel }}
+                </n-tag>
               </header>
               <p>{{ approval.summary }}</p>
             </article>

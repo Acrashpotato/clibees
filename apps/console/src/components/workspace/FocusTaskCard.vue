@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { RouterLink } from "vue-router";
+import { NButton, NCard, NEmpty, NGi, NGrid, NTag } from "naive-ui";
+import { useRouter } from "vue-router";
 
 import { usePreferences } from "../../composables/usePreferences";
 import type { WorkspaceOverviewFocusViewModel } from "../../composables/useWorkspaceOverview";
@@ -9,50 +10,103 @@ const props = defineProps<{
   inspectTo: string;
 }>();
 
+const router = useRouter();
 const { riskLabel, statusLabel, t } = usePreferences();
+
+function goTo(path: string): void {
+  void router.push(path);
+}
+
+function statusTagType(status: WorkspaceOverviewFocusViewModel["status"]): "default" | "info" | "success" | "warning" | "error" {
+  switch (status) {
+    case "running":
+      return "info";
+    case "completed":
+      return "success";
+    case "awaiting_approval":
+      return "warning";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+function riskTagType(riskLevel: WorkspaceOverviewFocusViewModel["riskLevel"]): "default" | "warning" | "error" {
+  switch (riskLevel) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "default";
+  }
+}
 </script>
 
 <template>
-  <section class="workspace-overview-card workspace-focus-card panel-card">
-    <header class="workspace-overview-card__header">
+  <n-card class="workspace-overview-card workspace-focus-card panel-card" size="small">
+    <div class="workspace-overview-card__header">
       <div>
         <p class="section-eyebrow">{{ t("sections.currentBottleneck") }}</p>
         <h2>{{ focusTask?.title ?? t("workspacePage.focusTitle") }}</h2>
       </div>
       <div v-if="focusTask" class="lane-panel__badges">
-        <span class="status-pill" :data-status="focusTask.status">{{ statusLabel(focusTask.status) }}</span>
-        <span class="risk-pill" :data-risk="focusTask.riskLevel">{{ riskLabel(focusTask.riskLevel) }}</span>
+        <n-tag :type="statusTagType(focusTask.status)" size="small">
+          {{ statusLabel(focusTask.status) }}
+        </n-tag>
+        <n-tag :type="riskTagType(focusTask.riskLevel)" size="small">
+          {{ riskLabel(focusTask.riskLevel) }}
+        </n-tag>
       </div>
-    </header>
+    </div>
 
     <template v-if="focusTask">
       <p class="workspace-overview-card__description">{{ focusTask.statusReason }}</p>
-      <div class="workspace-overview-card__metrics workspace-overview-card__metrics--two">
-        <article class="summary-card">
-          <span>{{ t("fields.owner") }}</span>
-          <strong>{{ focusTask.ownerLabel }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ t("fields.lastActivity") }}</span>
-          <strong>{{ focusTask.lastActivityAt }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ t("fields.upstreamDeps") }}</span>
-          <strong>{{ focusTask.dependsOnCount }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>{{ t("fields.downstreamTasks") }}</span>
-          <strong>{{ focusTask.downstreamCount }}</strong>
-        </article>
-      </div>
+      <n-grid class="workspace-overview-card__metrics workspace-overview-card__metrics--two" :x-gap="10" :y-gap="10" cols="1 s:2 m:2" responsive="screen">
+        <n-gi>
+          <article class="summary-card">
+            <span>{{ t("fields.owner") }}</span>
+            <strong>{{ focusTask.ownerLabel }}</strong>
+          </article>
+        </n-gi>
+        <n-gi>
+          <article class="summary-card">
+            <span>{{ t("fields.lastActivity") }}</span>
+            <strong>{{ focusTask.lastActivityAt }}</strong>
+          </article>
+        </n-gi>
+        <n-gi>
+          <article class="summary-card">
+            <span>{{ t("fields.upstreamDeps") }}</span>
+            <strong>{{ focusTask.dependsOnCount }}</strong>
+          </article>
+        </n-gi>
+        <n-gi>
+          <article class="summary-card">
+            <span>{{ t("fields.downstreamTasks") }}</span>
+            <strong>{{ focusTask.downstreamCount }}</strong>
+          </article>
+        </n-gi>
+      </n-grid>
       <div class="workspace-overview-card__actions workspace-overview-card__actions--inline">
-        <RouterLink class="primary-link" :to="focusTask.to">{{ t("actions.openLane") }}</RouterLink>
+        <n-button type="primary" size="small" @click="goTo(focusTask.to)">
+          {{ t("actions.openLane") }}
+        </n-button>
       </div>
     </template>
 
-    <div v-else class="panel-card__empty-state">
-      <p class="panel-card__body">{{ t("workspacePage.focusDescriptionShort") }}</p>
-      <RouterLink class="ghost-link" :to="inspectTo">{{ t("actions.openInspect") }}</RouterLink>
-    </div>
-  </section>
+    <n-empty
+      v-else
+      :description="t('workspacePage.focusDescriptionShort')"
+      size="small"
+    >
+      <template #extra>
+        <n-button quaternary size="small" @click="goTo(inspectTo)">
+          {{ t("actions.openInspect") }}
+        </n-button>
+      </template>
+    </n-empty>
+  </n-card>
 </template>
+

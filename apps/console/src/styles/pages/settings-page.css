@@ -46,8 +46,7 @@
 }
 
 .settings-field .form-label,
-.settings-field .form-hint,
-.settings-toggle-row span {
+.settings-field .form-hint {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -57,21 +56,13 @@
   width: 100%;
 }
 
+.settings-form .n-base-selection,
+.settings-form .n-input-number {
+  width: 100%;
+}
+
 .settings-field .form-hint {
   margin: 0;
-}
-
-.settings-toggle-row {
-  display: flex;
-  gap: 10px;
-  align-items: start;
-  color: var(--text-secondary);
-  min-height: 24px;
-}
-
-.settings-toggle-row input {
-  margin-top: 3px;
-  flex-shrink: 0;
 }
 
 .settings-feedback {

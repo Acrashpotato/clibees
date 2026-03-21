@@ -1,7 +1,7 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, watch } from "vue";
+import { NAlert, NButton, NCard, NEmpty, NTag } from "naive-ui";
 import { RouterLink, useRoute } from "vue-router";
-
 import { getTaskDetailProjection } from "../api";
 import { useArtifactPreview } from "../composables/useArtifactPreview";
 import { useEntityProjection } from "../composables/useEntityProjection";
@@ -21,7 +21,6 @@ import {
 
 const route = useRoute();
 const { riskLabel, statusLabel, validationLabel, t } = usePreferences();
-
 const runId = computed(() => (typeof route.params.runId === "string" ? route.params.runId : ""));
 const taskId = computed(() => (typeof route.params.taskId === "string" ? route.params.taskId : ""));
 const {
@@ -32,8 +31,6 @@ const {
   toggleArtifactPreview,
   resetArtifactPreview,
 } = useArtifactPreview(() => runId.value);
-
-
 const { projection, loading, error, loadProjection } = useEntityProjection<
   TaskDetailProjectionView,
   TaskDetailProjectionView["overview"]["status"]
@@ -44,12 +41,10 @@ const { projection, loading, error, loadProjection } = useEntityProjection<
   fetchProjection: (nextRunId, nextTaskId) => getTaskDetailProjection(nextRunId, nextTaskId),
   getProjectionStatus: (data) => data.overview.status,
   isTerminalStatus: (status) => status === "completed" || status === "failed",
-  getMissingParamMessage: () =>
-    "缺少 runId 或 taskId，无法打开任务详情。",
+  getMissingParamMessage: () => "缺少 runId 或 taskId，无法打开任务详情。",
   emptyRunId: "workspace",
   emptyEntityId: "task",
 });
-
 watch(
   () => `${runId.value}::${taskId.value}`,
   () => {
@@ -58,7 +53,6 @@ watch(
   },
   { immediate: true },
 );
-
 const overview = computed(() => projection.value.overview);
 const requirementGroups = computed(() => [
   {
@@ -131,7 +125,6 @@ const summaryCards = computed(() => [
     value: overview.value.latestActivityAt || "-",
   },
 ]);
-
 function sessionSourceLabel(sourceMode: TaskDetailSessionSourceMode): string {
   switch (sourceMode) {
     case "task_session":
@@ -142,7 +135,6 @@ function sessionSourceLabel(sourceMode: TaskDetailSessionSourceMode): string {
       return "状态回填";
   }
 }
-
 function approvalStateLabel(state: "pending" | "approved" | "rejected"): string {
   switch (state) {
     case "pending":
@@ -153,7 +145,6 @@ function approvalStateLabel(state: "pending" | "approved" | "rejected"): string 
       return "已拒绝";
   }
 }
-
 function sourceModeLabel(sourceMode: string): string {
   switch (sourceMode) {
     case "approval_request":
@@ -166,19 +157,49 @@ function sourceModeLabel(sourceMode: string): string {
       return "状态回填";
   }
 }
-
+function statusTagType(status: string): "default" | "info" | "success" | "warning" | "error" {
+  switch (status) {
+    case "running":
+      return "info";
+    case "completed":
+      return "success";
+    case "awaiting_approval":
+    case "blocked":
+      return "warning";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
+}
+function riskTagType(risk: string): "default" | "warning" | "error" {
+  switch (risk) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "default";
+  }
+}
+function validationTagType(state: string): "warning" | "success" | "error" {
+  if (state === "pass") {
+    return "success";
+  }
+  if (state === "fail") {
+    return "error";
+  }
+  return "warning";
+}
 function taskLink(item: TaskDetailDependencyItemView): string {
   return getTaskDetailPath(projection.value.runId, item.taskId);
 }
-
 function sessionLink(sessionId?: string): string | undefined {
   return sessionId ? getSessionDetailPath(projection.value.runId, sessionId) : undefined;
 }
-
 function boardLink(): string {
   return getRunTaskBoardPath(projection.value.runId);
 }
-
 function workspaceLink(): string {
   return getRunWorkspacePath(projection.value.runId);
 }
@@ -199,21 +220,25 @@ function workspaceLink(): string {
     </div>
 
     <div class="section-actions approvals-page__actions">
-      <button class="ghost-button" type="button" :disabled="loading" @click="loadProjection(false)">
+      <n-button quaternary size="small" :disabled="loading" @click="loadProjection(false)">
         {{ t("actions.refresh") }}
-      </button>
+      </n-button>
       <RouterLink class="ghost-link" :to="boardLink()">{{ "返回任务板" }}</RouterLink>
       <RouterLink class="ghost-link" :to="workspaceLink()">{{ t("actions.backToWorkspace") }}</RouterLink>
-      <RouterLink v-if="primarySession && sessionLink(primarySession.sessionId)" class="primary-link" :to="sessionLink(primarySession.sessionId)!">
+      <RouterLink
+        v-if="primarySession && sessionLink(primarySession.sessionId)"
+        class="primary-link"
+        :to="sessionLink(primarySession.sessionId)!"
+      >
         {{ "打开活动会话" }}
       </RouterLink>
     </div>
 
-    <div v-if="error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ error }}</p>
-    </div>
+    <n-alert v-if="error" type="error" :show-icon="false">
+      {{ error }}
+    </n-alert>
 
-    <section class="status-bar workspace-hero detail-hero">
+    <n-card class="status-bar workspace-hero detail-hero" size="small">
       <div class="detail-hero__top">
         <div>
           <p class="section-eyebrow">{{ overview.taskId }}</p>
@@ -221,8 +246,8 @@ function workspaceLink(): string {
           <p class="workspace-hero__lead">{{ overview.statusReason }}</p>
         </div>
         <div class="lane-panel__badges">
-          <span class="status-pill" :data-status="overview.status">{{ statusLabel(overview.status) }}</span>
-          <span class="risk-pill" :data-risk="overview.riskLevel">{{ riskLabel(overview.riskLevel) }}</span>
+          <n-tag :type="statusTagType(overview.status)" size="small">{{ statusLabel(overview.status) }}</n-tag>
+          <n-tag :type="riskTagType(overview.riskLevel)" size="small">{{ riskLabel(overview.riskLevel) }}</n-tag>
         </div>
       </div>
 
@@ -232,29 +257,32 @@ function workspaceLink(): string {
           <strong>{{ card.value }}</strong>
         </article>
       </div>
-    </section>
+    </n-card>
 
-    <div v-if="loading && !error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ "正在加载任务详情。" }}</p>
-    </div>
+    <n-empty
+      v-if="loading && !error"
+      class="panel-card__empty-state"
+      :description="'正在加载任务详情。'"
+      size="small"
+    />
 
     <div class="detail-grid detail-grid--primary">
-      <section class="panel-card detail-card">
+      <n-card class="panel-card detail-card" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "任务概况" }}</p>
             <h2>{{ "任务目标与当前判断" }}</h2>
           </div>
-          <span class="panel-chip">{{ overview.kind }}</span>
+          <n-tag size="small">{{ overview.kind }}</n-tag>
         </div>
 
         <div class="focus-panel__status-block">
           <strong class="focus-panel__status">{{ overview.latestActivitySummary }}</strong>
           <p class="panel-card__body">{{ overview.goal || "当前没有单独的任务 goal 文本。" }}</p>
         </div>
-      </section>
+      </n-card>
 
-      <section class="panel-card detail-card">
+      <n-card class="panel-card detail-card" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "需求边界" }}</p>
@@ -271,11 +299,11 @@ function workspaceLink(): string {
             <p v-else class="panel-card__body">{{ group.empty }}</p>
           </article>
         </div>
-      </section>
+      </n-card>
     </div>
 
     <div class="detail-grid detail-grid--primary">
-      <section class="panel-card detail-card">
+      <n-card class="panel-card detail-card" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "依赖关系" }}</p>
@@ -293,7 +321,7 @@ function workspaceLink(): string {
                     <span class="approval-card__lane">{{ item.taskId }}</span>
                     <strong>{{ item.title }}</strong>
                   </div>
-                  <span class="status-pill" :data-status="item.status">{{ statusLabel(item.status) }}</span>
+                  <n-tag :type="statusTagType(item.status)" size="small">{{ statusLabel(item.status) }}</n-tag>
                 </div>
                 <p>{{ item.statusReason }}</p>
                 <p class="panel-card__body">{{ item.latestActivitySummary }}</p>
@@ -305,25 +333,29 @@ function workspaceLink(): string {
             <p v-else class="panel-card__body">{{ column.empty }}</p>
           </article>
         </div>
-      </section>
+      </n-card>
 
-      <section class="panel-card detail-card">
+      <n-card class="panel-card detail-card" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "执行会话" }}</p>
             <h2>{{ "任务绑定的会话视图" }}</h2>
           </div>
-          <span class="panel-chip">{{ projection.sessions.length }}</span>
+          <n-tag size="small" round>{{ projection.sessions.length }}</n-tag>
         </div>
 
         <div v-if="projection.sessions.length > 0" class="detail-stack">
-          <article v-for="session in projection.sessions" :key="session.sessionId ?? session.label" class="approval-card detail-item-card">
+          <article
+            v-for="session in projection.sessions"
+            :key="session.sessionId ?? session.label"
+            class="approval-card detail-item-card"
+          >
             <div class="detail-item-card__top">
               <div>
                 <span class="approval-card__lane">{{ session.label }}</span>
                 <strong>{{ session.agentId }}</strong>
               </div>
-              <span class="status-pill" :data-status="session.status">{{ statusLabel(session.status) }}</span>
+              <n-tag :type="statusTagType(session.status)" size="small">{{ statusLabel(session.status) }}</n-tag>
             </div>
             <div class="detail-chip detail-chip--compact">
               <span>{{ "来源" }}</span>
@@ -343,22 +375,25 @@ function workspaceLink(): string {
             </RouterLink>
           </article>
         </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ "当前没有可回放的会话窗口。" }}</p>
-        </div>
-      </section>
+        <n-empty
+          v-else
+          class="panel-card__empty-state"
+          :description="'当前没有可回放的会话窗口。'"
+          size="small"
+        />
+      </n-card>
     </div>
 
     <div class="detail-grid detail-grid--support">
-      <section class="panel-card detail-card">
+      <n-card class="panel-card detail-card" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "验证摘要" }}</p>
             <h2>{{ "当前验证结论" }}</h2>
           </div>
-          <span class="status-pill" :data-status="projection.validation.state === 'fail' ? 'failed' : projection.validation.state === 'pass' ? 'completed' : 'awaiting_approval'">
+          <n-tag :type="validationTagType(projection.validation.state)" size="small">
             {{ validationLabel(projection.validation.state) }}
-          </span>
+          </n-tag>
         </div>
 
         <div class="detail-stack">
@@ -373,9 +408,9 @@ function workspaceLink(): string {
             {{ "更新时间" }}: {{ projection.validation.updatedAt }}
           </p>
         </div>
-      </section>
+      </n-card>
 
-      <section class="panel-card detail-card">
+      <n-card class="panel-card detail-card" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "最近审批" }}</p>
@@ -405,18 +440,21 @@ function workspaceLink(): string {
             </p>
           </div>
         </template>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ "当前没有审批快照。" }}</p>
-        </div>
-      </section>
+        <n-empty
+          v-else
+          class="panel-card__empty-state"
+          :description="'当前没有审批快照。'"
+          size="small"
+        />
+      </n-card>
 
-      <section class="panel-card detail-card detail-card--wide">
+      <n-card class="panel-card detail-card detail-card--wide" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "产物摘要" }}</p>
             <h2>{{ "最近产物与高亮" }}</h2>
           </div>
-          <span class="panel-chip">{{ projection.artifacts.totalCount }}</span>
+          <n-tag size="small" round>{{ projection.artifacts.totalCount }}</n-tag>
         </div>
 
         <div v-if="projection.artifacts.highlights.length > 0" class="detail-stack detail-stack--grid">
@@ -429,9 +467,9 @@ function workspaceLink(): string {
               <span class="flow-pill">{{ artifact.createdAt }}</span>
             </div>
             <p class="panel-card__body">{{ artifact.uri }}</p>
-            <button class="ghost-button detail-item-card__link" type="button" @click="toggleArtifactPreview(artifact.artifactId)">
+            <n-button quaternary size="small" class="detail-item-card__link" @click="toggleArtifactPreview(artifact.artifactId)">
               {{ isArtifactExpanded(artifact.artifactId) ? "收起内容" : "查看内容" }}
-            </button>
+            </n-button>
             <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewLoadingId === artifact.artifactId" class="panel-card__body">
               {{ "正在加载产物内容..." }}
             </p>
@@ -447,10 +485,13 @@ function workspaceLink(): string {
             </template>
           </article>
         </div>
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ "当前没有可展示的 task 产物。" }}</p>
-        </div>
-      </section>
+        <n-empty
+          v-else
+          class="panel-card__empty-state"
+          :description="'当前没有可展示的 task 产物。'"
+          size="small"
+        />
+      </n-card>
     </div>
   </section>
 </template>

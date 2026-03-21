@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { NButton, NCard, NEmpty, NTag } from "naive-ui";
 import { RouterLink } from "vue-router";
 
 import type {
@@ -36,13 +37,13 @@ const showResetWindow = computed(() =>
 
 <template>
   <section class="audit-grid audit-grid--timeline-stack">
-    <article class="panel-card audit-card audit-card--timeline">
+    <n-card class="panel-card audit-card audit-card--timeline" size="small">
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ "分类表格" }}</p>
           <h2>{{ "时间线事件" }}</h2>
         </div>
-        <span class="panel-chip">{{ totalEntryCount }}</span>
+        <n-tag size="small" round>{{ totalEntryCount }}</n-tag>
       </div>
 
       <div v-if="entries.length > 0" class="audit-table-wrap audit-table-wrap--timeline">
@@ -113,36 +114,37 @@ const showResetWindow = computed(() =>
           </tbody>
         </table>
       </div>
-      <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">
-          {{ "当前运行暂无可回放的审计事件。" }}
-        </p>
-      </div>
+      <n-empty
+        v-else
+        class="panel-card__empty-state"
+        :description="'当前运行暂无可回放的审计事件。'"
+        size="small"
+      />
 
       <div v-if="totalEntryCount > 0" class="audit-table__footer">
         <p class="panel-card__body">{{ visibleTimelineSummary }}</p>
         <div class="audit-table__actions">
-          <button
+          <n-button
             v-if="hasMoreTimelineEntries"
-            class="ghost-button"
-            type="button"
+            quaternary
+            size="small"
             @click="emit('load-more')"
           >
             {{ "加载更早事件" }} (+{{ timelineStep }})
-          </button>
-          <button
+          </n-button>
+          <n-button
             v-if="showResetWindow"
-            class="ghost-button"
-            type="button"
+            quaternary
+            size="small"
             @click="emit('reset-window')"
           >
             {{ `回到最近 ${timelineStep} 条` }}
-          </button>
+          </n-button>
         </div>
       </div>
-    </article>
+    </n-card>
 
-    <article class="panel-card audit-card">
+    <n-card class="panel-card audit-card" size="small">
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ "复盘锚点" }}</p>
@@ -160,20 +162,21 @@ const showResetWindow = computed(() =>
           <strong>{{ finding[1] }}</strong>
         </article>
       </div>
-      <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">
-          {{ "当前暂无失败、阻塞、重规划或最近验证摘要。" }}
-        </p>
-      </div>
-    </article>
+      <n-empty
+        v-else
+        class="panel-card__empty-state"
+        :description="'当前暂无失败、阻塞、重规划或最近验证摘要。'"
+        size="small"
+      />
+    </n-card>
 
-    <article class="panel-card audit-card">
+    <n-card class="panel-card audit-card" size="small">
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ "会话分类" }}</p>
           <h2>{{ "关键执行窗口" }}</h2>
         </div>
-        <span class="panel-chip">{{ sessionEvents.length }}</span>
+        <n-tag size="small" round>{{ sessionEvents.length }}</n-tag>
       </div>
 
       <div v-if="sessionEvents.length > 0" class="audit-table-wrap audit-table-wrap--session-windows">
@@ -220,11 +223,13 @@ const showResetWindow = computed(() =>
           </tbody>
         </table>
       </div>
-      <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">
-          {{ "当前暂无可追踪的关键会话事件。" }}
-        </p>
-      </div>
-    </article>
+      <n-empty
+        v-else
+        class="panel-card__empty-state"
+        :description="'当前暂无可追踪的关键会话事件。'"
+        size="small"
+      />
+    </n-card>
   </section>
 </template>
+

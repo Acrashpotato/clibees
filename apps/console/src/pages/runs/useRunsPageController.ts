@@ -3,6 +3,7 @@ import { useRoute, useRouter } from "vue-router";
 import { createRun, deleteRun as deleteRunRequest, listRuns, resumeRun, type SelectedCli } from "../../api";
 import { useConsoleSettings } from "../../composables/useConsoleSettings";
 import type { RunSummaryView } from "../../types";
+import { useNaiveDiscrete } from "../../ui/naive/discrete";
 import { getRunApprovalsPath, getRunInspectPath, getRunTaskBoardPath, getRunWorkspacePath } from "../../workspace";
 
 export function useRunsPageController() {
@@ -11,6 +12,7 @@ const route = useRoute();
 const router = useRouter();
 
 const { settings } = useConsoleSettings();
+const { dialog } = useNaiveDiscrete();
 
 const runs = ref<RunSummaryView[]>([]);
 
@@ -220,13 +222,9 @@ async function deleteTaskResources(run: RunSummaryView): Promise<void> {
     return;
   }
 
-  if (typeof window !== "undefined") {
-    const confirmed = window.confirm(
-      `确认删除任务 ${run.runId} 及其所有相关资源吗？此操作不可恢复。`,
-    );
-    if (!confirmed) {
-      return;
-    }
+  const confirmed = await confirmDeleteRun(run.runId);
+  if (!confirmed) {
+    return;
   }
 
   deletingRunId.value = run.runId;
@@ -241,6 +239,35 @@ async function deleteTaskResources(run: RunSummaryView): Promise<void> {
   } finally {
     deletingRunId.value = "";
   }
+}
+
+function confirmDeleteRun(runId: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const resolveOnce = (value: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    dialog.warning({
+      title: "确认删除任务",
+      content: `确认删除任务 ${runId} 及其所有相关资源吗？此操作不可恢复。`,
+      positiveText: "确认删除",
+      negativeText: "取消",
+      onPositiveClick: () => {
+        resolveOnce(true);
+      },
+      onNegativeClick: () => {
+        resolveOnce(false);
+      },
+      onClose: () => {
+        resolveOnce(false);
+      },
+    });
+  });
 }
 
 async function backToSubmenuHub(): Promise<void> {

@@ -104,7 +104,7 @@ export function useWorkspaceLanesPage() {
     taskGraphCanvasStyle,
     taskGraphViewBox,
     orderedTaskPosition,
-  } = useTaskGraph(projection);
+  } = useTaskGraph(computed(() => projection.value));
 
   const selectedTaskId = ref<string | undefined>(undefined);
   const selectedTask = computed(() =>

@@ -1,5 +1,6 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { NButton, NTag } from "naive-ui";
 import { useRoute } from "vue-router";
 
 import { getWorkerpollProjection } from "../api";
@@ -45,7 +46,6 @@ const summaryCards = computed(() => [
   },
 ]);
 
-
 function matchLabel(task: WorkerpollTaskItem): string {
   switch (task.matchStatus) {
     case "matched":
@@ -67,6 +67,21 @@ function matchPill(task: WorkerpollTaskItem): "completed" | "awaiting_approval" 
     return "awaiting_approval";
   }
   return "failed";
+}
+
+function statusTagType(status: string): "default" | "info" | "success" | "warning" | "error" {
+  switch (status) {
+    case "running":
+      return "info";
+    case "completed":
+      return "success";
+    case "awaiting_approval":
+      return "warning";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
 }
 
 async function loadProjection(targetRunId: string): Promise<void> {
@@ -105,14 +120,13 @@ watch(
       </div>
       <div class="workerpoll-toolbar">
         <span class="flow-pill">run {{ runId || "-" }}</span>
-        <button
-          class="ghost-button"
-          type="button"
+        <n-button
+          quaternary
           :disabled="loading || !runId"
           @click="runId && loadProjection(runId)"
         >
           {{ "刷新" }}
-        </button>
+        </n-button>
       </div>
     </div>
 
@@ -125,7 +139,7 @@ watch(
           <h2>{{ projection.run.goal }}</h2>
         </div>
         <div class="section-actions">
-          <span class="status-pill" :data-status="projection.run.status">{{ projection.run.status }}</span>
+          <n-tag :type="statusTagType(projection.run.status)">{{ projection.run.status }}</n-tag>
           <span class="flow-pill">{{ projection.generatedAt || "-" }}</span>
         </div>
       </div>
@@ -197,3 +211,4 @@ watch(
     </section>
   </section>
 </template>
+

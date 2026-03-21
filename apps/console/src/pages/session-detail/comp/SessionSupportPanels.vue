@@ -1,4 +1,5 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
+import { NButton, NCard, NEmpty, NTag } from "naive-ui";
 import type { ArtifactContentPreview } from "../../../api";
 import type {
   SessionDetailApprovalItemView,
@@ -18,17 +19,50 @@ defineProps<{
   artifactPreviewErrorById: Record<string, string>;
   artifactPreviewById: Record<string, ArtifactContentPreview>;
 }>();
+
+function statusTagType(status: string): "default" | "info" | "success" | "error" {
+  if (status === "completed") {
+    return "success";
+  }
+  if (status === "failed") {
+    return "error";
+  }
+  if (status === "running") {
+    return "info";
+  }
+  return "default";
+}
+
+function riskTagType(risk: string): "default" | "warning" | "error" {
+  if (risk === "high") {
+    return "error";
+  }
+  if (risk === "medium") {
+    return "warning";
+  }
+  return "default";
+}
+
+function validationTagType(state: string): "warning" | "success" | "error" {
+  if (state === "pass") {
+    return "success";
+  }
+  if (state === "fail") {
+    return "error";
+  }
+  return "warning";
+}
 </script>
 
 <template>
   <div class="detail-grid detail-grid--support">
-    <section class="panel-card detail-card">
+    <n-card class="panel-card detail-card" size="small">
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ "工具调用" }}</p>
           <h2>{{ "调用与结果" }}</h2>
         </div>
-        <span class="panel-chip">{{ projection.toolCalls.length }}</span>
+        <n-tag size="small" round>{{ projection.toolCalls.length }}</n-tag>
       </div>
 
       <div v-if="projection.toolCalls.length > 0" class="detail-stack">
@@ -38,9 +72,9 @@ defineProps<{
               <span class="approval-card__lane">{{ tool.label }}</span>
               <strong>{{ tool.command }}</strong>
             </div>
-            <span class="status-pill" :data-status="tool.status === 'completed' ? 'completed' : tool.status === 'failed' ? 'failed' : 'running'">
+            <n-tag :type="statusTagType(tool.status)" size="small">
               {{ tool.status }}
-            </span>
+            </n-tag>
           </div>
           <p class="panel-card__body" v-if="tool.args.length > 0">{{ tool.args.join(" ") }}</p>
           <p class="panel-card__body" v-if="tool.cwd">cwd: {{ tool.cwd }}</p>
@@ -48,30 +82,38 @@ defineProps<{
           <p class="panel-card__body">{{ sourceModeLabel(tool.sourceMode) }}</p>
         </article>
       </div>
-      <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">{{ "当前没有可展示的工具调用。" }}</p>
-      </div>
-    </section>
+      <n-empty
+        v-else
+        class="panel-card__empty-state"
+        :description="'当前没有可展示的工具调用。'"
+        size="small"
+      />
+    </n-card>
 
-    <section class="panel-card detail-card">
+    <n-card class="panel-card detail-card" size="small">
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ t("sections.approvals") }}</p>
           <h2>{{ "会话审批记录" }}</h2>
         </div>
-        <span class="panel-chip">{{ projection.approvals.length }}</span>
+        <n-tag size="small" round>{{ projection.approvals.length }}</n-tag>
       </div>
 
       <div v-if="projection.approvals.length > 0" class="detail-stack">
-        <article v-for="approval in projection.approvals" :key="approval.requestId" class="approval-card detail-item-card" :data-risk="approval.riskLevel === 'none' ? 'low' : approval.riskLevel">
+        <article
+          v-for="approval in projection.approvals"
+          :key="approval.requestId"
+          class="approval-card detail-item-card"
+          :data-risk="approval.riskLevel === 'none' ? 'low' : approval.riskLevel"
+        >
           <div class="detail-item-card__top">
             <div>
               <span class="approval-card__lane">{{ approval.requestId }}</span>
               <strong>{{ approvalStateLabel(approval) }}</strong>
             </div>
-            <span class="risk-pill" :data-risk="approval.riskLevel === 'none' ? 'low' : approval.riskLevel">
+            <n-tag :type="riskTagType(approval.riskLevel)" size="small">
               {{ approval.riskLevel === "none" ? "无" : riskLabel(approval.riskLevel) }}
-            </span>
+            </n-tag>
           </div>
           <p>{{ approval.summary }}</p>
           <p class="panel-card__body">{{ sourceModeLabel(approval.sourceMode) }}</p>
@@ -79,20 +121,23 @@ defineProps<{
           <p class="panel-card__body" v-if="approval.decidedAt">{{ "决策时间" }}: {{ approval.decidedAt }}</p>
         </article>
       </div>
-      <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">{{ "当前没有会话级审批记录。" }}</p>
-      </div>
-    </section>
+      <n-empty
+        v-else
+        class="panel-card__empty-state"
+        :description="'当前没有会话级审批记录。'"
+        size="small"
+      />
+    </n-card>
 
-    <section class="panel-card detail-card">
+    <n-card class="panel-card detail-card" size="small">
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ "验证摘要" }}</p>
           <h2>{{ "会话验证状态" }}</h2>
         </div>
-        <span class="status-pill" :data-status="projection.validation.state === 'fail' ? 'failed' : projection.validation.state === 'pass' ? 'completed' : 'awaiting_approval'">
+        <n-tag :type="validationTagType(projection.validation.state)" size="small">
           {{ validationLabel(projection.validation.state) }}
-        </span>
+        </n-tag>
       </div>
 
       <div class="detail-stack">
@@ -107,15 +152,15 @@ defineProps<{
           {{ "更新时间" }}: {{ projection.validation.updatedAt }}
         </p>
       </div>
-    </section>
+    </n-card>
 
-    <section class="panel-card detail-card">
+    <n-card class="panel-card detail-card" size="small">
       <div class="panel-card__header">
         <div>
           <p class="section-eyebrow">{{ "产物摘要" }}</p>
           <h2>{{ "会话产物" }}</h2>
         </div>
-        <span class="panel-chip">{{ projection.artifacts.totalCount }}</span>
+        <n-tag size="small" round>{{ projection.artifacts.totalCount }}</n-tag>
       </div>
 
       <div v-if="projection.artifacts.items.length > 0" class="detail-stack">
@@ -128,9 +173,9 @@ defineProps<{
             <span class="flow-pill">{{ artifact.createdAt }}</span>
           </div>
           <p class="panel-card__body">{{ artifact.uri }}</p>
-          <button class="ghost-button detail-item-card__link" type="button" @click="toggleArtifactPreview(artifact.artifactId)">
+          <n-button quaternary size="small" class="detail-item-card__link" @click="toggleArtifactPreview(artifact.artifactId)">
             {{ isArtifactExpanded(artifact.artifactId) ? "收起内容" : "查看内容" }}
-          </button>
+          </n-button>
           <p v-if="isArtifactExpanded(artifact.artifactId) && artifactPreviewLoadingId === artifact.artifactId" class="panel-card__body">
             {{ "正在加载产物内容..." }}
           </p>
@@ -146,10 +191,13 @@ defineProps<{
           </template>
         </article>
       </div>
-      <div v-else class="panel-card__empty-state">
-        <p class="panel-card__body">{{ "当前没有会话级产物。" }}</p>
-      </div>
-    </section>
+      <n-empty
+        v-else
+        class="panel-card__empty-state"
+        :description="'当前没有会话级产物。'"
+        size="small"
+      />
+    </n-card>
   </div>
 </template>
 

@@ -7,6 +7,12 @@
   gap: 16px;
 }
 
+.detail-card.n-card > .n-card__content,
+.detail-hero.n-card > .n-card__content {
+  display: grid;
+  gap: 16px;
+}
+
 .detail-page__header,
 .detail-hero__top,
 .detail-item-card__top {

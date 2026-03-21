@@ -31,6 +31,10 @@
   gap: 8px;
 }
 
+.runs-list-pane__search-input {
+  width: 100%;
+}
+
 .runs-list-pane__create-trigger {
   min-height: var(--size-input);
 }

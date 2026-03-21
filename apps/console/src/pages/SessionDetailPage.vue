@@ -1,6 +1,7 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import "@xterm/xterm/css/xterm.css";
 import { computed, onBeforeUnmount, watch } from "vue";
+import { NAlert, NButton, NCard, NEmpty, NTag } from "naive-ui";
 import { RouterLink, useRoute } from "vue-router";
 
 import { getSessionDetailProjection } from "../api";
@@ -25,7 +26,6 @@ const initialPromptFromRoute = computed(() =>
   typeof route.query.initialPrompt === "string" ? route.query.initialPrompt : "",
 );
 
-
 const {
   artifactPreviewById,
   artifactPreviewErrorById,
@@ -42,12 +42,10 @@ const { projection, loading, error, loadProjection, stopPolling } = useEntityPro
   getRunId: () => runId.value,
   getEntityId: () => sessionId.value,
   createEmptyProjection: createEmptySessionDetailProjection,
-  fetchProjection: (nextRunId, nextSessionId) =>
-    getSessionDetailProjection(nextRunId, nextSessionId),
+  fetchProjection: (nextRunId, nextSessionId) => getSessionDetailProjection(nextRunId, nextSessionId),
   getProjectionStatus: (data) => data.overview.status,
   isTerminalStatus: (status) => status === "completed" || status === "failed",
-  getMissingParamMessage: () =>
-    "缺少 runId 或 sessionId，无法打开会话详情。",
+  getMissingParamMessage: () => "缺少 runId 或 sessionId，无法打开会话详情。",
   emptyRunId: "workspace",
   emptyEntityId: "session",
 });
@@ -176,6 +174,21 @@ function approvalStateLabel(item: SessionDetailApprovalItemView): string {
   }
 }
 
+function statusTagType(status: string): "default" | "info" | "success" | "warning" | "error" {
+  switch (status) {
+    case "running":
+      return "info";
+    case "completed":
+      return "success";
+    case "awaiting_approval":
+      return "warning";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
 function taskLink(): string {
   return getTaskDetailPath(projection.value.runId, overview.value.taskId);
 }
@@ -200,18 +213,18 @@ function workspaceLink(): string {
     </div>
 
     <div class="section-actions approvals-page__actions">
-      <button class="ghost-button" type="button" :disabled="loading" @click="loadProjection(false)">
+      <n-button quaternary size="small" :disabled="loading" @click="loadProjection(false)">
         {{ t("actions.refresh") }}
-      </button>
+      </n-button>
       <RouterLink class="ghost-link" :to="taskLink()">{{ "返回任务详情" }}</RouterLink>
       <RouterLink class="ghost-link" :to="workspaceLink()">{{ t("actions.backToWorkspace") }}</RouterLink>
     </div>
 
-    <div v-if="error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ error }}</p>
-    </div>
+    <n-alert v-if="error" type="error" :show-icon="false">
+      {{ error }}
+    </n-alert>
 
-    <section class="status-bar workspace-hero detail-hero">
+    <n-card class="status-bar workspace-hero detail-hero" size="small">
       <div class="detail-hero__top">
         <div>
           <p class="section-eyebrow">{{ overview.sessionId }}</p>
@@ -219,7 +232,7 @@ function workspaceLink(): string {
           <p class="workspace-hero__lead">{{ overview.statusReason }}</p>
         </div>
         <div class="lane-panel__badges">
-          <span class="status-pill" :data-status="overview.status">{{ statusLabel(overview.status) }}</span>
+          <n-tag :type="statusTagType(overview.status)" size="small">{{ statusLabel(overview.status) }}</n-tag>
           <span class="flow-pill">{{ sourceModeLabel(overview.sourceMode) }}</span>
         </div>
       </div>
@@ -230,32 +243,35 @@ function workspaceLink(): string {
           <strong>{{ card.value }}</strong>
         </article>
       </div>
-    </section>
+    </n-card>
 
-    <div v-if="loading && !error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ "正在加载会话详情。" }}</p>
-    </div>
+    <n-empty
+      v-if="loading && !error"
+      class="panel-card__empty-state"
+      :description="'正在加载会话详情。'"
+      size="small"
+    />
 
     <div class="detail-grid detail-grid--primary">
-      <section class="panel-card detail-card detail-card--wide">
+      <n-card class="panel-card detail-card detail-card--wide" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">CLI Workspace</p>
             <h2>{{ "实时 CLI 工作窗口" }}</h2>
           </div>
           <div class="detail-terminal-actions">
-            <span class="panel-chip">{{ liveStatusLabel() }}</span>
-            <button class="ghost-button" type="button" :disabled="liveTerminalConnecting" @click="connectLiveTerminal">
+            <n-tag size="small" round>{{ liveStatusLabel() }}</n-tag>
+            <n-button quaternary size="small" :disabled="liveTerminalConnecting" @click="connectLiveTerminal">
               {{ liveTerminalConnecting ? "连接中..." : "启动实时终端" }}
-            </button>
-            <button
-              class="ghost-button"
-              type="button"
+            </n-button>
+            <n-button
+              quaternary
+              size="small"
               :disabled="liveTerminalStatus !== 'connected' && liveTerminalStatus !== 'connecting'"
               @click="disconnectLiveTerminal"
             >
               {{ "断开" }}
-            </button>
+            </n-button>
           </div>
         </div>
 
@@ -282,14 +298,14 @@ function workspaceLink(): string {
                 @keydown="onChatInputKeydown"
               ></textarea>
               <div class="chat-composer__actions">
-                <button
-                  class="primary-button"
-                  type="button"
+                <n-button
+                  type="primary"
+                  size="small"
                   :disabled="liveTerminalStatus !== 'connected' || chatInput.trim().length === 0"
                   @click="sendChatInput"
                 >
                   {{ "发送到会话" }}
-                </button>
+                </n-button>
                 <span class="form-hint">
                   {{
                     liveTerminalStatus === "connected"
@@ -307,7 +323,7 @@ function workspaceLink(): string {
                 <p class="section-eyebrow">{{ "Agent 事件消息" }}</p>
                 <h3>{{ "正在做的事情" }}</h3>
               </div>
-              <span class="panel-chip">{{ liveWorkspaceTimeline.length }}</span>
+              <n-tag size="small" round>{{ liveWorkspaceTimeline.length }}</n-tag>
             </div>
 
             <div v-if="liveWorkspaceTimeline.length > 0" class="live-workspace__events-list">
@@ -328,12 +344,15 @@ function workspaceLink(): string {
                 <pre class="detail-pre">{{ message.text }}</pre>
               </article>
             </div>
-            <div v-else class="panel-card__empty-state">
-              <p class="panel-card__body">{{ "当前没有可展示的事件消息。" }}</p>
-            </div>
+            <n-empty
+              v-else
+              class="panel-card__empty-state"
+              :description="'当前没有可展示的事件消息。'"
+              size="small"
+            />
           </section>
         </div>
-      </section>
+      </n-card>
     </div>
 
     <SessionSupportPanels
@@ -351,3 +370,4 @@ function workspaceLink(): string {
     />
   </section>
 </template>
+

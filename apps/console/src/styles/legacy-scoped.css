@@ -1,7 +1,0 @@
-/* Split legacy scoped stylesheet aggregator. */
-@import "./legacy-scoped/part-01.css";
-@import "./legacy-scoped/part-02.css";
-@import "./legacy-scoped/part-03.css";
-@import "./legacy-scoped/part-04.css";
-@import "./legacy-scoped/part-05.css";
-@import "./legacy-scoped/part-06.css";

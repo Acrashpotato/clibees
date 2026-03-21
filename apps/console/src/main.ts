@@ -1,7 +1,7 @@
 import { createApp } from "vue";
 
-import App from "./App.vue";
 import { router } from "./router";
 import "./styles/index.css";
+import ConsoleProviders from "./ui/naive/ConsoleProviders.vue";
 
-createApp(App).use(router).mount("#app");
+createApp(ConsoleProviders).use(router).mount("#app");

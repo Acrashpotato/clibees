@@ -1,5 +1,18 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, ref } from "vue";
+import {
+  NAlert,
+  NButton,
+  NForm,
+  NFormItem,
+  NInputNumber,
+  NRadio,
+  NRadioGroup,
+  NSelect,
+  NSpace,
+  NSwitch,
+  NTag,
+} from "naive-ui";
 import { RouterLink } from "vue-router";
 
 import {
@@ -9,6 +22,7 @@ import {
   type InspectDefaultRunSource,
   type RunOpenTarget,
 } from "../composables/useConsoleSettings";
+
 const { defaultConsoleSettings, limits, saveConsoleSettings, settings } = useConsoleSettings();
 
 const form = ref<ConsoleSettings>(cloneSettings(settings.value));
@@ -22,24 +36,17 @@ const summaryCards = computed(() => [
   {
     id: "run-default",
     label: "运行默认参数",
-    value: `${form.value.runDefaultCli} · ${
-      form.value.runAutoResume ? "自动启动" : "仅创建"
-    }`,
+    value: `${form.value.runDefaultCli} · ${form.value.runAutoResume ? "自动启动" : "仅创建"}`,
   },
   {
     id: "run-open-target",
     label: "创建后跳转",
-    value:
-      form.value.runOpenTarget === "session"
-        ? "会话详情"
-        : "工作空间总览",
+    value: form.value.runOpenTarget === "session" ? "会话详情" : "工作空间总览",
   },
   {
     id: "run-outside-write-policy",
     label: "允许工作区外写入",
-    value: form.value.runAllowOutsideWorkspaceWrites
-      ? "允许"
-      : "禁止",
+    value: form.value.runAllowOutsideWorkspaceWrites ? "允许" : "禁止",
   },
   {
     id: "approval-filter",
@@ -54,10 +61,7 @@ const summaryCards = computed(() => [
   {
     id: "inspect-run",
     label: "审计默认 run",
-    value:
-      form.value.inspectDefaultRunSource === "remembered"
-        ? "上次查看"
-        : "最新运行",
+    value: form.value.inspectDefaultRunSource === "remembered" ? "上次查看" : "最新运行",
   },
   {
     id: "inspect-refresh",
@@ -71,6 +75,28 @@ const summaryCards = computed(() => [
   },
 ]);
 
+const runCliOptions = [
+  { label: "codex", value: "codex" },
+  { label: "codefree", value: "codefree" },
+  { label: "claude", value: "claude" },
+];
+
+const approvalFilterOptions = computed(() => [
+  { label: approvalFilterLabel("pending"), value: "pending" },
+  { label: approvalFilterLabel("all"), value: "all" },
+  { label: approvalFilterLabel("approved"), value: "approved" },
+  { label: approvalFilterLabel("rejected"), value: "rejected" },
+]);
+
+const runOpenTargetOptions = computed(() => [
+  { label: runOpenTargetLabel("session"), value: "session" },
+  { label: runOpenTargetLabel("workspace"), value: "workspace" },
+]);
+
+const inspectSourceOptions = computed(() => [
+  { label: inspectDefaultRunLabel("remembered"), value: "remembered" },
+  { label: inspectDefaultRunLabel("latest"), value: "latest" },
+]);
 
 function cloneSettings(value: ConsoleSettings): ConsoleSettings {
   return { ...value };
@@ -91,22 +117,10 @@ function normalizeForm(input: ConsoleSettings): ConsoleSettings {
     runAllowOutsideWorkspaceWrites: input.runAllowOutsideWorkspaceWrites,
     runOpenTarget: input.runOpenTarget,
     approvalsDefaultFilter: input.approvalsDefaultFilter,
-    approvalsFetchLimit: clampInt(
-      input.approvalsFetchLimit,
-      limits.approvalLimitMin,
-      limits.approvalLimitMax,
-    ),
-    approvalsAutoRefreshSec: clampInt(
-      input.approvalsAutoRefreshSec,
-      limits.autoRefreshMinSec,
-      limits.autoRefreshMaxSec,
-    ),
+    approvalsFetchLimit: clampInt(input.approvalsFetchLimit, limits.approvalLimitMin, limits.approvalLimitMax),
+    approvalsAutoRefreshSec: clampInt(input.approvalsAutoRefreshSec, limits.autoRefreshMinSec, limits.autoRefreshMaxSec),
     inspectDefaultRunSource: input.inspectDefaultRunSource,
-    inspectAutoRefreshSec: clampInt(
-      input.inspectAutoRefreshSec,
-      limits.autoRefreshMinSec,
-      limits.autoRefreshMaxSec,
-    ),
+    inspectAutoRefreshSec: clampInt(input.inspectAutoRefreshSec, limits.autoRefreshMinSec, limits.autoRefreshMaxSec),
     workspaceAutoRefreshSec: clampInt(
       input.workspaceAutoRefreshSec,
       limits.workspaceRefreshMinSec,
@@ -133,15 +147,43 @@ function approvalFilterLabel(value: ApprovalFilter): string {
 }
 
 function runOpenTargetLabel(value: RunOpenTarget): string {
-  return value === "session"
-    ? "会话详情（减少点击）"
-    : "工作空间总览";
+  return value === "session" ? "会话详情（减少点击）" : "工作空间总览";
 }
 
 function inspectDefaultRunLabel(value: InspectDefaultRunSource): string {
-  return value === "remembered"
-    ? "上次查看的 run"
-    : "最新 run";
+  return value === "remembered" ? "上次查看的 run" : "最新 run";
+}
+
+function updateApprovalsFetchLimit(value: number | null): void {
+  form.value.approvalsFetchLimit = clampInt(
+    Number(value ?? limits.approvalLimitMin),
+    limits.approvalLimitMin,
+    limits.approvalLimitMax,
+  );
+}
+
+function updateApprovalsAutoRefresh(value: number | null): void {
+  form.value.approvalsAutoRefreshSec = clampInt(
+    Number(value ?? limits.autoRefreshMinSec),
+    limits.autoRefreshMinSec,
+    limits.autoRefreshMaxSec,
+  );
+}
+
+function updateInspectAutoRefresh(value: number | null): void {
+  form.value.inspectAutoRefreshSec = clampInt(
+    Number(value ?? limits.autoRefreshMinSec),
+    limits.autoRefreshMinSec,
+    limits.autoRefreshMaxSec,
+  );
+}
+
+function updateWorkspaceAutoRefresh(value: number | null): void {
+  form.value.workspaceAutoRefreshSec = clampInt(
+    Number(value ?? limits.workspaceRefreshMinSec),
+    limits.workspaceRefreshMinSec,
+    limits.workspaceRefreshMaxSec,
+  );
 }
 
 function saveForm() {
@@ -199,7 +241,9 @@ function restoreDefaults() {
           <p class="section-eyebrow">{{ "当前草稿" }}</p>
           <h2>{{ "生效配置快照" }}</h2>
         </div>
-        <span class="panel-chip">{{ hasChanges ? "未保存" : "已同步" }}</span>
+        <n-tag :type="hasChanges ? 'warning' : 'success'" size="small" round>
+          {{ hasChanges ? "未保存" : "已同步" }}
+        </n-tag>
       </div>
       <div class="settings-summary-grid">
         <article v-for="card in summaryCards" :key="card.id" class="summary-card">
@@ -218,41 +262,43 @@ function restoreDefaults() {
           </div>
         </div>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "默认 CLI" }}</span>
-          <select v-model="form.runDefaultCli" class="text-input">
-            <option value="codex">codex</option>
-            <option value="codefree">codefree</option>
-            <option value="claude">claude</option>
-          </select>
-        </label>
+        <n-form class="settings-form" label-placement="top" :show-feedback="false">
+          <n-form-item :label="'默认 CLI'" class="settings-field">
+            <n-select
+              v-model:value="form.runDefaultCli"
+              :options="runCliOptions"
+            />
+          </n-form-item>
 
-        <label class="settings-toggle-row">
-          <input v-model="form.runAutoResume" type="checkbox" />
-          <span>{{ "创建后自动启动 CLI" }}</span>
-        </label>
+          <n-form-item :label="'创建行为'" class="settings-field">
+            <n-space vertical>
+              <n-switch v-model:value="form.runAutoResume">
+                <template #checked>{{ "创建后自动启动 CLI" }}</template>
+                <template #unchecked>{{ "创建后手动启动 CLI" }}</template>
+              </n-switch>
 
-        <label class="settings-toggle-row">
-          <input v-model="form.runAllowOutsideWorkspaceWrites" type="checkbox" />
-          <span>
-            {{
-              "允许新建 run 写入工作区外路径（allowOutsideWorkspaceWrites）"
-            }}
-          </span>
-        </label>
+              <n-switch v-model:value="form.runAllowOutsideWorkspaceWrites">
+                <template #checked>{{ "允许工作区外写入" }}</template>
+                <template #unchecked>{{ "禁止工作区外写入" }}</template>
+              </n-switch>
+            </n-space>
+          </n-form-item>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "创建完成后默认打开" }}</span>
-          <select v-model="form.runOpenTarget" class="text-input">
-            <option value="session">{{ runOpenTargetLabel("session") }}</option>
-            <option value="workspace">{{ runOpenTargetLabel("workspace") }}</option>
-          </select>
-          <span class="form-hint">
-            {{
-              "会影响 Runs 页创建成功后的自动跳转目标。"
-            }}
-          </span>
-        </label>
+          <n-form-item :label="'创建完成后默认打开'" class="settings-field">
+            <n-radio-group v-model:value="form.runOpenTarget">
+              <n-space vertical>
+                <n-radio
+                  v-for="item in runOpenTargetOptions"
+                  :key="item.value"
+                  :value="item.value"
+                >
+                  {{ item.label }}
+                </n-radio>
+              </n-space>
+            </n-radio-group>
+            <p class="form-hint">{{ "会影响 Runs 页创建成功后的自动跳转目标。" }}</p>
+          </n-form-item>
+        </n-form>
       </section>
 
       <section class="panel-card settings-card">
@@ -263,39 +309,34 @@ function restoreDefaults() {
           </div>
         </div>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "默认筛选" }}</span>
-          <select v-model="form.approvalsDefaultFilter" class="text-input">
-            <option value="pending">{{ approvalFilterLabel("pending") }}</option>
-            <option value="all">{{ approvalFilterLabel("all") }}</option>
-            <option value="approved">{{ approvalFilterLabel("approved") }}</option>
-            <option value="rejected">{{ approvalFilterLabel("rejected") }}</option>
-          </select>
-        </label>
+        <n-form class="settings-form" label-placement="top" :show-feedback="false">
+          <n-form-item :label="'默认筛选'" class="settings-field">
+            <n-select
+              v-model:value="form.approvalsDefaultFilter"
+              :options="approvalFilterOptions"
+            />
+          </n-form-item>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "请求条数上限" }}</span>
-          <input
-            v-model.number="form.approvalsFetchLimit"
-            class="text-input"
-            type="number"
-            :min="limits.approvalLimitMin"
-            :max="limits.approvalLimitMax"
-            step="10"
-          />
-        </label>
+          <n-form-item :label="'请求条数上限'" class="settings-field">
+            <n-input-number
+              :value="form.approvalsFetchLimit"
+              :min="limits.approvalLimitMin"
+              :max="limits.approvalLimitMax"
+              :step="10"
+              @update:value="updateApprovalsFetchLimit"
+            />
+          </n-form-item>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "自动刷新（秒，0=关闭）" }}</span>
-          <input
-            v-model.number="form.approvalsAutoRefreshSec"
-            class="text-input"
-            type="number"
-            :min="limits.autoRefreshMinSec"
-            :max="limits.autoRefreshMaxSec"
-            step="5"
-          />
-        </label>
+          <n-form-item :label="'自动刷新（秒，0=关闭）'" class="settings-field">
+            <n-input-number
+              :value="form.approvalsAutoRefreshSec"
+              :min="limits.autoRefreshMinSec"
+              :max="limits.autoRefreshMaxSec"
+              :step="5"
+              @update:value="updateApprovalsAutoRefresh"
+            />
+          </n-form-item>
+        </n-form>
       </section>
 
       <section class="panel-card settings-card">
@@ -306,30 +347,32 @@ function restoreDefaults() {
           </div>
         </div>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "默认 run 选择策略" }}</span>
-          <select v-model="form.inspectDefaultRunSource" class="text-input">
-            <option value="remembered">{{ inspectDefaultRunLabel("remembered") }}</option>
-            <option value="latest">{{ inspectDefaultRunLabel("latest") }}</option>
-          </select>
-          <span class="form-hint">
-            {{
-              "当 URL 未指定 runId 时生效。"
-            }}
-          </span>
-        </label>
+        <n-form class="settings-form" label-placement="top" :show-feedback="false">
+          <n-form-item :label="'默认 run 选择策略'" class="settings-field">
+            <n-radio-group v-model:value="form.inspectDefaultRunSource">
+              <n-space vertical>
+                <n-radio
+                  v-for="item in inspectSourceOptions"
+                  :key="item.value"
+                  :value="item.value"
+                >
+                  {{ item.label }}
+                </n-radio>
+              </n-space>
+            </n-radio-group>
+            <p class="form-hint">{{ "当 URL 未指定 runId 时生效。" }}</p>
+          </n-form-item>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "自动刷新（秒，0=关闭）" }}</span>
-          <input
-            v-model.number="form.inspectAutoRefreshSec"
-            class="text-input"
-            type="number"
-            :min="limits.autoRefreshMinSec"
-            :max="limits.autoRefreshMaxSec"
-            step="5"
-          />
-        </label>
+          <n-form-item :label="'自动刷新（秒，0=关闭）'" class="settings-field">
+            <n-input-number
+              :value="form.inspectAutoRefreshSec"
+              :min="limits.autoRefreshMinSec"
+              :max="limits.autoRefreshMaxSec"
+              :step="5"
+              @update:value="updateInspectAutoRefresh"
+            />
+          </n-form-item>
+        </n-form>
       </section>
 
       <section class="panel-card settings-card">
@@ -340,45 +383,43 @@ function restoreDefaults() {
           </div>
         </div>
 
-        <label class="settings-field">
-          <span class="form-label">{{ "自动刷新间隔（秒）" }}</span>
-          <input
-            v-model.number="form.workspaceAutoRefreshSec"
-            class="text-input"
-            type="number"
-            :min="limits.workspaceRefreshMinSec"
-            :max="limits.workspaceRefreshMaxSec"
-            step="1"
-          />
-          <span class="form-hint">
-            {{
-              "影响 Workspace 页面 projection 轮询间隔。"
-            }}
-          </span>
-        </label>
+        <n-form class="settings-form" label-placement="top" :show-feedback="false">
+          <n-form-item :label="'自动刷新间隔（秒）'" class="settings-field">
+            <n-input-number
+              :value="form.workspaceAutoRefreshSec"
+              :min="limits.workspaceRefreshMinSec"
+              :max="limits.workspaceRefreshMaxSec"
+              :step="1"
+              @update:value="updateWorkspaceAutoRefresh"
+            />
+            <p class="form-hint">{{ "影响 Workspace 页面 projection 轮询间隔。" }}</p>
+          </n-form-item>
+        </n-form>
       </section>
     </div>
 
     <section class="panel-card settings-actions-card">
       <div class="settings-actions">
-        <button class="primary-button" type="button" :disabled="!hasChanges" @click="saveForm">
+        <n-button type="primary" :disabled="!hasChanges" @click="saveForm">
           {{ "保存设置" }}
-        </button>
-        <button class="ghost-button" type="button" :disabled="!hasChanges" @click="resetDraft">
+        </n-button>
+        <n-button quaternary :disabled="!hasChanges" @click="resetDraft">
           {{ "撤销修改" }}
-        </button>
-        <button class="ghost-button" type="button" @click="restoreDefaults">
+        </n-button>
+        <n-button quaternary @click="restoreDefaults">
           {{ "恢复默认" }}
-        </button>
+        </n-button>
       </div>
-      <p class="form-hint settings-feedback">
+      <n-alert
+        class="settings-feedback"
+        :type="flashMessage ? 'success' : 'info'"
+        :show-icon="false"
+      >
         {{
           flashMessage ||
             "修改后点击“保存设置”才会应用到 Runs / Approvals / Inspect / Workspace 页面。"
         }}
-      </p>
+      </n-alert>
     </section>
   </section>
 </template>
-
-

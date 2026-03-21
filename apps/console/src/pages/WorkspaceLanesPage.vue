@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NAlert, NButton, NCard, NEmpty, NTag } from "naive-ui";
 import { RouterLink } from "vue-router";
 
 import { useWorkspaceLanesPage } from "./workspace-lanes/useWorkspaceLanesPage";
@@ -44,6 +45,33 @@ const {
   dependencySummary,
   taskPath,
 } = useWorkspaceLanesPage();
+
+function statusTagType(status: string): "default" | "info" | "success" | "warning" | "error" {
+  switch (status) {
+    case "running":
+      return "info";
+    case "completed":
+      return "success";
+    case "awaiting_approval":
+    case "blocked":
+      return "warning";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+function riskTagType(riskLevel: string): "default" | "warning" | "error" {
+  switch (riskLevel) {
+    case "high":
+      return "error";
+    case "medium":
+      return "warning";
+    default:
+      return "default";
+  }
+}
 </script>
 
 <template>
@@ -60,7 +88,7 @@ const {
       </p>
     </div>
 
-    <section class="status-bar workspace-hero task-board-hero">
+    <n-card class="status-bar workspace-hero task-board-hero" size="small">
       <div class="task-board-hero__top">
         <div>
           <p class="section-eyebrow">{{ "任务图" }}</p>
@@ -77,12 +105,12 @@ const {
         <div class="workspace-hero__meta">
           <span class="flow-pill">{{ "运行" }} {{ projection.runId || runId }}</span>
           <span class="flow-pill">{{ "图版本" }} {{ projection.graphRevision }}</span>
-          <button class="ghost-button" type="button" :disabled="loading" @click="loadProjection(false)">
+          <n-button quaternary size="small" :disabled="loading" @click="loadProjection(false)">
             {{ t("actions.refresh") }}
-          </button>
-          <button class="primary-button" type="button" :disabled="mutating || !runId" @click="handleResume">
+          </n-button>
+          <n-button type="primary" size="small" :disabled="mutating || !runId" @click="handleResume">
             {{ mutating ? t("actions.resuming") : t("actions.resumeRun") }}
-          </button>
+          </n-button>
         </div>
       </div>
 
@@ -120,38 +148,42 @@ const {
           <strong>{{ projection.summary.completedTaskCount }}</strong>
         </article>
       </div>
-    </section>
+    </n-card>
 
-    <div v-if="error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ error }}</p>
-    </div>
+    <n-alert v-if="error" type="error" :show-icon="false">{{ error }}</n-alert>
 
-    <div v-else-if="loading && projection.tasks.length === 0" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ "正在加载执行车道数据。" }}</p>
-    </div>
+    <n-empty
+      v-else-if="loading && projection.tasks.length === 0"
+      class="panel-card__empty-state"
+      :description="'正在加载执行车道数据。'"
+      size="small"
+    />
 
-    <div v-else-if="projection.tasks.length === 0" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ "当前运行暂无可展示的任务图。" }}</p>
-    </div>
+    <n-empty
+      v-else-if="projection.tasks.length === 0"
+      class="panel-card__empty-state"
+      :description="'当前运行暂无可展示的任务图。'"
+      size="small"
+    />
 
     <template v-else>
-      <section class="panel-card task-board-node-rail">
+      <n-card class="panel-card task-board-node-rail" size="small">
         <div class="task-board-node-rail__toolbar">
           <div>
             <p class="section-eyebrow">{{ "切换集合" }}</p>
             <h2>{{ "横向节点卡片" }}</h2>
           </div>
           <div class="task-board-node-rail__controls">
-            <button class="ghost-button" type="button" :disabled="!hasPreviousTask" @click="showPreviousTask">
+            <n-button quaternary size="small" :disabled="!hasPreviousTask" @click="showPreviousTask">
               {{ "上一个" }}
-            </button>
+            </n-button>
             <span class="flow-pill">{{ selectedTaskOrdinal }} / {{ orderedTasks.length }}</span>
-            <button class="ghost-button" type="button" :disabled="!hasNextTask" @click="showNextTask">
+            <n-button quaternary size="small" :disabled="!hasNextTask" @click="showNextTask">
               {{ "下一个" }}
-            </button>
-            <button class="ghost-button" type="button" @click="toggleGraphFullscreen">
+            </n-button>
+            <n-button quaternary size="small" @click="toggleGraphFullscreen">
               {{ graphFullscreen ? "退出全屏" : "全屏展开" }}
-            </button>
+            </n-button>
           </div>
         </div>
         <div class="task-board-link-legend">
@@ -257,8 +289,12 @@ const {
               <h3>{{ selectedTask.title }}</h3>
             </div>
             <div class="lane-panel__badges">
-              <span class="status-pill" :data-status="selectedTask.status">{{ statusLabel(selectedTask.status) }}</span>
-              <span class="risk-pill" :data-risk="selectedTask.riskLevel">{{ riskLabel(selectedTask.riskLevel) }}</span>
+              <n-tag :type="statusTagType(selectedTask.status)" size="small">
+                {{ statusLabel(selectedTask.status) }}
+              </n-tag>
+              <n-tag :type="riskTagType(selectedTask.riskLevel)" size="small">
+                {{ riskLabel(selectedTask.riskLevel) }}
+              </n-tag>
             </div>
           </div>
 
@@ -381,15 +417,15 @@ const {
             </RouterLink>
           </div>
         </article>
-      </section>
+      </n-card>
 
-      <section class="panel-card task-board-edges">
+      <n-card class="panel-card task-board-edges" size="small">
         <div class="panel-card__header">
           <div>
             <p class="section-eyebrow">{{ "依赖边" }}</p>
             <h2>{{ "显式依赖关系" }}</h2>
           </div>
-          <span class="panel-chip">{{ projection.edges.length }}</span>
+          <n-tag size="small" round>{{ projection.edges.length }}</n-tag>
         </div>
 
         <div class="task-board-edge-list">
@@ -406,7 +442,7 @@ const {
             <p class="panel-card__body">{{ dependencySummary(edge) }}</p>
           </article>
         </div>
-      </section>
+      </n-card>
     </template>
   </section>
 </template>

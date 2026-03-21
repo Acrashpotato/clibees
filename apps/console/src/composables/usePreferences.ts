@@ -3,18 +3,18 @@
 import { getRiskLabel, getStatusLabel, getValidationLabel, translate, type Locale } from "../i18n";
 import type { ExecutionStatus, RiskLevel, ValidationSummary } from "../view-models";
 
-type Theme = "dark" | "light";
+export type ThemeMode = "dark" | "light";
 
 const LOCALE_KEY = "clibees.console.locale";
 const THEME_KEY = "clibees.console.theme";
 const FIXED_LOCALE: Locale = "zh-CN";
 
 const locale = ref<Locale>(FIXED_LOCALE);
-const theme = ref<Theme>("light");
+const theme = ref<ThemeMode>("light");
 
 let initialized = false;
 
-function applyTheme(nextTheme: Theme) {
+function applyTheme(nextTheme: ThemeMode) {
   document.documentElement.dataset.theme = nextTheme;
 }
 

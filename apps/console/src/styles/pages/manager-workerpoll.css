@@ -6,11 +6,6 @@
   gap: 10px;
 }
 
-.manager-run-select,
-.workerpoll-run-select {
-  min-width: 320px;
-}
-
 .manager-error {
   margin: 0;
   color: var(--danger);
@@ -140,16 +135,6 @@
   font-size: 0.86rem;
 }
 
-.manager-shortcuts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.manager-shortcuts .ghost-link {
-  width: 100%;
-}
-
 .workerpoll-page {
   display: grid;
   gap: 12px;
@@ -175,13 +160,8 @@
 }
 
 @media (max-width: 760px) {
-  .manager-run-select,
-  .workerpoll-run-select {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .manager-shortcuts {
-    grid-template-columns: 1fr;
+  .manager-toolbar,
+  .workerpoll-toolbar {
+    justify-content: flex-start;
   }
 }

@@ -1,5 +1,8 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
+import { computed } from "vue";
+import { NButton, NCheckbox, NInput, NSelect, NTag } from "naive-ui";
 import { RouterLink, RouterView } from "vue-router";
+
 import ManagerPage from "./ManagerPage.vue";
 import { useRunsPageController } from "./runs/useRunsPageController";
 
@@ -50,6 +53,13 @@ const {
   resetCreateForm,
   createNewRun,
 } = useRunsPageController();
+
+const cliSelectOptions = computed(() =>
+  cliOptions.map((cli) => ({
+    label: cli,
+    value: cli,
+  })),
+);
 </script>
 
 <template>
@@ -59,20 +69,21 @@ const {
     <div class="runs-layout panel-card">
       <aside class="runs-list-pane">
         <div class="runs-list-pane__search">
-          <input
-            v-model="runSearchQuery"
-            class="text-input"
-            type="text"
+          <n-input
+            v-model:value="runSearchQuery"
+            class="runs-list-pane__search-input"
             :placeholder="'搜索任务（runId / 目标）'"
+            clearable
           />
-          <button
-            class="ghost-button runs-list-pane__create-trigger"
-            type="button"
+          <n-button
+            class="runs-list-pane__create-trigger"
+            quaternary
+            size="small"
             :title="'新建任务'"
             @click="toggleCreatePanel"
           >
             {{ "新建" }}
-          </button>
+          </n-button>
         </div>
 
         <div v-if="loading" class="runs-list-pane__state">{{ "加载中..." }}</div>
@@ -104,9 +115,11 @@ const {
             </span>
             <span class="runs-list-item__meta">
               <small>{{ run.updatedAt }}</small>
-              <button
-                class="icon-button runs-list-item__delete"
-                type="button"
+              <n-button
+                class="runs-list-item__delete"
+                quaternary
+                circle
+                size="small"
                 :disabled="deletingRunId === run.runId"
                 :aria-label="'删除该任务及资源'"
                 :title="'删除该任务及资源'"
@@ -128,7 +141,7 @@ const {
                   <path d="M10 11v5" />
                   <path d="M14 11v5" />
                 </svg>
-              </button>
+              </n-button>
             </span>
           </div>
         </div>
@@ -138,35 +151,37 @@ const {
         <article v-if="createExpanded" class="panel-card runs-create-card">
           <header class="runs-create-card__header">
             <h2>{{ "新建任务" }}</h2>
-            <button class="ghost-button" type="button" @click="toggleCreatePanel">
+            <n-button quaternary @click="toggleCreatePanel">
               {{ "关闭" }}
-            </button>
+            </n-button>
           </header>
 
-          <textarea
-            v-model="createGoalInput"
-            class="text-input text-input--textarea"
-            rows="3"
+          <n-input
+            v-model:value="createGoalInput"
+            type="textarea"
+            :autosize="{ minRows: 3, maxRows: 6 }"
             :placeholder="'输入该任务的目标...'"
-          ></textarea>
+          />
 
           <div class="runs-create-card__controls">
             <label class="runs-create-card__field">
               <span class="form-label">CLI</span>
-              <select v-model="selectedCli">
-                <option v-for="cli in cliOptions" :key="cli" :value="cli">{{ cli }}</option>
-              </select>
+              <n-select
+                v-model:value="selectedCli"
+                :options="cliSelectOptions"
+              />
             </label>
             <label class="runs-create-card__checkbox">
-              <input v-model="autoResume" type="checkbox" />
-              <span>{{ "创建后自动启动" }}</span>
+              <n-checkbox v-model:checked="autoResume">
+                {{ "创建后自动启动" }}
+              </n-checkbox>
             </label>
           </div>
 
           <p v-if="createError" class="form-error">{{ createError }}</p>
-          <button class="primary-button" type="button" :disabled="creating" @click="createNewRun">
+          <n-button type="primary" :disabled="creating" @click="createNewRun">
             {{ creating ? "创建中..." : "创建任务" }}
-          </button>
+          </n-button>
         </article>
 
         <template v-else-if="selectedRun">
@@ -182,14 +197,17 @@ const {
             </div>
 
             <div class="runs-detail-header__actions">
-              <span class="status-pill" :data-status="statusTone(selectedRun.status)">{{ selectedRun.status }}</span>
-              <button class="ghost-button" type="button" :disabled="resuming" @click="resumeSelectedRun">
+              <n-tag :type="statusTone(selectedRun.status) === 'failed' ? 'error' : statusTone(selectedRun.status) === 'completed' ? 'success' : statusTone(selectedRun.status) === 'awaiting_approval' ? 'warning' : 'info'">
+                {{ selectedRun.status }}
+              </n-tag>
+              <n-button quaternary :disabled="resuming" @click="resumeSelectedRun">
                 {{ resuming ? "恢复中..." : "恢复任务" }}
-              </button>
-              <button
+              </n-button>
+              <n-button
                 v-if="isSubmenuRoute"
-                class="icon-button runs-detail-header__back"
-                type="button"
+                class="runs-detail-header__back"
+                quaternary
+                circle
                 :aria-label="'返回菜单'"
                 :title="'返回菜单'"
                 @click="backToSubmenuHub"
@@ -206,10 +224,10 @@ const {
                 >
                   <path d="M15 5 8 12l7 7" />
                 </svg>
-              </button>
-              <button v-else class="ghost-button" type="button" @click="copyRunId">
+              </n-button>
+              <n-button v-else quaternary @click="copyRunId">
                 {{ copying ? "已复制" : "复制 ID" }}
-              </button>
+              </n-button>
             </div>
           </header>
 

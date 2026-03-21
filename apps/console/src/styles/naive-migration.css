@@ -1,0 +1,49 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-toolbar--naive {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: 10px 16px;
+  backdrop-filter: blur(8px);
+}
+
+.app-toolbar__naive-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.app-toolbar__context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-toolbar__title {
+  font-size: 16px;
+}
+
+.app-toolbar__icon-text {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.app-shell__content {
+  padding: 16px;
+}
+
+.app-content {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.app-content.app-content--wide {
+  max-width: none;
+}
+

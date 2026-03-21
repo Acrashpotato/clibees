@@ -1,5 +1,14 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NCollapse,
+  NCollapseItem,
+  NEmpty,
+  NTag,
+} from "naive-ui";
 import { useRoute, useRouter } from "vue-router";
 
 import { getAuditTimelineProjection } from "../api";
@@ -54,10 +63,7 @@ const hasProjection = computed(
 const coreSummaryCards = computed(() => [
   ["运行状态", runStatusLabel(projection.value.summary.runStatus)],
   ["审计事件", String(projection.value.summary.totalEventCount)],
-  [
-    "最近事件",
-    projection.value.summary.latestEventAt ?? "未记录",
-  ],
+  ["最近事件", projection.value.summary.latestEventAt ?? "未记录"],
   ["重规划", String(projection.value.summary.replanCount)],
 ]);
 
@@ -121,7 +127,6 @@ const visibleTimelineSummary = computed(() =>
   `已显示 ${visibleTimelineEntries.value.length} / ${projection.value.entries.length} 条事件`,
 );
 
-
 function textOrDash(value?: string): string {
   return value && value.trim().length > 0 ? value : "-";
 }
@@ -130,10 +135,22 @@ function runStatusLabel(status: AuditTimelineProjectionView["summary"]["runStatu
   return formatRunStatusLabel(status);
 }
 
-function runStatusPill(
+function runStatusTagType(
   status: AuditTimelineProjectionView["summary"]["runStatus"],
-): "running" | "awaiting_approval" | "paused" | "completed" | "failed" {
-  return formatRunStatusPill(status);
+): "info" | "warning" | "default" | "success" | "error" {
+  const pill = formatRunStatusPill(status);
+  switch (pill) {
+    case "running":
+      return "info";
+    case "awaiting_approval":
+      return "warning";
+    case "completed":
+      return "success";
+    case "failed":
+      return "error";
+    default:
+      return "default";
+  }
 }
 
 function eventKindLabel(kind: AuditTimelineEntryKind): string {
@@ -226,12 +243,8 @@ function normalizeInspectQuery(): void {
   void router.replace({
     query: {
       ...route.query,
-      ...(normalizeSupport
-        ? { support: defaultSupportTab.value }
-        : {}),
-      ...(normalizeTimeline
-        ? { timeline: String(DEFAULT_TIMELINE_WINDOW) }
-        : {}),
+      ...(normalizeSupport ? { support: defaultSupportTab.value } : {}),
+      ...(normalizeTimeline ? { timeline: String(DEFAULT_TIMELINE_WINDOW) } : {}),
     },
   });
 }
@@ -358,48 +371,32 @@ onBeforeUnmount(() => {
         </p>
       </div>
       <div class="audit-page__header-actions">
-        <button
-          class="icon-button audit-page__refresh"
-          type="button"
+        <n-button
+          quaternary
+          size="small"
           :disabled="loading"
           :aria-label="t('actions.refresh')"
           :title="t('actions.refresh')"
           @click="loadAudit(false)"
         >
-          <svg
-            class="audit-page__refresh-icon"
-            :class="{ 'audit-page__refresh-icon--spinning': loading }"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.8"
-            aria-hidden="true"
-          >
-            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-            <path d="M21 4v6h-6" />
-          </svg>
-        </button>
+          {{ t("actions.refresh") }}
+        </n-button>
       </div>
     </div>
 
-    <div v-if="error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ error }}</p>
-    </div>
+    <n-alert v-if="error" type="error" :show-icon="false">
+      {{ error }}
+    </n-alert>
 
-    <div v-else-if="!hasProjection" class="panel-card__empty-state">
-      <p class="panel-card__body">
-        {{
-          loading
-            ? "正在加载审计时间线。"
-            : "所选运行暂无审计数据。"
-        }}
-      </p>
-    </div>
+    <n-empty
+      v-else-if="!hasProjection"
+      class="panel-card__empty-state"
+      :description="loading ? '正在加载审计时间线。' : '所选运行暂无审计数据。'"
+      size="small"
+    />
 
     <template v-else>
-      <section class="status-bar workspace-hero audit-hero">
+      <n-card class="status-bar workspace-hero audit-hero" size="small">
         <div class="audit-hero__top">
           <div>
             <p class="section-eyebrow">{{ "审计主线" }}</p>
@@ -411,9 +408,9 @@ onBeforeUnmount(() => {
             </p>
           </div>
           <div class="audit-badges">
-            <span class="status-pill" :data-status="runStatusPill(projection.summary.runStatus)">
+            <n-tag :type="runStatusTagType(projection.summary.runStatus)" size="small">
               {{ runStatusLabel(projection.summary.runStatus) }}
-            </span>
+            </n-tag>
             <span class="flow-pill">run {{ projection.runId }}</span>
             <span class="flow-pill">graph {{ projection.graphRevision }}</span>
             <span class="flow-pill">{{ projection.generatedAt || "-" }}</span>
@@ -427,16 +424,17 @@ onBeforeUnmount(() => {
           </article>
         </div>
 
-        <details class="audit-hero__more">
-          <summary>{{ "更多指标" }}</summary>
-          <div class="workspace-summary-grid audit-summary-grid audit-summary-grid--more">
-            <article v-for="card in moreSummaryCards" :key="card[0]" class="summary-card">
-              <span>{{ card[0] }}</span>
-              <strong>{{ card[1] }}</strong>
-            </article>
-          </div>
-        </details>
-      </section>
+        <n-collapse>
+          <n-collapse-item title="更多指标" name="more-metrics">
+            <div class="workspace-summary-grid audit-summary-grid audit-summary-grid--more">
+              <article v-for="card in moreSummaryCards" :key="card[0]" class="summary-card">
+                <span>{{ card[0] }}</span>
+                <strong>{{ card[1] }}</strong>
+              </article>
+            </div>
+          </n-collapse-item>
+        </n-collapse>
+      </n-card>
 
       <InspectTimelineGrid
         :entries="visibleTimelineEntries"
@@ -473,3 +471,4 @@ onBeforeUnmount(() => {
     </template>
   </section>
 </template>
+

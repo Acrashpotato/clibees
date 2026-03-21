@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NAlert } from "naive-ui";
+
 import BlockerQueueCard from "../components/workspace/BlockerQueueCard.vue";
 import FocusTaskCard from "../components/workspace/FocusTaskCard.vue";
 import NextActionCard from "../components/workspace/NextActionCard.vue";
@@ -32,9 +34,9 @@ const {
       <p>{{ t("workspacePage.overviewDescription") }}</p>
     </div>
 
-    <div v-if="error" class="panel-card__empty-state">
-      <p class="panel-card__body">{{ error }}</p>
-    </div>
+    <n-alert v-if="error" type="error" :show-icon="false">
+      {{ error }}
+    </n-alert>
 
     <div class="workspace-overview-grid">
       <RunSnapshotCard
@@ -50,3 +52,4 @@ const {
     </div>
   </section>
 </template>
+
