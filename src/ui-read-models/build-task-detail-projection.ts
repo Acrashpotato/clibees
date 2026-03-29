@@ -1,46 +1,40 @@
 ﻿import type {
-  InspectionApprovalItem,
-  InspectionArtifactItem,
-  InspectionValidationItem,
-  RunEvent,
-  RunInspection,
-  TaskSpec,
-  TaskStatus,
+InspectionApprovalItem,
+InspectionArtifactItem,
+InspectionValidationItem,
+RunEvent,
+RunInspection,
+TaskSpec
 } from "../domain/models.js";
-import type {
-  TaskDetailArtifactItemView,
-  TaskDetailArtifactSummaryView,
-  TaskDetailDependencyItemView,
-  TaskDetailLatestApprovalView,
-  TaskDetailOverviewView,
-  TaskDetailProjectionView,
-  TaskDetailSessionSummaryView,
-  TaskDetailValidationSummaryView,
-  WorkspaceLaneStatus,
-} from "./models.js";
 import { buildEventSummary } from "./event-view-helpers.js";
-import {
-  buildLatestActivity,
-  buildValidationFallbackSummary,
-  clipLine,
-  compareDependencyItems,
-  deriveExpectedArtifactHints,
-  getTaskPriority,
-  groupEventsByTaskId,
-  groupPendingApprovalsByTaskId,
-  inferValidationStateFromTaskStatus,
-  resolveAgentId,
-  resolveApprovalRequestedAt,
-  resolveBackfilledSessionStatus,
-  synthesizeRuntimeContract,
-} from "./task-detail-projection-helpers.js";
+import type {
+TaskDetailArtifactItemView,
+TaskDetailArtifactSummaryView,
+TaskDetailDependencyItemView,
+TaskDetailLatestApprovalView,
+TaskDetailOverviewView,
+TaskDetailProjectionView,
+TaskDetailSessionSummaryView,
+TaskDetailValidationSummaryView
+} from "./models.js";
 import { buildBackfilledSessionWindows } from "./session-backfill.js";
 import {
-  buildTaskOwnerLabel,
-  buildTaskStatusReason,
-  mapTaskStatus,
-  mapValidationState,
-  resolveTaskId,
+buildLatestActivity,
+buildValidationFallbackSummary,
+compareDependencyItems,
+groupEventsByTaskId,
+groupPendingApprovalsByTaskId,
+inferValidationStateFromTaskStatus,
+resolveAgentId,
+resolveApprovalRequestedAt,
+resolveBackfilledSessionStatus,
+synthesizeRuntimeContract
+} from "./task-detail-projection-helpers.js";
+import {
+buildTaskOwnerLabel,
+buildTaskStatusReason,
+mapTaskStatus,
+mapValidationState
 } from "./task-view-helpers.js";
 
 export function buildTaskDetailProjection(

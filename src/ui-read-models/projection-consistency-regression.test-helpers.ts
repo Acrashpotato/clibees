@@ -106,6 +106,7 @@ export function buildInspectionFixture(): {
   const run: RunRecord = {
     schemaVersion: SCHEMA_VERSION,
     runId,
+    name: "Release publication",
     goal: "Ship the release safely.",
     status: "waiting_approval",
     workspacePath: process.cwd().replace(/\\/g, "/"),

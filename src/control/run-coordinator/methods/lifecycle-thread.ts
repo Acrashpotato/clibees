@@ -11,6 +11,7 @@ import type {
   PostThreadMessageInput,
   PostThreadMessageResult,
 } from "../core.js";
+import type { RunCoordinatorMethodThis } from "../internal-types.js";
 import { MAX_MANAGER_COORDINATION_TASKS } from "../core.js";
 import {
   classifyManagerUserMessageIntent,
@@ -25,7 +26,7 @@ import {
 import type { ExecutionRuntime } from "../../../execution/execution-runtime.js";
 
 export async function postThreadMessage(
-  this: any,
+  this: RunCoordinatorMethodThis,
   runId: string,
   threadId: string,
   input: PostThreadMessageInput,
@@ -231,7 +232,7 @@ export async function postThreadMessage(
 const RUN_HEALTH_STALL_THRESHOLD_MS = 90_000;
 
 export async function autoPauseStalledRunIfNeeded(
-  this: any,
+  this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   services: ExecutionServices,
@@ -334,7 +335,7 @@ export async function autoPauseStalledRunIfNeeded(
 }
 
 export function buildManagerRunningStatusReply(
-  this: any,
+  this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   intent: ManagerUserMessageIntent,
@@ -377,7 +378,7 @@ export function buildManagerRunningStatusReply(
 }
 
 export async function readTaskTranscriptHeartbeatAgeMs(
-  this: any,
+  this: RunCoordinatorMethodThis,
   run: RunRecord,
   taskId: string,
 ): Promise<number | null> {
@@ -395,7 +396,7 @@ export async function readTaskTranscriptHeartbeatAgeMs(
 }
 
 export function maxTimestampMs(
-  this: any,
+  this: RunCoordinatorMethodThis,
   values: Array<string | undefined | null>,
 ): number | null {
   let maxValue: number | null = null;

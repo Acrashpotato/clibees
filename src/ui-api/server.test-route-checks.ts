@@ -35,6 +35,7 @@ export async function runCreateAndStaleBuildChecks(options: {
     });
     assert.equal(deleteViaDeleteCreateResponse.status, 201);
     const deleteViaDeleteCreated = await deleteViaDeleteCreateResponse.json() as RunRecord;
+    assert.equal(deleteViaDeleteCreated.name, "Delete route compatibility run");
     const defaultApiConfig = await seedApp.dependencies.configLoader.load();
     assert.equal(
       deleteViaDeleteCreated.metadata.allowOutsideWorkspaceWrites,
@@ -61,17 +62,19 @@ export async function runCreateAndStaleBuildChecks(options: {
       const createResponse = await fetch(`${baseUrl}/api/runs`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          goal: `Create run with ${cli}`,
-          cli,
-          autoResume: false,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: `Run ${cli}`,
+        goal: `Create run with ${cli}`,
+        cli,
+        autoResume: false,
           allowOutsideWorkspaceWrites,
         }),
       });
       assert.equal(createResponse.status, 201);
       const createPayload = await createResponse.json() as RunRecord;
+      assert.equal(createPayload.name, `Run ${cli}`);
       assert.equal(createPayload.status, "ready");
       assert.equal(createPayload.metadata.selectedCli, cli);
       assert.equal(
@@ -81,6 +84,7 @@ export async function runCreateAndStaleBuildChecks(options: {
       createdRunIds.set(cli, createPayload.runId);
 
       const createInspection = await fetchRunInspection(baseUrl, createPayload.runId);
+      assert.equal(createInspection.run.name, `Run ${cli}`);
       assert.equal(createInspection.run.metadata.selectedCli, cli);
       assert.equal(
         createInspection.run.metadata.allowOutsideWorkspaceWrites,
@@ -140,6 +144,7 @@ export async function runCreateAndStaleBuildChecks(options: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        name: "Auto resume run",
         goal: "Create run with autoResume",
         cli: "codex",
         autoResume: true,
@@ -147,6 +152,7 @@ export async function runCreateAndStaleBuildChecks(options: {
     });
     assert.equal(autoResumeResponse.status, 201);
     const autoResumePayload = await autoResumeResponse.json() as RunRecord;
+    assert.equal(autoResumePayload.name, "Auto resume run");
     assert.equal(autoResumePayload.metadata.selectedCli, "codex");
     assert.equal(autoResumePayload.status, "ready");
     await waitForSelectedCliEvents(baseUrl, autoResumePayload.runId, "codex");
@@ -178,6 +184,7 @@ export async function runCreateAndStaleBuildChecks(options: {
     });
     const legacyStoredRun = await seedApp.dependencies.runStore.getRun(legacyRun.runId);
     assert.ok(legacyStoredRun);
+    assert.equal(legacyStoredRun!.name, "Legacy run fallback to codex");
     assert.equal(legacyStoredRun!.metadata.selectedCli, undefined);
 
     const legacyResumeResponse = await fetch(

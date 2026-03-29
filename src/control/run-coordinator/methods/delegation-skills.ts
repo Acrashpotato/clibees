@@ -1,7 +1,6 @@
 import { createId, isoNow } from "../../../shared/runtime.js";
 import type {
   ActionPlan,
-  RunEvent,
   RunGraph,
   RunRecord,
   TaskSpec,
@@ -11,6 +10,7 @@ import type {
   SkillDiscoveryMatch,
 } from "../../skills/types.js";
 import type { DelegatedTaskDraft, ExecutionServices } from "../core.js";
+import type { RunCoordinatorMethodThis } from "../internal-types.js";
 import { readNonEmptyString, shouldUseDelegatedBootstrap } from "../helpers/index.js";
 
 export interface DelegatedSkillBindings {
@@ -21,7 +21,7 @@ export interface DelegatedSkillBindings {
 }
 
 export async function resolveDelegatedSkillBindings(
-  this: any,
+  this: RunCoordinatorMethodThis,
   run: RunRecord,
   drafts: DelegatedTaskDraft[],
   services: ExecutionServices,
@@ -67,7 +67,7 @@ export async function resolveDelegatedSkillBindings(
 }
 
 export async function resolveApprovedMissingSkillIds(
-  this: any,
+  this: RunCoordinatorMethodThis,
   runId: string,
 ): Promise<Set<string>> {
   const events = await this.dependencies.eventStore.list(runId);
@@ -114,7 +114,7 @@ export async function resolveApprovedMissingSkillIds(
 }
 
 export async function requestMissingSkillApproval(
-  this: any,
+  this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   managerTask: TaskSpec,
@@ -215,7 +215,7 @@ export async function requestMissingSkillApproval(
 }
 
 export async function buildAvailableSkillSummary(
-  this: any,
+  this: RunCoordinatorMethodThis,
   run: RunRecord,
   services: ExecutionServices,
 ): Promise<string[]> {

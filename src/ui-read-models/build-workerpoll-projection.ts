@@ -1,5 +1,6 @@
 import type { AgentConfig, AgentProfileConfig } from "../domain/config.js";
 import type { RunInspection, TaskSpec } from "../domain/models.js";
+import { resolveRunName } from "../domain/models.js";
 import type {
   WorkerpollProjectionView,
   WorkerpollTaskMatchStatus,
@@ -32,14 +33,17 @@ export function buildWorkerpollProjection(
         workers,
         workerById,
         workerCapabilities,
+        plannerAgentId,
       }))
     .sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
 
+  const excludedManagerTaskCount = tasks.filter((task) => task.isManagerTask).length;
   return {
     projection: "workerpoll",
     generatedAt: new Date().toISOString(),
     run: {
       runId: inspection.run.runId,
+      name: resolveRunName(inspection.run),
       goal: inspection.run.goal,
       status: mapRunStatus(inspection.run.status),
       ...(plannerAgentId ? { plannerAgentId } : {}),
@@ -50,7 +54,10 @@ export function buildWorkerpollProjection(
       taskCount: tasks.length,
       workerCount: workers.length,
       dynamicWorkerCount: workers.filter((worker) => worker.source === "dynamic").length,
-      uncoveredTaskCount: tasks.filter((task) => task.matchStatus === "capability_gap").length,
+      uncoveredTaskCount: tasks.filter(
+        (task) => task.matchStatus === "capability_gap" && !task.isManagerTask,
+      ).length,
+      excludedManagerTaskCount,
     },
     workers,
     tasks,
@@ -64,6 +71,7 @@ function buildTaskView(
     workers: WorkerpollWorkerView[];
     workerById: Set<string>;
     workerCapabilities: Set<string>;
+    plannerAgentId?: string;
   },
 ): WorkerpollProjectionView["tasks"][number] {
   const requiredCapabilities = dedupeStrings(task.requiredCapabilities);
@@ -83,6 +91,12 @@ function buildTaskView(
     missingCapabilities,
     workerById: context.workerById,
   });
+  const isManagerTask = isManagerTaskForWorkerpoll({
+    kind: task.kind,
+    requiredCapabilities,
+    selectedWorker,
+    plannerAgentId: context.plannerAgentId,
+  });
 
   return {
     taskId: task.id,
@@ -97,6 +111,7 @@ function buildTaskView(
     ...(selectedWorker ? { selectedWorker } : {}),
     dependsOn: [...task.dependsOn],
     matchStatus,
+    isManagerTask,
     lastActivityAt: resolveLastActivityAt(inspection, task.id),
   };
 }
@@ -124,6 +139,24 @@ function resolveTaskMatchStatus(options: {
 function resolveLastActivityAt(inspection: RunInspection, taskId: string): string {
   const scopedEvents = inspection.events.filter((event) => resolveTaskId(event) === taskId);
   return scopedEvents.at(-1)?.timestamp ?? inspection.run.updatedAt;
+}
+
+function isManagerTaskForWorkerpoll(options: {
+  kind: TaskSpec["kind"];
+  requiredCapabilities: string[];
+  selectedWorker?: string;
+  plannerAgentId?: string;
+}): boolean {
+  if (options.kind !== "plan") {
+    return false;
+  }
+  if (!options.requiredCapabilities.includes("planning")) {
+    return false;
+  }
+  if (!options.requiredCapabilities.includes("delegation")) {
+    return false;
+  }
+  return Boolean(options.selectedWorker && options.plannerAgentId && options.selectedWorker === options.plannerAgentId);
 }
 
 function collectWorkers(
@@ -286,4 +319,3 @@ function readStringArray(value: unknown): string[] {
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-

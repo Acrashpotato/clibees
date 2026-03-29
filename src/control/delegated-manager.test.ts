@@ -1,25 +1,19 @@
-import test from "node:test";
-import "./delegated-manager-extra.test.js";
-import "./delegated-manager-skills.test.js";
 import assert from "node:assert/strict";
+import { mkdir,mkdtemp,writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import test from "node:test";
+import { createApp } from "../app/create-app.js";
 import type { MultiAgentConfig } from "../domain/config.js";
 import type {
-  AgentCapability,
-  InvocationPlan,
-  RunEvent,
-  RunInspection,
-  RunRecord,
-  TaskSpec,
+RunInspection,
+RunRecord
 } from "../domain/models.js";
-import { createApp } from "../app/create-app.js";
-import { AdapterRegistry } from "../execution/adapter-registry.js";
-import type { AgentAdapter } from "../execution/agent-adapter.js";
 import { FileEventStore } from "../storage/event-store.js";
+import "./delegated-manager-extra.test.js";
+import "./delegated-manager-skills.test.js";
 
-import { buildExecutionRuntime, createDelegatedConfig, createDelegatedRegistry } from "./delegated-manager.test-helpers.js";
+import { buildExecutionRuntime,createDelegatedConfig,createDelegatedRegistry } from "./delegated-manager.test-helpers.js";
 
 test("delegated manager task appends worker tasks and dispatches to worker agent", async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), "clibees-delegated-manager-"));

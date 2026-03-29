@@ -81,6 +81,7 @@ export interface WorkspaceTaskCardView {
 
 export interface WorkspaceView {
   runId: string;
+  name: string;
   goal: string;
   runStatus: ExecutionStatus;
   stage: string;
@@ -97,6 +98,7 @@ export interface WorkspaceView {
 
 export interface RunSummaryView {
   runId: string;
+  name: string;
   goal: string;
   status: ExecutionStatus;
   stage: string;
@@ -133,6 +135,7 @@ export interface InspectSummaryView {
 export interface InspectView {
   run: {
     runId: string;
+    name?: string;
     goal: string;
     status: string;
     currentTaskId?: string;

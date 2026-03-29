@@ -14,6 +14,7 @@ export type WorkerpollMatchStatus =
 
 export interface WorkerpollRunSummary {
   runId: string;
+  name: string;
   goal: string;
   status: WorkerpollStatus;
   plannerAgentId?: string;
@@ -71,6 +72,7 @@ export function createEmptyWorkerpollProjection(runId = "workerpoll"): Workerpol
     generatedAt: "",
     run: {
       runId,
+      name: "No run selected.",
       goal: "No run selected.",
       status: "paused",
       createdAt: "",

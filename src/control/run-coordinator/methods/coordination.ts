@@ -1,147 +1,45 @@
-import { readdir, stat } from "node:fs/promises";
-import path from "node:path";
 import type {
-  ApprovalDecision,
-  ArtifactRecord,
-  InvocationPlan,
-  MessageThreadRecord,
-  RunEvent,
-  RunGraph,
-  RunInspection,
-  RunRecord,
-  RunRequest,
-  SessionMessageRecord,
-  TaskSpec,
-  TaskSessionRecord,
-  ValidationResult,
+MessageThreadRecord,
+RunGraph,
+RunRecord,
+SessionMessageRecord,
+TaskSessionRecord,
+TaskSpec
 } from "../../../domain/models.js";
 import {
-  SCHEMA_VERSION,
-  assertRunStatusTransition,
+SCHEMA_VERSION
 } from "../../../domain/models.js";
+import { createId,isoNow } from "../../../shared/runtime.js";
 import type {
-  AgentConfig,
-  AgentProfileConfig,
-  MultiAgentConfig,
-} from "../../../domain/config.js";
-import { createDefaultConfig } from "../../../config/default-config.js";
-import { buildRunConfigForSelectedCli } from "../../../config/run-cli-config.js";
-import { ConfiguredCliAdapter } from "../../../adapters/configured-cli-adapter.js";
+ExecutionServices,
+PostThreadMessageInput,
+PostThreadMessageResult
+} from "../core.js";
+import type { RunCoordinatorMethodThis } from "../internal-types.js";
 import {
-  DefaultContextAssembler,
-  type ContextAssembler,
-} from "../../../decision/context-assembler.js";
-import { DefaultValidator, type Validator } from "../../../decision/validator.js";
-import type { Planner } from "../../../decision/planner.js";
-import {
-  RuleBasedRouter,
-  type Router,
-} from "../../../decision/router.js";
-import type { AdapterRegistry } from "../../../execution/adapter-registry.js";
-import { createAdapterRegistry } from "../../../execution/create-adapter-registry.js";
-import {
-  FileApprovalManager,
-  type ApprovalManager,
-} from "../../../execution/approval-manager.js";
-import {
-  ProcessExecutionRuntime,
-  type ExecutionRuntime,
-} from "../../../execution/execution-runtime.js";
-import { SafetyManager } from "../../../execution/safety-manager.js";
-import type { ArtifactStore } from "../../../storage/artifact-store.js";
-import { FileArtifactStore } from "../../../storage/artifact-store.js";
-import type { BlackboardStore } from "../../../storage/blackboard-store.js";
-import { FileBlackboardStore } from "../../../storage/blackboard-store.js";
-import type { EventStore } from "../../../storage/event-store.js";
-import type { ProjectMemoryStore } from "../../../storage/project-memory-store.js";
-import type { RunStore } from "../../../storage/run-store.js";
-import type { SessionStore } from "../../../storage/session-store.js";
-import type { WorkspaceStateStore } from "../../../storage/workspace-state-store.js";
-import { FileWorkspaceStateStore } from "../../../storage/workspace-state-store.js";
-import { createId, isoNow, pathExists, resolvePath } from "../../../shared/runtime.js";
-import { SELECTED_CLI_VALUES, type SelectedCli } from "../../../ui-api/selected-cli.js";
-import { GraphManager } from "../../graph-manager.js";
-import { InspectionAggregator } from "../../inspection-aggregator.js";
-import { MemoryConsolidator } from "../../memory-consolidator.js";
-import { Scheduler } from "../../scheduler.js";
-import type {
-  DelegatedTaskTemplate,
-  ExecutionServices,
-  ManagerCoordinationOutput,
-  PostThreadMessageInput,
-  PostThreadMessageResult,
-  TaskProcessingResult,
+DEFAULT_DELEGATED_TASK_TIMEOUT_MS,
+MANAGER_PRIMARY_SESSION_ID,
+MANAGER_PRIMARY_THREAD_ID,
+MAX_MANAGER_COORDINATION_TASKS
 } from "../core.js";
 import {
-  DEFAULT_DELEGATED_TASK_TIMEOUT_MS,
-  DEFAULT_SELECTED_CLI,
-  DEFAULT_TASK_TIMEOUT_MS,
-  MANAGER_PRIMARY_SESSION_ID,
-  MANAGER_PRIMARY_THREAD_ID,
-  MAX_DELEGATED_TASKS,
-  MAX_MANAGER_COORDINATION_TASKS,
-} from "../core.js";
-import {
-  addDelegatedTaskReference,
-  applyWorkspaceWritePolicyOverride,
-  buildBlackboardProjection,
-  buildDelegatedTaskDraft,
-  buildDelegatedTaskInstructions,
-  buildDelegatedTaskReferenceMap,
-  buildDelegationManagerGoal,
-  buildDelegationTaskTitle,
-  capitalize,
-  captureFileManifest,
-  classifyManagerUserMessageIntent,
-  countActiveManagerCoordinationTasks,
-  dedupeAgentConfigs,
-  dedupeStrings,
-  diffFileManifest,
-  extractStructuredOutputFromPayload,
-  findCommonPathRoot,
-  getActiveDelegationManagerTaskIds,
-  hasCompatibleWorkerForCapabilities,
-  hasMeaningfulGraphPatch,
-  isAgentCompatibleWithCapabilities,
-  isAutoResumableRunStatus,
-  isDelegationManagerTask,
-  isManagerCoordinationTask,
-  isTaskTerminalStatus,
-  isPathInsideRoot,
-  isPlainObject,
-  isSelectedCli,
-  isTerminalRunStatus,
-  mapValidationOutcomeToTaskStatus,
-  mergeDynamicAgentsIntoConfig,
-  normalizeCostTier,
-  normalizeDelegatedTaskReference,
-  normalizeRiskLevel,
-  normalizeTimeoutMs,
-  pickWorkerAgentForCapabilities,
-  readAgentProfiles,
-  readDynamicAgents,
-  type ManagerUserMessageIntent,
-  readNonEmptyString,
-  readOptionalBoolean,
-  readStringArray,
-  resolveDelegatedDependencyTaskIds,
-  resolveDelegatedWorkingDirectory,
-  resolveExpectedArtifactDirectories,
-  resolvePlannerMode,
-  resolveSelectedCli,
-  shouldFallbackToDefaultSelectedCli,
-  shouldKeepDelegatedConfigForSelectedCli,
-  shouldUseDelegatedBootstrap,
-  summarizeApprovalReason,
-  summarizeCommandResult,
-  toCapabilitySlug,
+buildDelegationManagerGoal,
+classifyManagerUserMessageIntent,
+countActiveManagerCoordinationTasks,
+getActiveDelegationManagerTaskIds,
+isDelegationManagerTask,
+isManagerCoordinationTask,
+readNonEmptyString,
+readStringArray,
+shouldUseDelegatedBootstrap,
+type ManagerUserMessageIntent
 } from "../helpers/index.js";
 import {
-  findManagerCoordinationByTriggerMessageId,
-  summarizeNonTerminalTasksForCoordination,
+findManagerCoordinationByTriggerMessageId,
+summarizeNonTerminalTasksForCoordination,
 } from "./coordination-helpers.js";
 
-export async function interactSession(this: any,
+export async function interactSession(this: RunCoordinatorMethodThis,
   runId: string,
   sessionId: string,
   input: PostThreadMessageInput): Promise<PostThreadMessageResult> {
@@ -152,7 +50,7 @@ export async function interactSession(this: any,
     return this.postThreadMessage(runId, session.threadId, input);
   }
 
-export async function ensureManagerSession(this: any,
+export async function ensureManagerSession(this: RunCoordinatorMethodThis,
   runId: string): Promise<{ session: TaskSessionRecord; thread: MessageThreadRecord }> {
     const run = await this.dependencies.runStore.getRun(runId);
     const graph = await this.dependencies.runStore.getGraph(runId);
@@ -162,7 +60,7 @@ export async function ensureManagerSession(this: any,
     return this.ensureDelegatedManagerSession(run, graph);
   }
 
-export async function ensureDelegatedManagerSession(this: any,
+export async function ensureDelegatedManagerSession(this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph): Promise<{ session: TaskSessionRecord; thread: MessageThreadRecord }> {
     const managerAgentId =
@@ -205,7 +103,7 @@ export async function ensureDelegatedManagerSession(this: any,
     };
   }
 
-export function resolveIncomingMessageRole(this: any,
+export function resolveIncomingMessageRole(this: RunCoordinatorMethodThis,
   run: RunRecord,
   session: TaskSessionRecord | null,
   actorId: string): SessionMessageRecord["role"] {
@@ -230,7 +128,7 @@ export function resolveIncomingMessageRole(this: any,
     return "user";
   }
 
-export async function appendThreadMessageWithAudit(this: any,
+export async function appendThreadMessageWithAudit(this: RunCoordinatorMethodThis,
   run: RunRecord,
   services: ExecutionServices,
   input: {
@@ -270,7 +168,7 @@ export async function appendThreadMessageWithAudit(this: any,
     return message;
   }
 
-export async function enqueueManagerCoordinationTask(this: any,
+export async function enqueueManagerCoordinationTask(this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   triggerMessage: SessionMessageRecord,
@@ -359,7 +257,7 @@ export async function enqueueManagerCoordinationTask(this: any,
     return (await this.dependencies.runStore.getGraph(run.runId)) ?? patchedGraph;
   }
 
-export function buildManagerCoordinationTask(this: any,
+export function buildManagerCoordinationTask(this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   triggerMessage: SessionMessageRecord,
@@ -446,7 +344,7 @@ export function buildManagerCoordinationTask(this: any,
     };
   }
 
-export async function reportWorkerCompletionToManager(this: any,
+export async function reportWorkerCompletionToManager(this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   task: TaskSpec,

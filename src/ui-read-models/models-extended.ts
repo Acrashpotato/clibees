@@ -161,6 +161,7 @@ export interface ApprovalQueueProjectionView {
 
 export interface ManagerChatRunSummaryView {
   runId: string;
+  name: string;
   goal: string;
   status: WorkspaceLaneStatus;
   createdAt: string;
@@ -221,6 +222,7 @@ export type WorkerpollTaskMatchStatus =
 
 export interface WorkerpollRunSummaryView {
   runId: string;
+  name: string;
   goal: string;
   status: WorkspaceLaneStatus;
   plannerAgentId?: string;
@@ -233,6 +235,7 @@ export interface WorkerpollSummaryView {
   workerCount: number;
   dynamicWorkerCount: number;
   uncoveredTaskCount: number;
+  excludedManagerTaskCount: number;
 }
 
 export interface WorkerpollWorkerView {
@@ -258,6 +261,7 @@ export interface WorkerpollTaskView {
   selectedWorker?: string;
   dependsOn: string[];
   matchStatus: WorkerpollTaskMatchStatus;
+  isManagerTask: boolean;
   lastActivityAt: string;
 }
 

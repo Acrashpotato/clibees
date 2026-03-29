@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdir,mkdtemp,rm,writeFile } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import type { AddressInfo } from "node:net";
 import { createApp } from "../app/create-app.js";
-import { SCHEMA_VERSION, type RunEvent, type RunRecord } from "../domain/models.js";
-import { SELECTED_CLI_VALUES, type SelectedCli } from "./contracts.js";
+import { SCHEMA_VERSION,type RunEvent } from "../domain/models.js";
+import { SELECTED_CLI_VALUES } from "./contracts.js";
 import { createUiApiServer } from "./server.js";
 import { runCreateAndStaleBuildChecks } from "./server.test-route-checks.js";
 

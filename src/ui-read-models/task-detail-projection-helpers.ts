@@ -1,23 +1,21 @@
 import type {
-  InspectionApprovalItem,
-  InspectionArtifactItem,
-  InspectionValidationItem,
-  RunEvent,
-  RunInspection,
-  TaskSpec,
-  TaskStatus,
+InspectionApprovalItem,
+InspectionArtifactItem,
+InspectionValidationItem,
+RunEvent,
+RunInspection,
+TaskSpec,
+TaskStatus,
 } from "../domain/models.js";
-import type {
-  TaskDetailDependencyItemView,
-  TaskDetailValidationSummaryView,
-  WorkspaceLaneStatus,
-} from "./models.js";
 import { buildEventSummary } from "./event-view-helpers.js";
+import type {
+TaskDetailDependencyItemView,
+TaskDetailValidationSummaryView,
+WorkspaceLaneStatus,
+} from "./models.js";
 import {
-  buildTaskStatusReason,
-  mapTaskStatus,
-  resolveTaskId,
-  resolveTaskAgentId,
+mapTaskStatus,
+resolveTaskId
 } from "./task-view-helpers.js";
 
 interface RuntimeContractSynthesis {

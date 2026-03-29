@@ -1,315 +1,166 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { NButton, NCheckbox, NInput, NSelect, NTabPane, NTabs, NTag } from "naive-ui";
 import { RouterView } from "vue-router";
 
-import { useChunkedRender } from "../composables/useChunkedRender";
-import ManagerPage from "./ManagerPage.vue";
+import CreateRunDialog from "./runs/CreateRunDialog.vue";
+import LargeCreateRunEmptyState from "./runs/LargeCreateRunEmptyState.vue";
+import RunOverviewHero from "./runs/RunOverviewHero.vue";
 import { useRunsPageController } from "./runs/useRunsPageController";
+
+type RunsSubmenuTab = "manager" | "workerpoll" | "workspace" | "tasks" | "approvals" | "inspect";
 
 const {
   route,
   router,
-  runs,
-  selectedRunId,
-  runSearchQuery,
+  filteredRuns,
+  selectedRun,
   loading,
   error,
-  resuming,
-  deletingRunId,
-  copying,
   createExpanded,
-  creating,
-  createError,
+  createNameInput,
   createGoalInput,
   selectedCli,
   autoResume,
+  creating,
+  createError,
   cliOptions,
-  isRunsNewRoute,
-  routeParamRunId,
-  routeQueryRunId,
-  scopedRouteRunId,
-  submenuLeafByName,
   activeSubmenuLeaf,
-  isSubmenuRoute,
-  filteredRuns,
-  selectedRun,
   buildRunSubmenuPath,
-  selectRun,
-  employeeInitial,
   statusTone,
-  loadRuns,
+  resuming,
+  copying,
   resumeSelectedRun,
   copyRunId,
-  deleteTaskResources,
   toggleCreatePanel,
   createNewRun,
 } = useRunsPageController();
 
-type RunsSubmenuTab = "manager" | "workerpoll" | "workspace" | "tasks" | "approvals" | "inspect";
+function updateCreateExpanded(value: boolean): void {
+  if (!value && route.name === "runs-new") {
+    void router.replace({
+      name: "runs",
+      query: route.query,
+    });
+    return;
+  }
+  createExpanded.value = value;
+}
 
-const runSubmenuTabs = [
-  {
-    name: "manager" as const,
-    label: "总管",
-  },
-  {
-    name: "workerpoll" as const,
-    label: "工位池",
-  },
-  {
-    name: "workspace" as const,
-    label: "工作台",
-  },
-  {
-    name: "tasks" as const,
-    label: "执行车道",
-  },
-  {
-    name: "approvals" as const,
-    label: "审批",
-  },
-  {
-    name: "inspect" as const,
-    label: "审计",
-  },
-] satisfies ReadonlyArray<{
-  name: RunsSubmenuTab;
-  label: string;
-}>;
+function updateCreateNameInput(value: string): void {
+  createNameInput.value = value;
+}
 
-const cliSelectOptions = computed(() =>
-  cliOptions.map((cli) => ({
-    label: cli,
-    value: cli,
-  })),
-);
+function updateCreateGoalInput(value: string): void {
+  createGoalInput.value = value;
+}
 
-const activeRunsSubmenuTab = computed<RunsSubmenuTab>(() => activeSubmenuLeaf.value ?? "manager");
-const {
-  visibleItems: visibleRuns,
-  hasMore: hasMoreRuns,
-  loadMore: loadMoreRuns,
-} = useChunkedRender(filteredRuns, { initialSize: 30, step: 30 });
+function updateSelectedCli(value: string): void {
+  selectedCli.value = value as typeof selectedCli.value;
+}
 
-function switchRunSubmenu(nextTab: string): void {
+function updateAutoResume(value: boolean): void {
+  autoResume.value = value;
+}
+
+async function openRunSection(leaf: RunsSubmenuTab): Promise<void> {
   if (!selectedRun.value) {
     return;
   }
 
-  const nextLeaf = runSubmenuTabs.find((tab) => tab.name === nextTab)?.name;
-  if (!nextLeaf) {
-    return;
-  }
-
-  const nextPath = buildRunSubmenuPath(selectedRun.value.runId, nextLeaf);
+  const nextPath = buildRunSubmenuPath(selectedRun.value.runId, leaf);
   if (route.fullPath === nextPath) {
     return;
   }
 
-  void router.push(nextPath);
+  await router.push(nextPath);
 }
 
-function runStatusTagType(status: ReturnType<typeof statusTone>): "info" | "warning" | "success" | "error" | "default" {
-  switch (status) {
-    case "running":
-      return "info";
-    case "awaiting_approval":
-      return "warning";
-    case "completed":
-      return "success";
-    case "failed":
-      return "error";
-    default:
-      return "default";
-  }
+async function openManager(): Promise<void> {
+  await openRunSection("manager");
 }
 </script>
 
 <template>
-  <section class="workspace-page-stack runs-page">
-    <p v-if="error" class="form-error">{{ error }}</p>
+  <section class="run-center-page workspace-page-stack">
+    <CreateRunDialog
+      :model-value="createExpanded"
+      :create-name-input="createNameInput"
+      :create-goal-input="createGoalInput"
+      :selected-cli="selectedCli"
+      :auto-resume="autoResume"
+      :creating="creating"
+      :create-error="createError"
+      :cli-options="cliOptions"
+      @update:model-value="updateCreateExpanded"
+      @update:create-name-input="updateCreateNameInput"
+      @update:create-goal-input="updateCreateGoalInput"
+      @update:selected-cli="updateSelectedCli"
+      @update:auto-resume="updateAutoResume"
+      @submit="createNewRun"
+    />
 
-    <div class="runs-layout panel-card">
-      <aside class="runs-list-pane">
-        <div class="runs-list-pane__search">
-          <n-input
-            v-model:value="runSearchQuery"
-            class="runs-list-pane__search-input"
-            :placeholder="'搜索任务（runId / 目标）'"
-            clearable
-          />
-          <n-button
-            class="runs-list-pane__create-trigger"
-            quaternary
-            size="small"
-            :title="'新建任务'"
-            @click="toggleCreatePanel"
-          >
-            {{ "新建" }}
-          </n-button>
-        </div>
-
-        <div v-if="loading" class="runs-list-pane__state">{{ "加载中..." }}</div>
-        <div v-else-if="filteredRuns.length === 0" class="runs-list-pane__state">
-          {{ "没有匹配的任务。" }}
-        </div>
-
-        <div v-else class="runs-list">
-          <div
-            v-for="run in visibleRuns"
-            :key="run.runId"
-            class="runs-list-item"
-            role="button"
-            tabindex="0"
-            :data-active="selectedRun?.runId === run.runId"
-            @click="selectRun(run.runId)"
-            @keydown.enter.prevent="selectRun(run.runId)"
-            @keydown.space.prevent="selectRun(run.runId)"
-          >
-            <span class="runs-list-item__identity">
-              <span class="runs-list-item__avatar" :data-status="statusTone(run.status)">
-                {{ employeeInitial(run) }}
-              </span>
-              <i class="runs-list-item__status-dot" :data-status="statusTone(run.status)"></i>
-            </span>
-            <span class="runs-list-item__main">
-              <strong>{{ run.goal }}</strong>
-              <span>{{ run.summary }}</span>
-            </span>
-            <span class="runs-list-item__meta">
-              <small>{{ run.updatedAt }}</small>
-              <n-button
-                class="runs-list-item__delete"
-                quaternary
-                circle
-                size="small"
-                :disabled="deletingRunId === run.runId"
-                :aria-label="'删除该任务及资源'"
-                :title="'删除该任务及资源'"
-                @click.stop="deleteTaskResources(run)"
-              >
-                <svg
-                  class="runs-list-item__delete-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="1.8"
-                  aria-hidden="true"
-                >
-                  <path d="M4 7h16" />
-                  <path d="M9 7V5.6c0-.9.7-1.6 1.6-1.6h2.8c.9 0 1.6.7 1.6 1.6V7" />
-                  <path d="M7.4 7l.8 11.4c.1.9.8 1.6 1.7 1.6h4.2c.9 0 1.6-.7 1.7-1.6L16.6 7" />
-                  <path d="M10 11v5" />
-                  <path d="M14 11v5" />
-                </svg>
-              </n-button>
-            </span>
-          </div>
-          <n-button
-            v-if="hasMoreRuns"
-            class="runs-list__load-more"
-            quaternary
-            size="small"
-            @click="loadMoreRuns"
-          >
-            {{ "加载更多任务" }}
-          </n-button>
-        </div>
-      </aside>
-
-      <main class="runs-detail-pane" :class="{ 'runs-detail-pane--submenu': !createExpanded && Boolean(selectedRun) }">
-        <article v-if="createExpanded" class="panel-card runs-create-card">
-          <header class="runs-create-card__header">
-            <h2>{{ "新建任务" }}</h2>
-            <n-button quaternary @click="toggleCreatePanel">
-              {{ "关闭" }}
-            </n-button>
-          </header>
-
-          <n-input
-            v-model:value="createGoalInput"
-            type="textarea"
-            :autosize="{ minRows: 3, maxRows: 6 }"
-            :placeholder="'输入该任务的目标...'"
-          />
-
-          <div class="runs-create-card__controls">
-            <label class="runs-create-card__field">
-              <span class="form-label">CLI</span>
-              <n-select
-                v-model:value="selectedCli"
-                :options="cliSelectOptions"
-              />
-            </label>
-            <label class="runs-create-card__checkbox">
-              <n-checkbox v-model:checked="autoResume">
-                {{ "创建后自动启动" }}
-              </n-checkbox>
-            </label>
-          </div>
-
-          <p v-if="createError" class="form-error">{{ createError }}</p>
-          <n-button type="primary" :disabled="creating" @click="createNewRun">
-            {{ creating ? "创建中..." : "创建任务" }}
-          </n-button>
-        </article>
-
-        <template v-else-if="selectedRun">
-          <header class="runs-detail-header">
-            <div class="runs-detail-header__identity">
-              <span class="runs-detail-header__avatar" :data-status="statusTone(selectedRun.status)">
-                {{ employeeInitial(selectedRun) }}
-              </span>
-              <div>
-                <h2>{{ selectedRun.goal }}</h2>
-                <p>{{ selectedRun.runId }} · {{ selectedRun.stage }}</p>
-              </div>
-            </div>
-
-            <div class="runs-detail-header__actions">
-              <n-tag :type="runStatusTagType(statusTone(selectedRun.status))">
-                {{ selectedRun.status }}
-              </n-tag>
-              <n-button quaternary :disabled="resuming" @click="resumeSelectedRun">
-                {{ resuming ? "恢复中..." : "恢复任务" }}
-              </n-button>
-              <n-button quaternary @click="copyRunId">
-                {{ copying ? "已复制" : "复制 ID" }}
-              </n-button>
-            </div>
-          </header>
-
-          <nav class="runs-submenu-bar" :aria-label="'运行二级入口'">
-            <n-tabs
-              class="runs-submenu-tabs"
-              type="segment"
-              animated
-              :value="activeRunsSubmenuTab"
-              :default-value="'manager'"
-              @update:value="switchRunSubmenu"
-            >
-              <n-tab-pane
-                v-for="tab in runSubmenuTabs"
-                :key="tab.name"
-                :name="tab.name"
-                :tab="tab.label"
-              />
-            </n-tabs>
-          </nav>
-
-          <section class="runs-submenu-shell">
-            <RouterView v-if="isSubmenuRoute" />
-            <ManagerPage v-else :run-id-override="selectedRun.runId" />
-          </section>
-        </template>
-
-        <div v-else class="panel-card__empty-state">
-          <p class="panel-card__body">{{ "请先在左侧选择一个任务查看详情。" }}</p>
-        </div>
-      </main>
+    <div v-if="error" class="n-alert-bridge n-alert-bridge--error">
+      <div class="n-alert-bridge__content">{{ error }}</div>
     </div>
+
+    <LargeCreateRunEmptyState
+      v-if="!loading && filteredRuns.length === 0"
+      @create="toggleCreatePanel"
+    />
+
+    <template v-else-if="selectedRun">
+      <RunOverviewHero
+        :run="selectedRun"
+        :copying="copying"
+        :resuming="resuming"
+        :status-tone="statusTone"
+        @resume="resumeSelectedRun"
+        @copy="copyRunId"
+      />
+
+      <section v-if="!activeSubmenuLeaf" class="run-center-home panel-card">
+        <div class="panel-card__header">
+          <div>
+            <p class="section-eyebrow">任务概览</p>
+            <h2>{{ selectedRun.name }}</h2>
+          </div>
+          <div class="run-center-home__actions">
+            <button class="ghost-link" type="button" @click="toggleCreatePanel">新建任务</button>
+            <button class="primary-link" type="button" @click="openManager">进入总管</button>
+          </div>
+        </div>
+
+        <p class="panel-card__body">{{ selectedRun.goal }}</p>
+        <div class="run-overview-hero__meta">
+          <article class="summary-card">
+            <span>当前状态</span>
+            <strong>{{ selectedRun.stage }}</strong>
+          </article>
+          <article class="summary-card">
+            <span>活跃任务</span>
+            <strong>{{ selectedRun.activeTaskCount }}</strong>
+          </article>
+          <article class="summary-card">
+            <span>待审批</span>
+            <strong>{{ selectedRun.pendingApprovalCount }}</strong>
+          </article>
+        </div>
+        <p class="panel-card__body">左侧树是唯一主导航。点击任务名称会默认进入总管，展开后可继续切换工位池、工作台、执行车道、审批与审计。</p>
+      </section>
+
+      <section v-else class="run-section-content">
+        <RouterView />
+      </section>
+    </template>
+
+    <section v-else class="run-center-home panel-card">
+      <div class="panel-card__header">
+        <div>
+          <p class="section-eyebrow">运行中心</p>
+          <h2>从左侧选择一个任务，或直接新建</h2>
+        </div>
+        <button class="primary-link" type="button" @click="toggleCreatePanel">新建任务</button>
+      </div>
+      <p class="panel-card__body">运行中心已经切换为树形导航。任务创建后会在左侧自动展开出总管、工位池、工作台、执行车道、审批、审计六个三级菜单。</p>
+    </section>
   </section>
 </template>

@@ -101,6 +101,7 @@ export interface UiApiActionRouteDefinition {
 }
 
 export interface CreateRunRequest {
+  name?: string;
   goal: string;
   cli: SelectedCli;
   allowOutsideWorkspaceWrites?: boolean;

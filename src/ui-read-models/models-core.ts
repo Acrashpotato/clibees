@@ -65,6 +65,7 @@ export interface LaneView {
 
 export interface WorkspaceView {
   runId: string;
+  name: string;
   goal: string;
   runStatus: WorkspaceLaneStatus;
   stage: string;
@@ -83,6 +84,7 @@ export type RunListSessionCountMode = "task_sessions" | "task_status_backfill";
 
 export interface RunListItemView {
   runId: string;
+  name: string;
   goal: string;
   status: WorkspaceLaneStatus;
   stage: string;
@@ -117,6 +119,7 @@ export type WorkspaceControlActionId =
 
 export interface WorkspaceRunSummaryView {
   runId: string;
+  name: string;
   goal: string;
   status: WorkspaceLaneStatus;
   stage: string;

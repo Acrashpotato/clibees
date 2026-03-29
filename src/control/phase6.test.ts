@@ -1,29 +1,28 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdir,mkdtemp,writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
-import type { AgentConfig, MultiAgentConfig } from "../domain/config.js";
+import test from "node:test";
+import { createApp } from "../app/create-app.js";
+import { DefaultContextAssembler } from "../decision/context-assembler.js";
+import { RuleBasedRouter } from "../decision/router.js";
+import type { AgentConfig,MultiAgentConfig } from "../domain/config.js";
 import type {
-  AgentCapability,
-  ContextBundle,
-  InvocationPlan,
-  RunInspection,
-  RunRecord,
-  RunEvent,
-  RunGraph,
-  TaskSpec,
+AgentCapability,
+InvocationPlan,
+RunEvent,
+RunGraph,
+RunInspection,
+RunRecord,
+TaskSpec
 } from "../domain/models.js";
 import { AdapterRegistry } from "../execution/adapter-registry.js";
 import type { AgentAdapter } from "../execution/agent-adapter.js";
-import { RuleBasedRouter } from "../decision/router.js";
-import { DefaultContextAssembler } from "../decision/context-assembler.js";
-import { FileBlackboardStore } from "../storage/blackboard-store.js";
 import { FileArtifactStore } from "../storage/artifact-store.js";
+import { FileBlackboardStore } from "../storage/blackboard-store.js";
 import { FileEventStore } from "../storage/event-store.js";
-import { FileWorkspaceStateStore } from "../storage/workspace-state-store.js";
 import { FileProjectMemoryStore } from "../storage/project-memory-store.js";
-import { createApp } from "../app/create-app.js";
+import { FileWorkspaceStateStore } from "../storage/workspace-state-store.js";
 
 function buildTask(overrides: Partial<TaskSpec> = {}): TaskSpec {
   return {

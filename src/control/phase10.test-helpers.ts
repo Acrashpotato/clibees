@@ -1,25 +1,19 @@
+import { mkdir,mkdtemp,writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createApp } from "../app/create-app.js";
+import type { Planner,PlannerInput,ReplanInput } from "../decision/planner.js";
+import type { ValidationInput,Validator } from "../decision/validator.js";
 import type { MultiAgentConfig } from "../domain/config.js";
 import type {
-  ActionPlan,
-  AgentCapability,
-  ContextBundle,
-  InvocationPlan,
-  MemoryRecord,
-  RunEvent,
-  RunGraph,
-  RunInspection,
-  RunRecord,
-  TaskSpec,
-  ValidationResult,
+ActionPlan,
+AgentCapability,
+ContextBundle,
+InvocationPlan,
+RunEvent,
+TaskSpec,
+ValidationResult
 } from "../domain/models.js";
-import type { Planner, PlannerInput, ReplanInput } from "../decision/planner.js";
-import type { ValidationInput, Validator } from "../decision/validator.js";
-import { createApp } from "../app/create-app.js";
-import { ConfiguredCliAdapter } from "../adapters/configured-cli-adapter.js";
-import { MemoryConsolidator } from "./memory-consolidator.js";
 import { AdapterRegistry } from "../execution/adapter-registry.js";
 import type { AgentAdapter } from "../execution/agent-adapter.js";
 import { FileEventStore } from "../storage/event-store.js";

@@ -1,6 +1,6 @@
-﻿import test from "node:test";
-import assert from "node:assert/strict";
-import type { RunEvent, RunGraph, RunInspection, RunRecord, TaskSpec } from "../domain/models.js";
+﻿import assert from "node:assert/strict";
+import test from "node:test";
+import type { RunEvent,RunGraph,RunInspection,RunRecord } from "../domain/models.js";
 import { SCHEMA_VERSION } from "../domain/models.js";
 import { buildApprovalQueueProjection } from "./build-approval-queue-projection.js";
 import { buildAuditTimelineProjection } from "./build-audit-timeline-projection.js";
@@ -10,7 +10,7 @@ import { buildTaskBoardProjection } from "./build-task-board-projection.js";
 import { buildTaskDetailProjection } from "./build-task-detail-projection.js";
 import { buildWorkspaceProjection } from "./build-workspace-projection.js";
 
-import { buildEvent, buildInspectionFixture, buildTask } from "./projection-consistency-regression.test-helpers.js";
+import { buildEvent,buildInspectionFixture,buildTask } from "./projection-consistency-regression.test-helpers.js";
 
 test("projection builders keep task, session, approval, artifact, validation, timeline, and message facts aligned", () => {
   const fixture = buildInspectionFixture();

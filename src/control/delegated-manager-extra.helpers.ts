@@ -1,6 +1,6 @@
-import type { RunRecord, TaskSpec } from "../domain/models.js";
-import { FileEventStore } from "../storage/event-store.js";
 import { createApp } from "../app/create-app.js";
+import type { TaskSpec } from "../domain/models.js";
+import { FileEventStore } from "../storage/event-store.js";
 
 export function buildWorkerTask(
   workspaceDir: string,

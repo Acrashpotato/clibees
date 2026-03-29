@@ -8,6 +8,7 @@ import type {
 
 export interface WorkspaceOverviewRunSnapshot {
   runId: string;
+  name: string;
   goal: string;
   stage: string;
   status: WorkspaceProjectionStatus;
@@ -165,7 +166,7 @@ export function selectWorkspaceOverviewViewModel(
     : projection.run.canResume
       ? {
           kind: "resume" as const,
-          title: projection.run.goal,
+          title: projection.run.name,
           summary: projection.run.stage,
         }
       : focusTask
@@ -181,6 +182,7 @@ export function selectWorkspaceOverviewViewModel(
   return {
     run: {
       runId: projection.run.runId,
+      name: projection.run.name,
       goal: projection.run.goal,
       stage: projection.run.stage,
       status: projection.run.status,

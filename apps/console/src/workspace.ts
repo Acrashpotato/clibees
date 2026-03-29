@@ -107,6 +107,7 @@ export function getWorkspaceCounts(workspace: WorkspaceView) {
 export function createEmptyWorkspace(runId = "workspace"): WorkspaceView {
   return {
     runId,
+    name: "No run selected.",
     goal: "No run selected.",
     runStatus: "paused",
     stage: "Open a run from the Runs page or create a new one.",

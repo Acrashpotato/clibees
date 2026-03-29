@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
 import {
-  NAlert,
-  NButton,
-  NForm,
-  NFormItem,
-  NInputNumber,
-  NRadio,
-  NRadioGroup,
-  NSelect,
-  NSpace,
-  NSwitch,
-  NTabPane,
-  NTabs,
-  NTag,
-} from "naive-ui";
-import { RouterLink, useRoute, useRouter } from "vue-router";
+  ElForm,
+  ElFormItem,
+  ElInputNumber,
+  ElOption,
+  ElRadio,
+  ElRadioGroup,
+  ElSelect,
+  ElSwitch,
+} from "element-plus";
+import { computed, nextTick, ref, shallowRef, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 import {
   useConsoleSettings,
@@ -24,81 +19,44 @@ import {
   type InspectDefaultRunSource,
   type RunOpenTarget,
 } from "../composables/useConsoleSettings";
-
-type SettingsSection = "run" | "approvals" | "inspect" | "workspace";
+import MultiAgentSettingsSection from "./settings/MultiAgentSettingsSection.vue";
+import SettingsShell from "./settings/SettingsShell.vue";
+import {
+  getSettingsSectionIdFromRouteName,
+  getSettingsSectionMeta,
+  getSettingsSectionPath,
+  settingsSections,
+  type SettingsSectionId,
+} from "./settings/settings-sections";
+import { useSettingsSectionNavigation } from "./settings/useSettingsSectionNavigation";
 
 const route = useRoute();
 const router = useRouter();
-const { defaultConsoleSettings, limits, saveConsoleSettings, settings } = useConsoleSettings();
+const { limits, saveConsoleSettings, settings } = useConsoleSettings();
+
+const runSectionMeta = getSettingsSectionMeta("run");
+const approvalsSectionMeta = getSettingsSectionMeta("approvals");
+const inspectSectionMeta = getSettingsSectionMeta("inspect");
+const workspaceSectionMeta = getSettingsSectionMeta("workspace");
+const orderedSectionIds = settingsSections.map((section) => section.id);
 
 const form = ref<ConsoleSettings>(cloneSettings(settings.value));
-const flashMessage = ref("");
+const pendingScrollBehavior = shallowRef<ScrollBehavior>("auto");
+const syncingForm = shallowRef(false);
 
-const sectionTabs = [
-  { id: "run" as const, label: "运行" },
-  { id: "approvals" as const, label: "审批" },
-  { id: "inspect" as const, label: "审计" },
-  { id: "workspace" as const, label: "Workspace" },
-] satisfies ReadonlyArray<{ id: SettingsSection; label: string }>;
-
-const routeNameToSection: Partial<Record<string, SettingsSection>> = {
-  "settings-run": "run",
-  "settings-approvals": "approvals",
-  "settings-inspect": "inspect",
-  "settings-workspace": "workspace",
-};
-
-const activeSection = computed<SettingsSection>(() => {
+const activeRouteSection = computed<SettingsSectionId>(() => {
   const routeName = typeof route.name === "string" ? route.name : "";
-  return routeNameToSection[routeName] ?? "run";
+  return getSettingsSectionIdFromRouteName(routeName);
 });
 
-const hasChanges = computed(
-  () => JSON.stringify(form.value) !== JSON.stringify(settings.value),
-);
+const {
+  currentSection,
+  scrollToSection,
+  setSectionElement,
+} = useSettingsSectionNavigation(orderedSectionIds);
 
-const summaryCards = computed(() => [
-  {
-    id: "run-default",
-    label: "运行默认参数",
-    value: `${form.value.runDefaultCli} · ${form.value.runAutoResume ? "自动启动" : "仅创建"}`,
-  },
-  {
-    id: "run-open-target",
-    label: "创建后跳转",
-    value: form.value.runOpenTarget === "session" ? "会话详情" : "工作空间总览",
-  },
-  {
-    id: "run-outside-write-policy",
-    label: "允许工作区外写入",
-    value: form.value.runAllowOutsideWorkspaceWrites ? "允许" : "禁止",
-  },
-  {
-    id: "approval-filter",
-    label: "审批默认筛选",
-    value: approvalFilterLabel(form.value.approvalsDefaultFilter),
-  },
-  {
-    id: "approval-refresh",
-    label: "审批自动刷新",
-    value: autoRefreshLabel(form.value.approvalsAutoRefreshSec),
-  },
-  {
-    id: "inspect-run",
-    label: "审计默认 run",
-    value: form.value.inspectDefaultRunSource === "remembered" ? "上次查看" : "最新运行",
-  },
-  {
-    id: "inspect-refresh",
-    label: "审计自动刷新",
-    value: autoRefreshLabel(form.value.inspectAutoRefreshSec),
-  },
-  {
-    id: "workspace-refresh",
-    label: "Workspace 轮询",
-    value: `${form.value.workspaceAutoRefreshSec}s`,
-  },
-]);
+const activeSection = computed<SettingsSectionId>(() => currentSection.value ?? activeRouteSection.value);
+const normalizedForm = computed<ConsoleSettings>(() => normalizeForm(form.value));
 
 const cliSelectOptions = [
   { label: "codex", value: "codex" },
@@ -154,10 +112,6 @@ function normalizeForm(input: ConsoleSettings): ConsoleSettings {
   };
 }
 
-function autoRefreshLabel(seconds: number): string {
-  return seconds > 0 ? `${seconds}s` : "关闭";
-}
-
 function approvalFilterLabel(value: ApprovalFilter): string {
   switch (value) {
     case "all":
@@ -179,290 +133,232 @@ function inspectDefaultRunLabel(value: InspectDefaultRunSource): string {
   return value === "remembered" ? "上次查看的 run" : "最新 run";
 }
 
-function updateApprovalsFetchLimit(value: number | null): void {
-  form.value.approvalsFetchLimit = clampInt(
-    Number(value ?? limits.approvalLimitMin),
-    limits.approvalLimitMin,
-    limits.approvalLimitMax,
-  );
+function scheduleScroll(sectionId: SettingsSectionId, behavior: ScrollBehavior): void {
+  void nextTick(() => {
+    const runScroll = () => {
+      scrollToSection(sectionId, behavior);
+    };
+
+    if (typeof window === "undefined") {
+      runScroll();
+      return;
+    }
+
+    window.requestAnimationFrame(runScroll);
+  });
 }
 
-function updateApprovalsAutoRefresh(value: number | null): void {
-  form.value.approvalsAutoRefreshSec = clampInt(
-    Number(value ?? limits.autoRefreshMinSec),
-    limits.autoRefreshMinSec,
-    limits.autoRefreshMaxSec,
-  );
-}
-
-function updateInspectAutoRefresh(value: number | null): void {
-  form.value.inspectAutoRefreshSec = clampInt(
-    Number(value ?? limits.autoRefreshMinSec),
-    limits.autoRefreshMinSec,
-    limits.autoRefreshMaxSec,
-  );
-}
-
-function updateWorkspaceAutoRefresh(value: number | null): void {
-  form.value.workspaceAutoRefreshSec = clampInt(
-    Number(value ?? limits.workspaceRefreshMinSec),
-    limits.workspaceRefreshMinSec,
-    limits.workspaceRefreshMaxSec,
-  );
-}
-
-function saveForm() {
-  const normalized = normalizeForm(form.value);
-  saveConsoleSettings(normalized);
-  form.value = cloneSettings(settings.value);
-  flashMessage.value = "设置已保存，所有关联页面会按新参数生效。";
-}
-
-function resetDraft() {
-  form.value = cloneSettings(settings.value);
-  flashMessage.value = "已恢复到当前保存值。";
-}
-
-function restoreDefaults() {
-  form.value = cloneSettings(defaultConsoleSettings);
-  flashMessage.value = "已加载默认值，点击保存后才会生效。";
-}
-
-function switchSection(nextSection: string): void {
-  const section = sectionTabs.find((tab) => tab.id === nextSection)?.id;
-  if (!section || section === activeSection.value) {
+async function navigateSection(sectionId: SettingsSectionId): Promise<void> {
+  if (sectionId === activeRouteSection.value) {
+    scheduleScroll(sectionId, "smooth");
     return;
   }
-  void router.push(`/settings/${section}`);
+
+  pendingScrollBehavior.value = "smooth";
+  await router.push(getSettingsSectionPath(sectionId));
 }
+
+watch(
+  activeRouteSection,
+  (sectionId) => {
+    const behavior = pendingScrollBehavior.value;
+    pendingScrollBehavior.value = "auto";
+    scheduleScroll(sectionId, behavior);
+  },
+  { immediate: true, flush: "post" },
+);
+
+watch(
+  normalizedForm,
+  (normalizedValue) => {
+    if (syncingForm.value) {
+      return;
+    }
+
+    const currentSettings = normalizeForm(settings.value);
+    if (JSON.stringify(normalizedValue) === JSON.stringify(currentSettings)) {
+      return;
+    }
+
+    syncingForm.value = true;
+    saveConsoleSettings(cloneSettings(normalizedValue));
+    form.value = cloneSettings(normalizedValue);
+    syncingForm.value = false;
+  },
+  { deep: true },
+);
+
+watch(
+  settings,
+  (nextSettings) => {
+    if (syncingForm.value) {
+      return;
+    }
+
+    const normalizedSettings = normalizeForm(nextSettings);
+    if (JSON.stringify(form.value) === JSON.stringify(normalizedSettings)) {
+      return;
+    }
+
+    form.value = cloneSettings(normalizedSettings);
+  },
+  { deep: true },
+);
 </script>
 
 <template>
-  <section class="workspace-page-stack settings-page">
-    <div class="workspace-page-header">
-      <div>
-        <p class="section-eyebrow">{{ "设置" }}</p>
-        <h1>{{ "操作效率配置" }}</h1>
-      </div>
-      <p>
-        {{
-          "这些配置都直接关联已有页面行为，用于减少重复操作：运行创建默认参数、审批页筛选/刷新、审计页默认 run 和自动刷新、Workspace 轮询频率。"
-        }}
-      </p>
-    </div>
-
-    <div class="settings-page__body">
-      <n-tabs
-        type="segment"
-        display-directive="if"
-        :value="activeSection"
-        :default-value="'run'"
-        @update:value="switchSection"
-      >
-        <n-tab-pane v-for="tab in sectionTabs" :key="tab.id" :name="tab.id" :tab="tab.label" />
-      </n-tabs>
-
-      <section class="panel-card settings-entry-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">.multi-agent</p>
-            <h2>{{ "运行数据管理" }}</h2>
-          </div>
-          <RouterLink class="primary-link" to="/settings/multi-agent">
-            {{ "打开管理页" }}
-          </RouterLink>
-        </div>
-        <p class="form-hint">
-          {{
-            "查看 .multi-agent/state 和 .multi-agent/memory 占用，并执行保留 run / 清理 memory 操作。"
-          }}
-        </p>
-      </section>
-
-      <section class="panel-card settings-snapshot">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ "当前草稿" }}</p>
-            <h2>{{ "生效配置快照" }}</h2>
-          </div>
-          <n-tag :type="hasChanges ? 'warning' : 'success'" size="small" round>
-            {{ hasChanges ? "未保存" : "已同步" }}
-          </n-tag>
-        </div>
-        <div class="settings-summary-grid">
-          <article v-for="card in summaryCards" :key="card.id" class="summary-card">
-            <span>{{ card.label }}</span>
-            <strong :title="card.value">{{ card.value }}</strong>
-          </article>
-        </div>
-      </section>
-
-      <section v-if="activeSection === 'run'" class="panel-card settings-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ "运行创建" }}</p>
-            <h2>{{ "减少创建时重复选择" }}</h2>
-          </div>
-        </div>
-
-        <n-form class="settings-form" label-placement="top" :show-feedback="false">
-          <n-form-item :label="'默认 CLI'" class="settings-field">
-            <n-select
-              v-model:value="form.runDefaultCli"
-              :options="cliSelectOptions"
-            />
-          </n-form-item>
-
-          <n-form-item :label="'创建行为'" class="settings-field">
-            <n-space vertical>
-              <n-switch v-model:value="form.runAutoResume">
-                <template #checked>{{ "创建后自动启动 CLI" }}</template>
-                <template #unchecked>{{ "创建后手动启动 CLI" }}</template>
-              </n-switch>
-
-              <n-switch v-model:value="form.runAllowOutsideWorkspaceWrites">
-                <template #checked>{{ "允许工作区外写入" }}</template>
-                <template #unchecked>{{ "禁止工作区外写入" }}</template>
-              </n-switch>
-            </n-space>
-          </n-form-item>
-
-          <n-form-item :label="'创建完成后默认打开'" class="settings-field">
-            <n-radio-group v-model:value="form.runOpenTarget">
-              <n-space vertical>
-                <n-radio
-                  v-for="item in runOpenTargetOptions"
-                  :key="item.value"
-                  :value="item.value"
-                >
-                  {{ item.label }}
-                </n-radio>
-              </n-space>
-            </n-radio-group>
-            <p class="form-hint">{{ "会影响 Runs 页创建成功后的自动跳转目标。" }}</p>
-          </n-form-item>
-        </n-form>
-      </section>
-
-      <section v-else-if="activeSection === 'approvals'" class="panel-card settings-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ "审批页" }}</p>
-            <h2>{{ "减少筛选与刷新操作" }}</h2>
-          </div>
-        </div>
-
-        <n-form class="settings-form" label-placement="top" :show-feedback="false">
-          <n-form-item :label="'默认筛选'" class="settings-field">
-            <n-select
-              v-model:value="form.approvalsDefaultFilter"
-              :options="approvalFilterOptions"
-            />
-          </n-form-item>
-
-          <n-form-item :label="'请求条数上限'" class="settings-field">
-            <n-input-number
-              :value="form.approvalsFetchLimit"
-              :min="limits.approvalLimitMin"
-              :max="limits.approvalLimitMax"
-              :step="10"
-              @update:value="updateApprovalsFetchLimit"
-            />
-          </n-form-item>
-
-          <n-form-item :label="'自动刷新（秒，0=关闭）'" class="settings-field">
-            <n-input-number
-              :value="form.approvalsAutoRefreshSec"
-              :min="limits.autoRefreshMinSec"
-              :max="limits.autoRefreshMaxSec"
-              :step="5"
-              @update:value="updateApprovalsAutoRefresh"
-            />
-          </n-form-item>
-        </n-form>
-      </section>
-
-      <section v-else-if="activeSection === 'inspect'" class="panel-card settings-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">{{ "审计页" }}</p>
-            <h2>{{ "降低 run 选择成本" }}</h2>
-          </div>
-        </div>
-
-        <n-form class="settings-form" label-placement="top" :show-feedback="false">
-          <n-form-item :label="'默认 run 选择策略'" class="settings-field">
-            <n-radio-group v-model:value="form.inspectDefaultRunSource">
-              <n-space vertical>
-                <n-radio
-                  v-for="item in inspectSourceOptions"
-                  :key="item.value"
-                  :value="item.value"
-                >
-                  {{ item.label }}
-                </n-radio>
-              </n-space>
-            </n-radio-group>
-            <p class="form-hint">{{ "当 URL 未指定 runId 时生效。" }}</p>
-          </n-form-item>
-
-          <n-form-item :label="'自动刷新（秒，0=关闭）'" class="settings-field">
-            <n-input-number
-              :value="form.inspectAutoRefreshSec"
-              :min="limits.autoRefreshMinSec"
-              :max="limits.autoRefreshMaxSec"
-              :step="5"
-              @update:value="updateInspectAutoRefresh"
-            />
-          </n-form-item>
-        </n-form>
-      </section>
-
-      <section v-else class="panel-card settings-card">
-        <div class="panel-card__header">
-          <div>
-            <p class="section-eyebrow">Workspace</p>
-            <h2>{{ "轮询频率" }}</h2>
-          </div>
-        </div>
-
-        <n-form class="settings-form" label-placement="top" :show-feedback="false">
-          <n-form-item :label="'自动刷新间隔（秒）'" class="settings-field">
-            <n-input-number
-              :value="form.workspaceAutoRefreshSec"
-              :min="limits.workspaceRefreshMinSec"
-              :max="limits.workspaceRefreshMaxSec"
-              :step="1"
-              @update:value="updateWorkspaceAutoRefresh"
-            />
-            <p class="form-hint">{{ "影响 Workspace 页面 projection 轮询间隔。" }}</p>
-          </n-form-item>
-        </n-form>
-      </section>
-
-      <section class="panel-card settings-actions-card">
-        <div class="settings-actions">
-          <n-button type="primary" :disabled="!hasChanges" @click="saveForm">
-            {{ "保存设置" }}
-          </n-button>
-          <n-button quaternary :disabled="!hasChanges" @click="resetDraft">
-            {{ "撤销修改" }}
-          </n-button>
-          <n-button quaternary @click="restoreDefaults">
-            {{ "恢复默认" }}
-          </n-button>
-        </div>
-        <n-alert
-          class="settings-feedback"
-          :type="flashMessage ? 'success' : 'info'"
-          :show-icon="false"
+  <SettingsShell :active-section="activeSection" @navigate-section="navigateSection">
+    <div ref="settingsScrollContainer" class="settings-scroll-panel">
+      <div class="settings-page">
+        <section
+          :ref="setSectionElement('run')"
+          class="panel-card settings-form-section settings-page__section"
         >
-          {{
-            flashMessage ||
-              "修改后点击“保存设置”才会应用到 Runs / Approvals / Inspect / Workspace 页面。"
-          }}
-        </n-alert>
-      </section>
+          <div class="panel-card__header">
+            <div>
+              <p class="section-eyebrow">{{ runSectionMeta.eyebrow }}</p>
+              <h2>{{ runSectionMeta.title }}</h2>
+              <p class="settings-section-description">{{ runSectionMeta.description }}</p>
+            </div>
+          </div>
+
+          <ElForm label-position="top" class="settings-form">
+            <ElFormItem label="默认 CLI">
+              <ElSelect v-model="form.runDefaultCli">
+                <ElOption
+                  v-for="option in cliSelectOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </ElSelect>
+            </ElFormItem>
+
+            <div class="settings-switch-grid">
+              <label class="settings-switch-card">
+                <span class="form-label">创建后自动启动 CLI</span>
+                <ElSwitch v-model="form.runAutoResume" />
+              </label>
+              <label class="settings-switch-card">
+                <span class="form-label">允许工作区外写入</span>
+                <ElSwitch v-model="form.runAllowOutsideWorkspaceWrites" />
+              </label>
+            </div>
+
+            <ElFormItem class="settings-form__wide-field" label="创建完成后默认打开">
+              <ElRadioGroup v-model="form.runOpenTarget" class="settings-radio-grid settings-choice-grid">
+                <ElRadio v-for="item in runOpenTargetOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </ElRadio>
+              </ElRadioGroup>
+            </ElFormItem>
+          </ElForm>
+        </section>
+
+        <section
+          :ref="setSectionElement('approvals')"
+          class="panel-card settings-form-section settings-page__section"
+        >
+          <div class="panel-card__header">
+            <div>
+              <p class="section-eyebrow">{{ approvalsSectionMeta.eyebrow }}</p>
+              <h2>{{ approvalsSectionMeta.title }}</h2>
+              <p class="settings-section-description">{{ approvalsSectionMeta.description }}</p>
+            </div>
+          </div>
+
+          <ElForm label-position="top" class="settings-form settings-form__compact-grid">
+            <ElFormItem label="默认筛选">
+              <ElSelect v-model="form.approvalsDefaultFilter">
+                <ElOption
+                  v-for="item in approvalFilterOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </ElSelect>
+            </ElFormItem>
+            <ElFormItem label="请求条数上限">
+              <ElInputNumber
+                v-model="form.approvalsFetchLimit"
+                :min="limits.approvalLimitMin"
+                :max="limits.approvalLimitMax"
+                :step="10"
+              />
+            </ElFormItem>
+            <ElFormItem label="自动刷新（秒，0=关闭）">
+              <ElInputNumber
+                v-model="form.approvalsAutoRefreshSec"
+                :min="limits.autoRefreshMinSec"
+                :max="limits.autoRefreshMaxSec"
+                :step="5"
+              />
+            </ElFormItem>
+          </ElForm>
+        </section>
+
+        <section
+          :ref="setSectionElement('inspect')"
+          class="panel-card settings-form-section settings-page__section"
+        >
+          <div class="panel-card__header">
+            <div>
+              <p class="section-eyebrow">{{ inspectSectionMeta.eyebrow }}</p>
+              <h2>{{ inspectSectionMeta.title }}</h2>
+              <p class="settings-section-description">{{ inspectSectionMeta.description }}</p>
+            </div>
+          </div>
+
+          <ElForm label-position="top" class="settings-form settings-form__compact-grid">
+            <ElFormItem class="settings-form__wide-field" label="默认 run 选择策略">
+              <ElRadioGroup v-model="form.inspectDefaultRunSource" class="settings-radio-grid settings-choice-grid">
+                <ElRadio v-for="item in inspectSourceOptions" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </ElRadio>
+              </ElRadioGroup>
+            </ElFormItem>
+            <ElFormItem label="自动刷新（秒，0=关闭）">
+              <ElInputNumber
+                v-model="form.inspectAutoRefreshSec"
+                :min="limits.autoRefreshMinSec"
+                :max="limits.autoRefreshMaxSec"
+                :step="5"
+              />
+            </ElFormItem>
+          </ElForm>
+        </section>
+
+        <section
+          :ref="setSectionElement('workspace')"
+          class="panel-card settings-form-section settings-page__section"
+        >
+          <div class="panel-card__header">
+            <div>
+              <p class="section-eyebrow">{{ workspaceSectionMeta.eyebrow }}</p>
+              <h2>{{ workspaceSectionMeta.title }}</h2>
+              <p class="settings-section-description">{{ workspaceSectionMeta.description }}</p>
+            </div>
+          </div>
+
+          <ElForm label-position="top" class="settings-form settings-form__compact-grid">
+            <ElFormItem label="自动刷新间隔（秒）">
+              <ElInputNumber
+                v-model="form.workspaceAutoRefreshSec"
+                :min="limits.workspaceRefreshMinSec"
+                :max="limits.workspaceRefreshMaxSec"
+                :step="1"
+              />
+            </ElFormItem>
+          </ElForm>
+        </section>
+
+        <section
+          :ref="setSectionElement('multi-agent')"
+          class="settings-page__section settings-page__section--full"
+        >
+          <MultiAgentSettingsSection />
+        </section>
+      </div>
     </div>
-  </section>
+  </SettingsShell>
 </template>

@@ -29,6 +29,7 @@ export interface UiProjectionEnvelope<TProjection> {
 
 export interface WorkspaceProjectionRunSummary {
   runId: string;
+  name: string;
   goal: string;
   status: WorkspaceProjectionStatus;
   stage: string;
@@ -151,6 +152,7 @@ export function createEmptyWorkspaceProjection(runId = "workspace"): WorkspacePr
     generatedAt: "",
     run: {
       runId,
+      name: "No run selected.",
       goal: "No run selected.",
       status: "paused",
       stage: "Open a run from the Runs page or create a new one.",

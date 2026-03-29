@@ -1,8 +1,7 @@
 import { URL } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { createApp } from "../app/create-app.js";
-import type { RunInspection } from "../domain/models.js";
-import { createId } from "../shared/runtime.js";
+import { deriveRunName, type RunInspection } from "../domain/models.js";
 import { buildApprovalQueue } from "../ui-read-models/build-views.js";
 import type {
   ApprovalQueueItemDetailView,
@@ -204,6 +203,17 @@ export async function handleRequest(
       return;
     }
 
+    if (body?.name !== undefined && typeof body.name !== "string") {
+      sendApiError(response, 400, "bad_request", 'Field "name" must be a string when provided.');
+      return;
+    }
+    const providedName = body?.name?.trim();
+    if (body?.name !== undefined && !providedName) {
+      sendApiError(response, 400, "bad_request", 'Field "name" cannot be empty when provided.');
+      return;
+    }
+    const name = providedName ?? deriveRunName(goal);
+
     const cli = body?.cli?.trim();
     if (!cli) {
       sendApiError(
@@ -245,6 +255,7 @@ export async function handleRequest(
         ? requestedAllowOutsideWorkspaceWrites
         : config.workspace.allowOutsideWorkspaceWrites;
     const createdRun = await app.runCoordinator.startRun({
+      name,
       goal,
       workspacePath: config.workspace.rootDir,
       configPath: body?.configPath,

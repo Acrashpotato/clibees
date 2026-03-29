@@ -1,141 +1,50 @@
-import { readdir, stat } from "node:fs/promises";
-import path from "node:path";
-import type {
-  ApprovalDecision,
-  ArtifactRecord,
-  InvocationPlan,
-  MessageThreadRecord,
-  RunEvent,
-  RunGraph,
-  RunInspection,
-  RunRecord,
-  RunRequest,
-  SessionMessageRecord,
-  TaskSpec,
-  TaskSessionRecord,
-  ValidationResult,
-} from "../../../domain/models.js";
-import {
-  SCHEMA_VERSION,
-  assertRunStatusTransition,
-} from "../../../domain/models.js";
-import type {
-  AgentConfig,
-  AgentProfileConfig,
-  MultiAgentConfig,
-} from "../../../domain/config.js";
 import { createDefaultConfig } from "../../../config/default-config.js";
 import { buildRunConfigForSelectedCli } from "../../../config/run-cli-config.js";
-import { ConfiguredCliAdapter } from "../../../adapters/configured-cli-adapter.js";
+import type {
+MultiAgentConfig
+} from "../../../domain/config.js";
+import type {
+ArtifactRecord,
+InvocationPlan,
+RunEvent,
+RunGraph,
+RunRecord,
+TaskSpec,
+ValidationResult
+} from "../../../domain/models.js";
 import {
-  DefaultContextAssembler,
-  type ContextAssembler,
-} from "../../../decision/context-assembler.js";
-import { DefaultValidator, type Validator } from "../../../decision/validator.js";
-import type { Planner } from "../../../decision/planner.js";
-import {
-  RuleBasedRouter,
-  type Router,
-} from "../../../decision/router.js";
-import type { AdapterRegistry } from "../../../execution/adapter-registry.js";
-import { createAdapterRegistry } from "../../../execution/create-adapter-registry.js";
-import {
-  FileApprovalManager,
-  type ApprovalManager,
-} from "../../../execution/approval-manager.js";
-import {
-  ProcessExecutionRuntime,
-  type ExecutionRuntime,
-} from "../../../execution/execution-runtime.js";
-import { SafetyManager } from "../../../execution/safety-manager.js";
-import type { ArtifactStore } from "../../../storage/artifact-store.js";
-import { FileArtifactStore } from "../../../storage/artifact-store.js";
+SCHEMA_VERSION,
+assertRunStatusTransition,
+} from "../../../domain/models.js";
+import { createId,isoNow,resolvePath } from "../../../shared/runtime.js";
 import type { BlackboardStore } from "../../../storage/blackboard-store.js";
 import { FileBlackboardStore } from "../../../storage/blackboard-store.js";
-import type { EventStore } from "../../../storage/event-store.js";
-import type { ProjectMemoryStore } from "../../../storage/project-memory-store.js";
-import type { RunStore } from "../../../storage/run-store.js";
-import type { SessionStore } from "../../../storage/session-store.js";
-import type { WorkspaceStateStore } from "../../../storage/workspace-state-store.js";
-import { FileWorkspaceStateStore } from "../../../storage/workspace-state-store.js";
-import { createId, isoNow, pathExists, resolvePath } from "../../../shared/runtime.js";
-import { SELECTED_CLI_VALUES, type SelectedCli } from "../../../ui-api/selected-cli.js";
-import { GraphManager } from "../../graph-manager.js";
-import { InspectionAggregator } from "../../inspection-aggregator.js";
 import { MemoryConsolidator } from "../../memory-consolidator.js";
-import { Scheduler } from "../../scheduler.js";
 import type {
-  DelegatedTaskTemplate,
-  ExecutionServices,
-  ManagerCoordinationOutput,
-  PostThreadMessageInput,
-  PostThreadMessageResult,
-  TaskProcessingResult,
+ExecutionServices
+} from "../core.js";
+import type { RunCoordinatorMethodThis } from "../internal-types.js";
+import {
+DEFAULT_SELECTED_CLI
 } from "../core.js";
 import {
-  DEFAULT_DELEGATED_TASK_TIMEOUT_MS,
-  DEFAULT_SELECTED_CLI,
-  DEFAULT_TASK_TIMEOUT_MS,
-  MANAGER_PRIMARY_SESSION_ID,
-  MANAGER_PRIMARY_THREAD_ID,
-  MAX_DELEGATED_TASKS,
-  MAX_MANAGER_COORDINATION_TASKS,
-} from "../core.js";
-import {
-  addDelegatedTaskReference,
-  applyWorkspaceWritePolicyOverride,
-  buildBlackboardProjection,
-  buildDelegatedTaskDraft,
-  buildDelegatedTaskInstructions,
-  buildDelegatedTaskReferenceMap,
-  buildDelegationManagerGoal,
-  buildDelegationTaskTitle,
-  capitalize,
-  captureFileManifest,
-  dedupeAgentConfigs,
-  dedupeStrings,
-  diffFileManifest,
-  extractStructuredOutputFromPayload,
-  findCommonPathRoot,
-  hasActiveDelegationManagerTask,
-  hasCompatibleWorkerForCapabilities,
-  hasMeaningfulGraphPatch,
-  isAgentCompatibleWithCapabilities,
-  isAutoResumableRunStatus,
-  isDelegationManagerTask,
-  isManagerCoordinationTask,
-  isPathInsideRoot,
-  isPlainObject,
-  isSelectedCli,
-  isTerminalRunStatus,
-  mapValidationOutcomeToTaskStatus,
-  mergeDynamicAgentsIntoConfig,
-  normalizeCostTier,
-  normalizeDelegatedTaskReference,
-  normalizeRiskLevel,
-  normalizeTimeoutMs,
-  pickWorkerAgentForCapabilities,
-  readAgentProfiles,
-  readDynamicAgents,
-  readNonEmptyString,
-  readOptionalBoolean,
-  readStringArray,
-  resolveDelegatedDependencyTaskIds,
-  resolveDelegatedWorkingDirectory,
-  resolveExpectedArtifactDirectories,
-  resolvePlannerMode,
-  resolveSelectedCli,
-  shouldFallbackToDefaultSelectedCli,
-  shouldKeepDelegatedConfigForSelectedCli,
-  shouldUseDelegatedBootstrap,
-  summarizeApprovalReason,
-  summarizeCommandResult,
-  toCapabilitySlug,
+applyWorkspaceWritePolicyOverride,
+buildBlackboardProjection,
+capitalize,
+diffFileManifest,
+extractStructuredOutputFromPayload,
+hasMeaningfulGraphPatch,
+mergeDynamicAgentsIntoConfig,
+resolvePlannerMode,
+resolveSelectedCli,
+shouldFallbackToDefaultSelectedCli,
+shouldKeepDelegatedConfigForSelectedCli,
+summarizeCommandResult
 } from "../helpers/index.js";
 
 type FileManifest = Map<string, { size: number; mtimeMs: number }>;
 
-export async function recoverGraphForResume(this: any,
+export async function recoverGraphForResume(this: RunCoordinatorMethodThis,
   run: RunRecord,
   services: ExecutionServices): Promise<{ graph: RunGraph; waitingApprovalTaskId?: string }> {
     const pendingApprovals = await services.approvalManager.listPending(run.runId);
@@ -188,7 +97,7 @@ export async function recoverGraphForResume(this: any,
     };
   }
 
-export async function replanGraph(this: any,
+export async function replanGraph(this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   task: TaskSpec,
@@ -250,7 +159,7 @@ export async function replanGraph(this: any,
     return (await this.dependencies.runStore.getGraph(run.runId)) ?? patchedGraph;
   }
 
-export async function archiveExecutionArtifacts(this: any,
+export async function archiveExecutionArtifacts(this: RunCoordinatorMethodThis,
   runId: string,
   taskId: string,
   invocation: InvocationPlan,
@@ -303,7 +212,7 @@ export async function archiveExecutionArtifacts(this: any,
     }
   }
 
-export async function recordArtifact(this: any,
+export async function recordArtifact(this: RunCoordinatorMethodThis,
   runId: string,
   taskId: string | undefined,
   kind: ArtifactRecord["kind"],
@@ -335,14 +244,14 @@ export async function recordArtifact(this: any,
     return artifact;
   }
 
-export async function appendProjectedEvent(this: any,
+export async function appendProjectedEvent(this: RunCoordinatorMethodThis,
   event: RunEvent,
   blackboardStore: BlackboardStore): Promise<void> {
     await this.dependencies.eventStore.append(event);
     await this.projectEventToBlackboard(event, blackboardStore);
   }
 
-export async function projectEventToBlackboard(this: any,
+export async function projectEventToBlackboard(this: RunCoordinatorMethodThis,
   event: RunEvent,
   blackboardStore: BlackboardStore): Promise<void> {
     const projection = buildBlackboardProjection(event);
@@ -361,7 +270,7 @@ export async function projectEventToBlackboard(this: any,
     });
   }
 
-export function resolveBlackboardStore(this: any,
+export function resolveBlackboardStore(this: RunCoordinatorMethodThis,
   workspacePath: string): BlackboardStore {
     return (
       this.dependencies.blackboardStore ??
@@ -369,7 +278,7 @@ export function resolveBlackboardStore(this: any,
     );
   }
 
-export async function finalizeRun(this: any,
+export async function finalizeRun(this: RunCoordinatorMethodThis,
   run: RunRecord,
   status: "completed" | "failed",
   graph: RunGraph,
@@ -387,7 +296,7 @@ export async function finalizeRun(this: any,
     return finishedRun;
   }
 
-export async function persistRunMemory(this: any,
+export async function persistRunMemory(this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   services: ExecutionServices): Promise<void> {
@@ -410,7 +319,7 @@ export async function persistRunMemory(this: any,
     });
   }
 
-export async function updateRunRecord(this: any,
+export async function updateRunRecord(this: RunCoordinatorMethodThis,
   run: RunRecord,
   status: RunRecord["status"],
   currentTaskId?: string): Promise<RunRecord> {
@@ -431,7 +340,7 @@ export async function updateRunRecord(this: any,
     return nextRun;
   }
 
-export function resolveRunExecutionConfig(this: any,
+export function resolveRunExecutionConfig(this: RunCoordinatorMethodThis,
   run: RunRecord,
   baseConfig?: MultiAgentConfig): MultiAgentConfig {
     const sourceConfig = applyWorkspaceWritePolicyOverride(
@@ -466,7 +375,7 @@ export function resolveRunExecutionConfig(this: any,
     return sourceConfig;
   }
 
-export function createEvent(this: any,
+export function createEvent(this: RunCoordinatorMethodThis,
   type: RunEvent["type"],
   runId: string,
   payload: Record<string, unknown>): RunEvent {

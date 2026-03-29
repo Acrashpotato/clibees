@@ -1,33 +1,20 @@
-﻿import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFile, readdir, rm, stat } from "node:fs/promises";
+﻿import { readFile,readdir,rm,stat } from "node:fs/promises";
+import { createServer,type IncomingMessage,type ServerResponse } from "node:http";
 import path from "node:path";
 import { URL } from "node:url";
 import { createApp } from "../app/create-app.js";
-import { createDefaultConfig } from "../config/default-config.js";
-import type { RunInspection, RunRecord } from "../domain/models.js";
-import { createStateLayout, getRunStatePaths } from "../storage/state-layout.js";
+import type { RunInspection,RunRecord } from "../domain/models.js";
+import { pathExists,readJsonFile } from "../shared/runtime.js";
 import { FileArtifactStore } from "../storage/artifact-store.js";
-import { createId, pathExists, readJsonFile } from "../shared/runtime.js";
-import { buildApprovalQueue, buildWorkspaceView } from "../ui-read-models/build-views.js";
-import {
-  SELECTED_CLI_VALUES,
-  buildActionEnvelope,
-  buildNotSupportedResponse,
-  buildProjectionEnvelope,
-  paginateItems,
-} from "./contracts.js";
-import { TerminalGateway } from "./terminal-gateway.js";
-import { handleRequest } from "./request-handler.js";
-import { buildRunListProjection } from "../ui-read-models/build-run-list-projection.js";
-import { buildWorkspaceProjection } from "../ui-read-models/build-workspace-projection.js";
-import { buildTaskBoardProjection } from "../ui-read-models/build-task-board-projection.js";
-import { buildTaskDetailProjection } from "../ui-read-models/build-task-detail-projection.js";
-import { buildSessionDetailProjection } from "../ui-read-models/build-session-detail-projection.js";
+import { createStateLayout,getRunStatePaths } from "../storage/state-layout.js";
 import { buildApprovalQueueProjection } from "../ui-read-models/build-approval-queue-projection.js";
-import { buildAuditTimelineProjection } from "../ui-read-models/build-audit-timeline-projection.js";
-import { buildManagerChatProjection } from "../ui-read-models/build-manager-chat-projection.js";
-import { buildWorkerpollProjection } from "../ui-read-models/build-workerpoll-projection.js";
-import { cleanupMultiAgentData, getMultiAgentSummary } from "./multi-agent-admin.js";
+import { buildRunListProjection } from "../ui-read-models/build-run-list-projection.js";
+import {
+SELECTED_CLI_VALUES
+} from "./contracts.js";
+import { cleanupMultiAgentData,getMultiAgentSummary } from "./multi-agent-admin.js";
+import { handleRequest } from "./request-handler.js";
+import { TerminalGateway } from "./terminal-gateway.js";
 
 export interface UiApiServerOptions {
   host?: string;
@@ -37,6 +24,7 @@ export interface UiApiServerOptions {
 }
 
 export interface JsonRequestBody {
+  name?: string;
   goal?: string;
   cli?: string;
   configPath?: string;

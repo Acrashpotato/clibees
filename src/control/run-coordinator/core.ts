@@ -131,7 +131,7 @@ export const MANAGER_PRIMARY_SESSION_ID = "manager_primary";
 export const MANAGER_PRIMARY_THREAD_ID = "manager_primary";
 
 export class RunCoordinator {
-  constructor(private readonly dependencies: RunCoordinatorDependencies) {}
+  constructor(readonly dependencies: RunCoordinatorDependencies) {}
 }
 
 export interface RunCoordinator {

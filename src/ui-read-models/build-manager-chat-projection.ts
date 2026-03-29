@@ -6,6 +6,7 @@ import type {
   RunInspection,
   TaskSpec,
 } from "../domain/models.js";
+import { resolveRunName } from "../domain/models.js";
 import type { ManagerChatProjectionView } from "./models.js";
 import { mapRunStatus, mapTaskStatus, resolveTaskAgentId, resolveTaskId } from "./task-view-helpers.js";
 
@@ -88,6 +89,7 @@ export function buildManagerChatProjection(
     generatedAt: new Date().toISOString(),
     run: {
       runId: inspection.run.runId,
+      name: resolveRunName(inspection.run),
       goal: inspection.run.goal,
       status: mapRunStatus(inspection.run.status),
       createdAt: inspection.run.createdAt,

@@ -14,6 +14,7 @@ import type {
   WorkspaceMetricView,
   WorkspaceView,
 } from "./models.js";
+import { resolveRunName } from "../domain/models.js";
 import {
   buildTaskOwnerLabel,
   buildTaskStatusReason,
@@ -37,6 +38,7 @@ export function buildWorkspaceView(inspection: RunInspection): WorkspaceView {
 
   return {
     runId: inspection.run.runId,
+    name: resolveRunName(inspection.run),
     goal: inspection.run.goal,
     runStatus: mapRunStatus(inspection.run.status),
     stage: buildStageLabel(inspection),
@@ -63,6 +65,7 @@ export function buildRunListItemView(inspection: RunInspection): RunListItemView
 
   return {
     runId: inspection.run.runId,
+    name: resolveRunName(inspection.run),
     goal: inspection.run.goal,
     status: mapRunStatus(inspection.run.status),
     stage: buildStageLabel(inspection),

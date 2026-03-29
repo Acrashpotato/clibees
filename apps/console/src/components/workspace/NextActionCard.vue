@@ -5,7 +5,7 @@ import { useRouter } from "vue-router";
 import { usePreferences } from "../../composables/usePreferences";
 import type { WorkspaceOverviewActionViewModel } from "../../composables/useWorkspaceOverview";
 
-const props = defineProps<{
+defineProps<{
   action?: WorkspaceOverviewActionViewModel;
   inspectTo: string;
   mutating: boolean;
@@ -72,4 +72,3 @@ function goTo(path: string): void {
     </n-empty>
   </n-card>
 </template>
-

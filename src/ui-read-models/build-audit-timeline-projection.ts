@@ -1,33 +1,31 @@
 import type {
-  InspectionArtifactGroup,
-  InspectionArtifactItem,
-  InspectionTimelineEntry,
-  InspectionValidationItem,
-  RunEvent,
-  RunInspection,
-  TaskSpec,
+InspectionArtifactGroup,
+InspectionArtifactItem,
+InspectionTimelineEntry,
+RunEvent,
+RunInspection
 } from "../domain/models.js";
 import type {
-  AuditTimelineArtifactGroupView,
-  AuditTimelineArtifactHighlightView,
-  AuditTimelineEntryView,
-  AuditTimelineProjectionView,
-  AuditTimelineReplanRecordView,
-  AuditTimelineSessionEventView,
-  AuditTimelineSessionSourceMode,
-  AuditTimelineValidationRecordView,
+AuditTimelineArtifactGroupView,
+AuditTimelineArtifactHighlightView,
+AuditTimelineEntryView,
+AuditTimelineProjectionView,
+AuditTimelineReplanRecordView,
+AuditTimelineSessionEventView,
+AuditTimelineSessionSourceMode,
+AuditTimelineValidationRecordView,
 } from "./audit-timeline-models.js";
+import {
+buildTimelineDetails,
+buildTimelineTitle,
+classifyEventKind,
+countEntries,
+uniqueArtifactKinds,
+} from "./audit-timeline-projection-helpers.js";
 import { buildApprovalQueueProjection } from "./build-approval-queue-projection.js";
 import {
-  buildTimelineDetails,
-  buildTimelineTitle,
-  classifyEventKind,
-  countEntries,
-  uniqueArtifactKinds,
-} from "./audit-timeline-projection-helpers.js";
-import {
-  buildBackfilledSessionWindows,
-  type BackfilledSessionWindow,
+buildBackfilledSessionWindows,
+type BackfilledSessionWindow,
 } from "./session-backfill.js";
 
 interface SessionBinding {

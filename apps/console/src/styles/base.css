@@ -11,15 +11,51 @@ body,
   height: 100dvh;
 }
 
-body {
-  overflow: hidden;
-  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", "Segoe UI", sans-serif;
-  background: linear-gradient(180deg, #f5f8fc 0%, #edf2f8 100%);
-  color: var(--text);
+html {
+  background: var(--bg-deep);
 }
 
-:root[data-theme="dark"] body {
-  background: linear-gradient(180deg, #0b1320 0%, #0e1726 100%);
+body {
+  overflow: hidden;
+  position: relative;
+  font-family: "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(110, 142, 255, 0.16), transparent 24%),
+    radial-gradient(circle at 82% 8%, rgba(72, 184, 255, 0.1), transparent 24%),
+    radial-gradient(circle at 78% 78%, rgba(82, 110, 255, 0.12), transparent 26%),
+    linear-gradient(145deg, #09111d 0%, #050c16 48%, #02060c 100%);
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+body::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 18%),
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 30%);
+  opacity: 0.6;
+}
+
+body::after {
+  opacity: 0.1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.45) 1px, transparent 1px);
+  background-size: 150px 150px;
+  mix-blend-mode: soft-light;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
 }
 
 a {
@@ -32,4 +68,21 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+button {
+  border: 0;
+  background: transparent;
+}
+
+button,
+input,
+textarea,
+select {
+  outline: none;
+}
+
+::selection {
+  color: var(--text);
+  background: rgba(137, 169, 255, 0.32);
 }

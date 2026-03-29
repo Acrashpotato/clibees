@@ -1,145 +1,46 @@
-import { readdir, stat } from "node:fs/promises";
-import path from "node:path";
 import type {
-  ApprovalDecision,
-  ArtifactRecord,
-  InvocationPlan,
-  MessageThreadRecord,
-  RunEvent,
-  RunGraph,
-  RunInspection,
-  RunRecord,
-  RunRequest,
-  SessionMessageRecord,
-  TaskSpec,
-  TaskSessionRecord,
-  ValidationResult,
-} from "../../../domain/models.js";
-import {
-  SCHEMA_VERSION,
-  assertRunStatusTransition,
-} from "../../../domain/models.js";
-import type {
-  AgentConfig,
-  AgentProfileConfig,
-  MultiAgentConfig,
+AgentConfig,
+MultiAgentConfig
 } from "../../../domain/config.js";
-import { createDefaultConfig } from "../../../config/default-config.js";
-import { buildRunConfigForSelectedCli } from "../../../config/run-cli-config.js";
-import { ConfiguredCliAdapter } from "../../../adapters/configured-cli-adapter.js";
-import {
-  DefaultContextAssembler,
-  type ContextAssembler,
-} from "../../../decision/context-assembler.js";
-import { DefaultValidator, type Validator } from "../../../decision/validator.js";
-import type { Planner } from "../../../decision/planner.js";
-import {
-  RuleBasedRouter,
-  type Router,
-} from "../../../decision/router.js";
-import type { AdapterRegistry } from "../../../execution/adapter-registry.js";
-import { createAdapterRegistry } from "../../../execution/create-adapter-registry.js";
-import {
-  FileApprovalManager,
-  type ApprovalManager,
-} from "../../../execution/approval-manager.js";
-import {
-  ProcessExecutionRuntime,
-  type ExecutionRuntime,
-} from "../../../execution/execution-runtime.js";
-import { SafetyManager } from "../../../execution/safety-manager.js";
-import type { ArtifactStore } from "../../../storage/artifact-store.js";
-import { FileArtifactStore } from "../../../storage/artifact-store.js";
-import type { BlackboardStore } from "../../../storage/blackboard-store.js";
-import { FileBlackboardStore } from "../../../storage/blackboard-store.js";
-import type { EventStore } from "../../../storage/event-store.js";
-import type { ProjectMemoryStore } from "../../../storage/project-memory-store.js";
-import type { RunStore } from "../../../storage/run-store.js";
-import type { SessionStore } from "../../../storage/session-store.js";
-import type { WorkspaceStateStore } from "../../../storage/workspace-state-store.js";
-import { FileWorkspaceStateStore } from "../../../storage/workspace-state-store.js";
-import { createId, isoNow, pathExists, resolvePath } from "../../../shared/runtime.js";
-import { SELECTED_CLI_VALUES, type SelectedCli } from "../../../ui-api/selected-cli.js";
-import { GraphManager } from "../../graph-manager.js";
-import { InspectionAggregator } from "../../inspection-aggregator.js";
-import { MemoryConsolidator } from "../../memory-consolidator.js";
-import { Scheduler } from "../../scheduler.js";
 import type {
-  DelegatedTaskTemplate,
-  ExecutionServices,
-  ManagerCoordinationOutput,
-  PostThreadMessageInput,
-  PostThreadMessageResult,
-  TaskProcessingResult,
+ArtifactRecord,
+RunGraph,
+RunRecord,
+RunRequest,
+TaskSpec
+} from "../../../domain/models.js";
+import { createId,isoNow } from "../../../shared/runtime.js";
+import type {
+DelegatedTaskTemplate,
+ExecutionServices
+} from "../core.js";
+import type { RunCoordinatorMethodThis } from "../internal-types.js";
+import {
+DEFAULT_DELEGATED_TASK_TIMEOUT_MS,
+DEFAULT_TASK_TIMEOUT_MS,
+MAX_DELEGATED_TASKS
 } from "../core.js";
 import {
-  DEFAULT_DELEGATED_TASK_TIMEOUT_MS,
-  DEFAULT_SELECTED_CLI,
-  DEFAULT_TASK_TIMEOUT_MS,
-  MANAGER_PRIMARY_SESSION_ID,
-  MANAGER_PRIMARY_THREAD_ID,
-  MAX_DELEGATED_TASKS,
-  MAX_MANAGER_COORDINATION_TASKS,
-} from "../core.js";
-import {
-  addDelegatedTaskReference,
-  applyWorkspaceWritePolicyOverride,
-  buildBlackboardProjection,
-  buildDelegatedTaskDraft,
-  buildDelegatedTaskInstructions,
-  buildDelegatedTaskReferenceMap,
-  buildDelegationManagerGoal,
-  buildDelegationTaskTitle,
-  capitalize,
-  captureFileManifest,
-  dedupeAgentConfigs,
-  dedupeStrings,
-  diffFileManifest,
-  extractStructuredOutputFromPayload,
-  findCommonPathRoot,
-  hasActiveDelegationManagerTask,
-  hasCompatibleWorkerForCapabilities,
-  hasMeaningfulGraphPatch,
-  isAgentCompatibleWithCapabilities,
-  isAutoResumableRunStatus,
-  isDelegationManagerTask,
-  isManagerCoordinationTask,
-  isTaskTerminalStatus,
-  isPathInsideRoot,
-  isPlainObject,
-  isSelectedCli,
-  isTerminalRunStatus,
-  mapValidationOutcomeToTaskStatus,
-  mergeDynamicAgentsIntoConfig,
-  normalizeCostTier,
-  normalizeDelegatedTaskReference,
-  normalizeRiskLevel,
-  normalizeTimeoutMs,
-  pickWorkerAgentForCapabilities,
-  readAgentProfiles,
-  readDynamicAgents,
-  readNonEmptyString,
-  readOptionalBoolean,
-  readStringArray,
-  resolveDelegatedDependencyTaskIds,
-  resolveDelegatedWorkingDirectory,
-  resolveExpectedArtifactDirectories,
-  resolvePlannerMode,
-  resolveSelectedCli,
-  shouldFallbackToDefaultSelectedCli,
-  shouldKeepDelegatedConfigForSelectedCli,
-  shouldUseDelegatedBootstrap,
-  summarizeApprovalReason,
-  summarizeCommandResult,
-  toCapabilitySlug,
+buildDelegatedTaskDraft,
+buildDelegatedTaskReferenceMap,
+buildDelegationManagerGoal,
+buildDelegationTaskTitle,
+isAgentCompatibleWithCapabilities,
+isDelegationManagerTask,
+isManagerCoordinationTask,
+isTaskTerminalStatus,
+readNonEmptyString,
+readOptionalBoolean,
+readStringArray,
+resolveDelegatedDependencyTaskIds
 } from "../helpers/index.js";
 import {
-  buildDelegatedTaskDedupSignature,
-  extractLatestStructuredOutput,
-  extractManagerCoordinationOutput,
+buildDelegatedTaskDedupSignature,
+extractLatestStructuredOutput,
+extractManagerCoordinationOutput,
 } from "./delegation-planning-helpers.js";
 
-export function buildDelegatedBootstrapTasks(this: any,
+export function buildDelegatedBootstrapTasks(this: RunCoordinatorMethodThis,
   request: RunRequest): TaskSpec[] {
     const metadata = request.metadata ?? {};
     const managerAgentId = readNonEmptyString(metadata.plannerAgentId);
@@ -182,7 +83,7 @@ export function buildDelegatedBootstrapTasks(this: any,
     ];
   }
 
-export async function appendDelegatedTasksIfNeeded(this: any,
+export async function appendDelegatedTasksIfNeeded(this: RunCoordinatorMethodThis,
   run: RunRecord,
   graph: RunGraph,
   task: TaskSpec,
@@ -441,7 +342,7 @@ export async function appendDelegatedTasksIfNeeded(this: any,
     return (await this.dependencies.runStore.getGraph(run.runId)) ?? patchedGraph;
   }
 
-export function buildFallbackDelegatedTask(this: any,
+export function buildFallbackDelegatedTask(this: RunCoordinatorMethodThis,
   run: RunRecord,
   managerTask: TaskSpec,
   workerAgentId: string): TaskSpec {

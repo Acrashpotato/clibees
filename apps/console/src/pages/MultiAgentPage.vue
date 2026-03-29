@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { NButton, NRadio, NRadioGroup } from "naive-ui";
-import { RouterLink } from "vue-router";
+import { useRouter } from "vue-router";
 
 import {
   cleanupMultiAgentData,
@@ -10,7 +9,9 @@ import {
   type MultiAgentSummaryView,
 } from "../multi-agent-api";
 import { useNaiveDiscrete } from "../ui/naive/discrete";
+import SettingsShell from "./settings/SettingsShell.vue";
 
+const router = useRouter();
 const { dialog } = useNaiveDiscrete();
 const loading = ref(false);
 const actionLoading = ref(false);
@@ -187,37 +188,42 @@ function confirmAction(title: string, content: string): Promise<boolean> {
   });
 }
 
+function navigateSection(section: "run" | "approvals" | "inspect" | "workspace" | "multi-agent"): void {
+  if (section === "multi-agent") {
+    return;
+  }
+
+  void router.push(`/settings/${section}`);
+}
+
+async function goBack(): Promise<void> {
+  if (window.history.length > 1) {
+    await router.back();
+    return;
+  }
+
+  await router.push("/runs");
+}
+
 onMounted(() => {
   void refreshSummary();
 });
 </script>
 
 <template>
-  <section class="workspace-page-stack settings-page multi-agent-page">
-    <div class="workspace-page-header">
-      <div>
-        <p class="section-eyebrow">.multi-agent</p>
-        <h1>{{ "运行数据管理" }}</h1>
-      </div>
-      <p>
-        {{
-          "这里用于管理 .multi-agent/state 和 .multi-agent/memory：查看占用、保留指定 run 清理其余记录，以及清空 memory。"
-        }}
-      </p>
-    </div>
-
-    <div class="settings-page__body">
+  <SettingsShell :active-section="'multi-agent'" @navigate-section="navigateSection" @go-back="goBack">
+    <div class="settings-page settings-page--apple">
       <section class="panel-card settings-snapshot">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ "当前状态" }}</p>
-            <h2>{{ "数据占用摘要" }}</h2>
+            <p class="section-eyebrow">.multi-agent</p>
+            <h2>数据占用摘要</h2>
           </div>
-          <n-button quaternary :disabled="loading || actionLoading" @click="refreshSummary">
+          <button class="ghost-link" type="button" :disabled="loading || actionLoading" @click="refreshSummary">
             {{ loading ? "刷新中..." : "刷新" }}
-          </n-button>
+          </button>
         </div>
-  
+
         <div class="settings-summary-grid">
           <article v-for="card in summaryCards" :key="card.id" class="summary-card">
             <span>{{ card.label }}</span>
@@ -227,66 +233,45 @@ onMounted(() => {
 
         <p class="form-hint">{{ "state 根目录：" }} {{ summary?.stateRootDir ?? "-" }}</p>
         <p class="form-hint">{{ "memory 根目录：" }} {{ summary?.memoryRootDir ?? "-" }}</p>
-        <p v-if="errorMessage" class="settings-error">{{ errorMessage }}</p>
-        <p v-if="actionMessage" class="settings-success">{{ actionMessage }}</p>
+        <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
+        <p v-if="actionMessage" class="section-eyebrow">{{ actionMessage }}</p>
       </section>
 
       <section class="panel-card settings-card">
         <div class="panel-card__header">
           <div>
-            <p class="section-eyebrow">{{ "保留策略" }}</p>
-            <h2>{{ "选择要保留的 run" }}</h2>
+            <p class="section-eyebrow">保留策略</p>
+            <h2>选择要保留的 run</h2>
           </div>
         </div>
 
         <div v-if="hasRuns" class="multi-agent-run-list">
-          <n-radio-group v-model:value="keepRunId" name="keep-run-id">
-            <label
-              v-for="run in summary?.runs.items ?? []"
-              :key="run.runId"
-              class="multi-agent-run-item"
-            >
-              <n-radio :value="run.runId" />
-              <div>
-                <strong>{{ run.runId }}</strong>
-                <p class="form-hint">{{ "更新时间：" }} {{ formatTime(run.updatedAt) }}</p>
-                <p class="form-hint">{{ "占用：" }} {{ formatBytes(run.totalBytes) }}</p>
-              </div>
-            </label>
-          </n-radio-group>
+          <label v-for="run in summary?.runs.items ?? []" :key="run.runId" class="multi-agent-run-item">
+            <input v-model="keepRunId" type="radio" name="keep-run-id" :value="run.runId" />
+            <div>
+              <strong>{{ run.runId }}</strong>
+              <p class="form-hint">{{ "更新时间：" }} {{ formatTime(run.updatedAt) }}</p>
+              <p class="form-hint">{{ "占用：" }} {{ formatBytes(run.totalBytes) }}</p>
+            </div>
+          </label>
         </div>
-        <p v-else class="form-hint">{{ "当前没有 run 目录。" }}</p>
+        <p v-else class="form-hint">当前没有 run 目录。</p>
       </section>
 
       <section class="panel-card settings-actions-card">
         <div class="settings-actions">
-          <n-button
-            type="primary"
-            :disabled="actionLoading || !selectedRunExists"
-            @click="cleanupRuns(false)"
-          >
+          <button class="primary-link" type="button" :disabled="actionLoading || !selectedRunExists" @click="cleanupRuns(false)">
             {{ actionLoading ? "处理中..." : "仅保留选中 run" }}
-          </n-button>
-          <n-button
-            quaternary
-            :disabled="actionLoading || !selectedRunExists"
-            @click="cleanupRuns(true)"
-          >
-            {{ "保留选中 run + 清理 memory" }}
-          </n-button>
-          <n-button quaternary :disabled="actionLoading" @click="clearMemoryOnly">
-            {{ "仅清空 memory" }}
-          </n-button>
+          </button>
+          <button class="ghost-link" type="button" :disabled="actionLoading || !selectedRunExists" @click="cleanupRuns(true)">
+            保留选中 run + 清理 memory
+          </button>
+          <button class="ghost-link" type="button" :disabled="actionLoading" @click="clearMemoryOnly">
+            仅清空 memory
+          </button>
         </div>
-        <p class="form-hint">
-          {{
-            "清理操作不可恢复，建议先确认保留 run 是否正确。"
-          }}
-        </p>
-        <RouterLink class="ghost-link" to="/settings">
-          {{ "返回设置页" }}
-        </RouterLink>
+        <p class="form-hint">清理操作不可恢复，建议先确认保留 run 是否正确。</p>
       </section>
     </div>
-  </section>
+  </SettingsShell>
 </template>

@@ -1,5 +1,4 @@
 import type { JsonLike, SourceLine } from "./shared-types.js";
-import { expectObject } from "./value-readers.js";
 
 export function parseYamlSubset(text: string, sourcePath: string): JsonLike {
   const lines = tokenizeYaml(text, sourcePath);

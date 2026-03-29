@@ -38,7 +38,7 @@ function statusTagType(status: WorkspaceOverviewRunSnapshot["status"]): "default
     <div class="workspace-overview-card__header">
       <div>
         <p class="section-eyebrow">{{ t("sections.runWorkspace") }}</p>
-        <h2>{{ run.goal }}</h2>
+        <h2>{{ run.name }}</h2>
       </div>
       <div class="workspace-overview-card__actions">
         <n-tag :type="statusTagType(run.status)" size="small">
@@ -59,6 +59,7 @@ function statusTagType(status: WorkspaceOverviewRunSnapshot["status"]): "default
       </div>
     </div>
 
+    <p class="workspace-overview-card__description">{{ run.goal }}</p>
     <p class="workspace-overview-card__description">{{ run.stage }}</p>
 
     <n-grid class="workspace-overview-card__metrics" :x-gap="10" :y-gap="10" cols="2 s:2 m:4" responsive="screen">
@@ -89,4 +90,3 @@ function statusTagType(status: WorkspaceOverviewRunSnapshot["status"]): "default
     </n-grid>
   </n-card>
 </template>
-

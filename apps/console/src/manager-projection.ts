@@ -11,6 +11,7 @@ export type ManagerProjectionRiskLevel = "low" | "medium" | "high" | "none";
 
 export interface ManagerChatRunSummary {
   runId: string;
+  name: string;
   goal: string;
   status: ManagerProjectionStatus;
   createdAt: string;
@@ -69,6 +70,7 @@ export function createEmptyManagerChatProjection(runId = "manager"): ManagerChat
     generatedAt: "",
     run: {
       runId,
+      name: "No run selected.",
       goal: "No run selected.",
       status: "paused",
       createdAt: "",

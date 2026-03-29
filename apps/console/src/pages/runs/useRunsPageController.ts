@@ -4,98 +4,87 @@ import { createRun, deleteRun as deleteRunRequest, listRuns, resumeRun, type Sel
 import { useConsoleSettings } from "../../composables/useConsoleSettings";
 import type { RunSummaryView } from "../../types";
 import { useNaiveDiscrete } from "../../ui/naive/discrete";
-import { getRunApprovalsPath, getRunInspectPath, getRunTaskBoardPath, getRunWorkspacePath } from "../../workspace";
 
-export function useRunsPageController() {
-const route = useRoute();
+const RUNS_UPDATED_EVENT = "clibees:runs-updated";
 
-const router = useRouter();
-
-const { settings } = useConsoleSettings();
-const { dialog } = useNaiveDiscrete();
-
-const runs = ref<RunSummaryView[]>([]);
-
-const selectedRunId = ref("");
-
-const runSearchQuery = ref("");
-
-const loading = ref(false);
-
-const hasLoadedRuns = ref(false);
-
-const error = ref("");
-
-const resuming = ref(false);
-
-const deletingRunId = ref("");
-
-const copying = ref(false);
-
-const createExpanded = ref(false);
-
-const creating = ref(false);
-
-const createError = ref("");
-
-const createGoalInput = ref("");
-
-const selectedCli = ref<SelectedCli>(settings.value.runDefaultCli);
-
-const autoResume = ref(settings.value.runAutoResume);
-
-const cliOptions: ReadonlyArray<SelectedCli> = ["codex", "codefree", "claude"];
-
-const isRunsNewRoute = computed(() => route.name === "runs-new");
-
-const routeParamRunId = computed(() =>
-  typeof route.params.runId === "string" ? route.params.runId : undefined,
-);
-
-const routeQueryRunId = computed(() =>
-  typeof route.query.runId === "string" ? route.query.runId : undefined,
-);
-
-const scopedRouteRunId = computed(() => routeParamRunId.value ?? routeQueryRunId.value);
-
-type SubmenuLeaf = "manager" | "workerpoll" | "workspace" | "tasks" | "approvals" | "inspect";
-
-const submenuLeafByName: Partial<Record<string, SubmenuLeaf>> = {
-  "run-manager": "manager",
-  "run-workerpoll": "workerpoll",
-  "run-workspace": "workspace",
-  "run-task-board": "tasks",
-  "run-approvals": "approvals",
-  "run-inspect": "inspect",
-};
-
-const activeSubmenuLeaf = computed<SubmenuLeaf | undefined>(() => {
-  const routeName = typeof route.name === "string" ? route.name : "";
-  return submenuLeafByName[routeName];
-});
-
-const isSubmenuRoute = computed(() => Boolean(activeSubmenuLeaf.value));
-
-const sortedRuns = computed(() =>
-  [...runs.value].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
-);
-
-const filteredRuns = computed(() => {
-  const keyword = runSearchQuery.value.trim().toLowerCase();
-  if (!keyword) {
-    return sortedRuns.value;
+function emitRunsUpdated(): void {
+  if (typeof window === "undefined") {
+    return;
   }
 
-  return sortedRuns.value.filter((run) =>
-    [run.goal, run.runId, run.summary, run.stage, run.status]
-      .some((field) => field.toLowerCase().includes(keyword)),
-  );
-});
+  window.dispatchEvent(new CustomEvent(RUNS_UPDATED_EVENT));
+}
 
-const selectedRun = computed(() => {
-  const preferredRunId = routeParamRunId.value ?? selectedRunId.value;
-  return filteredRuns.value.find((run) => run.runId === preferredRunId) ?? filteredRuns.value[0];
-});
+export function useRunsPageController() {
+  const route = useRoute();
+  const router = useRouter();
+
+  const { settings } = useConsoleSettings();
+  const { dialog } = useNaiveDiscrete();
+
+  const runs = ref<RunSummaryView[]>([]);
+  const selectedRunId = ref("");
+  const runSearchQuery = ref("");
+  const loading = ref(false);
+  const hasLoadedRuns = ref(false);
+  const error = ref("");
+  const resuming = ref(false);
+  const deletingRunId = ref("");
+  const copying = ref(false);
+  const createExpanded = ref(false);
+  const creating = ref(false);
+  const createError = ref("");
+  const createNameInput = ref("");
+  const createGoalInput = ref("");
+  const selectedCli = ref<SelectedCli>(settings.value.runDefaultCli);
+  const autoResume = ref(settings.value.runAutoResume);
+
+  const cliOptions: ReadonlyArray<SelectedCli> = ["codex", "codefree", "claude"];
+  const isRunsNewRoute = computed(() => route.name === "runs-new");
+
+  const routeParamRunId = computed(() =>
+    typeof route.params.runId === "string" ? route.params.runId : undefined,
+  );
+  const routeQueryRunId = computed(() =>
+    typeof route.query.runId === "string" ? route.query.runId : undefined,
+  );
+  const scopedRouteRunId = computed(() => routeParamRunId.value ?? routeQueryRunId.value);
+
+  type SubmenuLeaf = "manager" | "workerpoll" | "workspace" | "tasks" | "approvals" | "inspect";
+
+  const submenuLeafByName: Partial<Record<string, SubmenuLeaf>> = {
+    "run-manager": "manager",
+    "run-workerpoll": "workerpoll",
+    "run-workspace": "workspace",
+    "run-task-board": "tasks",
+    "run-approvals": "approvals",
+    "run-inspect": "inspect",
+  };
+
+  const activeSubmenuLeaf = computed<SubmenuLeaf | undefined>(() => {
+    const routeName = typeof route.name === "string" ? route.name : "";
+    return submenuLeafByName[routeName];
+  });
+
+  const filteredRuns = computed(() => {
+    const keyword = runSearchQuery.value.trim().toLowerCase();
+    const sortedRuns = [...runs.value].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
+    if (!keyword) {
+      return sortedRuns;
+    }
+
+    return sortedRuns.filter((run) =>
+      [run.name, run.goal, run.runId, run.summary, run.stage, run.status]
+        .some((field) => field.toLowerCase().includes(keyword)),
+    );
+  });
+
+  const selectedRun = computed(() => {
+    const preferredRunId = routeParamRunId.value ?? selectedRunId.value;
+    return filteredRuns.value.find((run) => run.runId === preferredRunId) ?? filteredRuns.value[0];
+  });
 
 
 function syncRunQuery(runId: string | undefined): void {
@@ -151,7 +140,7 @@ function selectRun(runId: string): void {
 }
 
 function employeeInitial(run: RunSummaryView): string {
-  const compact = run.goal.replace(/\s+/g, "").trim();
+  const compact = run.name.replace(/\s+/g, "").trim();
   if (compact.length > 0) {
     return compact.slice(0, 1).toUpperCase();
   }
@@ -181,6 +170,7 @@ async function loadRuns(): Promise<void> {
     runs.value = await listRuns();
     ensureSelection();
     error.value = "";
+    emitRunsUpdated();
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught);
   } finally {
@@ -237,6 +227,7 @@ async function deleteTaskResources(run: RunSummaryView): Promise<void> {
       selectedRunId.value = "";
     }
     await loadRuns();
+    emitRunsUpdated();
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : String(caught);
   } finally {
@@ -273,14 +264,6 @@ function confirmDeleteRun(runId: string): Promise<boolean> {
   });
 }
 
-async function backToSubmenuHub(): Promise<void> {
-  const runId = selectedRun.value?.runId ?? scopedRouteRunId.value;
-  await router.push({
-    name: "runs",
-    query: runId ? { runId } : {},
-  });
-}
-
 function toggleCreatePanel(): void {
   createError.value = "";
 
@@ -298,6 +281,7 @@ function toggleCreatePanel(): void {
 }
 
 function resetCreateForm(): void {
+  createNameInput.value = "";
   createGoalInput.value = "";
   selectedCli.value = settings.value.runDefaultCli;
   autoResume.value = settings.value.runAutoResume;
@@ -305,7 +289,12 @@ function resetCreateForm(): void {
 }
 
 async function createNewRun(): Promise<void> {
+  const name = createNameInput.value.trim();
   const goal = createGoalInput.value.trim();
+  if (!name) {
+    createError.value = "请输入任务名称。";
+    return;
+  }
   if (!goal) {
     createError.value = "请输入任务目标。";
     return;
@@ -315,6 +304,7 @@ async function createNewRun(): Promise<void> {
   try {
     createError.value = "";
     const created = await createRun({
+      name,
       goal,
       cli: selectedCli.value,
       autoResume: autoResume.value,
@@ -327,6 +317,7 @@ async function createNewRun(): Promise<void> {
     const matched = runs.value.find((run) => run.runId === created.runId);
     const targetRunId = matched?.runId ?? created.runId;
     selectedRunId.value = targetRunId;
+    emitRunsUpdated();
     await router.push(buildRunSubmenuPath(targetRunId, "manager"));
   } catch (caught) {
     createError.value = caught instanceof Error ? caught.message : String(caught);
@@ -400,27 +391,15 @@ onMounted(() => {
     createExpanded,
     creating,
     createError,
+    createNameInput,
     createGoalInput,
     selectedCli,
     autoResume,
     cliOptions,
-    isRunsNewRoute,
-    routeParamRunId,
-    routeQueryRunId,
-    scopedRouteRunId,
-    submenuLeafByName,
     activeSubmenuLeaf,
-    isSubmenuRoute,
-    sortedRuns,
     filteredRuns,
     selectedRun,
-    syncRunQuery,
-    ensureSelection,
     buildRunSubmenuPath,
-    getRunWorkspacePath,
-    getRunTaskBoardPath,
-    getRunApprovalsPath,
-    getRunInspectPath,
     selectRun,
     employeeInitial,
     statusTone,
@@ -428,10 +407,9 @@ onMounted(() => {
     resumeSelectedRun,
     copyRunId,
     deleteTaskResources,
-    backToSubmenuHub,
     toggleCreatePanel,
-    resetCreateForm,
     createNewRun,
+    runsUpdatedEventName: RUNS_UPDATED_EVENT,
   };
 }
 

@@ -1,98 +1,178 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import {
-  NButton,
-  NLayout,
-  NLayoutContent,
-  NLayoutHeader,
-  NSpace,
-  NTag,
-  NText,
-} from "naive-ui";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 
-import { usePreferences } from "./composables/usePreferences";
-import { isWideContentRoute as resolveWideContentRoute, resolveToolbarLabelKey } from "./route-meta";
+import { listRuns } from "./api";
+import RunSidebarTree, { type RunSidebarLeaf, type RunSidebarTaskItem } from "./components/app/RunSidebarTree.vue";
+import SettingsEntryButton from "./components/app/SettingsEntryButton.vue";
+
+const RUNS_UPDATED_EVENT = "clibees:runs-updated";
 
 const route = useRoute();
 const router = useRouter();
-const { isDark, t, toggleTheme } = usePreferences();
 
-const isWideContentRoute = computed(() => resolveWideContentRoute(route.path));
-const toolbarLabelKey = computed(() => resolveToolbarLabelKey(route.path));
-const toolbarTitle = computed(() =>
-  toolbarLabelKey.value === "nav.runs" ? "CLI自动任务编排" : t(toolbarLabelKey.value),
-);
-const isSettingsRoute = computed(() => route.path === "/settings" || route.path.startsWith("/settings/"));
-const routeRunId = computed(() =>
-  typeof route.params.runId === "string" ? route.params.runId : undefined,
-);
-const activeRunId = computed(() => routeRunId.value);
+const runs = ref<RunSidebarTaskItem[]>([]);
+const loading = ref(false);
+const expandedRunIds = ref<string[]>([]);
 
-async function goToTaskPool(): Promise<void> {
+const routeLeafByName: Partial<Record<string, RunSidebarLeaf>> = {
+  "run-manager": "manager",
+  "run-workerpoll": "workerpoll",
+  "run-workspace": "workspace",
+  "run-task-board": "tasks",
+  "run-approvals": "approvals",
+  "run-inspect": "inspect",
+};
+
+const isSettingsRoute = computed(() => route.path.startsWith("/settings"));
+const activeRunId = computed(() => {
+  if (typeof route.params.runId === "string") {
+    return route.params.runId;
+  }
+  if (typeof route.query.runId === "string") {
+    return route.query.runId;
+  }
+  return undefined;
+});
+const activeLeaf = computed(() => {
+  const routeName = typeof route.name === "string" ? route.name : "";
+  return routeLeafByName[routeName];
+});
+const pageTitle = computed(() => {
+  if (isSettingsRoute.value) {
+    return "系统设置";
+  }
+  if (!activeRunId.value) {
+    return "运行中心";
+  }
+  const current = runs.value.find((item) => item.runId === activeRunId.value);
+  return current?.name ?? "运行中心";
+});
+
+async function loadSidebarRuns(): Promise<void> {
+  loading.value = true;
+  try {
+    const items = await listRuns();
+    runs.value = [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  } finally {
+    loading.value = false;
+  }
+}
+
+function ensureRunExpanded(runId?: string): void {
+  if (!runId) {
+    return;
+  }
+  if (expandedRunIds.value.includes(runId)) {
+    return;
+  }
+  expandedRunIds.value = [...expandedRunIds.value, runId];
+}
+
+async function openRoot(): Promise<void> {
   await router.push("/runs");
 }
 
-async function goToSettings(): Promise<void> {
-  if (isSettingsRoute.value) {
+async function openCreate(): Promise<void> {
+  await router.push("/runs/new");
+}
+
+async function openRunCenter(): Promise<void> {
+  await router.push("/runs");
+}
+
+async function selectRun(runId: string): Promise<void> {
+  ensureRunExpanded(runId);
+  await router.push(`/runs/${encodeURIComponent(runId)}/manager`);
+}
+
+async function selectLeaf(payload: { runId: string; leaf: RunSidebarLeaf }): Promise<void> {
+  ensureRunExpanded(payload.runId);
+  await router.push(`/runs/${encodeURIComponent(payload.runId)}/${payload.leaf}`);
+}
+
+function expandRun(runId: string): void {
+  if (expandedRunIds.value.includes(runId)) {
     return;
   }
-  await router.push("/settings");
+  expandedRunIds.value = [...expandedRunIds.value, runId];
 }
+
+function collapseRun(runId: string): void {
+  expandedRunIds.value = expandedRunIds.value.filter((item) => item !== runId);
+}
+
+function handleRunsUpdated(): void {
+  void loadSidebarRuns();
+}
+
+watch(
+  () => activeRunId.value,
+  (runId) => {
+    ensureRunExpanded(runId);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (isSettingsRoute.value) {
+      return;
+    }
+    void loadSidebarRuns();
+  },
+  { immediate: true },
+);
+
+onMounted(() => {
+  void loadSidebarRuns();
+  if (typeof window !== "undefined") {
+    window.addEventListener(RUNS_UPDATED_EVENT, handleRunsUpdated);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (typeof window !== "undefined") {
+    window.removeEventListener(RUNS_UPDATED_EVENT, handleRunsUpdated);
+  }
+});
 </script>
 
 <template>
-  <n-layout class="app-shell">
-    <n-layout-header bordered class="app-toolbar app-toolbar--naive">
-      <div class="app-toolbar__naive-row">
-        <n-space align="center" :size="12">
-          <n-button
-            class="app-toolbar__menu"
-            quaternary
-            circle
-            type="primary"
-            :aria-label="t('nav.runs')"
-            :title="t('nav.runs')"
-            @click="goToTaskPool"
-          >
-            <span class="app-toolbar__icon-text">主页</span>
-          </n-button>
+  <div class="app-frame" :class="{ 'app-frame--settings': isSettingsRoute }">
+    <template v-if="!isSettingsRoute">
+      <RunSidebarTree
+        :runs="runs"
+        :active-run-id="activeRunId"
+        :active-leaf="activeLeaf"
+        :expanded-run-ids="expandedRunIds"
+        :loading="loading"
+        @open-root="openRoot"
+        @open-create="openCreate"
+        @select-run="selectRun"
+        @select-leaf="selectLeaf"
+        @expand-run="expandRun"
+        @collapse-run="collapseRun"
+      />
+    </template>
 
-          <div class="app-toolbar__context">
-            <n-text class="app-toolbar__title" strong>{{ toolbarTitle }}</n-text>
-            <n-tag v-if="activeRunId" type="info" size="small" round>run {{ activeRunId }}</n-tag>
-          </div>
-        </n-space>
+    <section class="app-main">
+      <header class="app-topbar">
+        <div>
+          <h2>{{ pageTitle }}</h2>
+        </div>
 
-        <n-space align="center" :size="8">
-          <n-button
-            class="theme-toggle"
-            quaternary
-            :aria-label="t('controls.themeToggle')"
-            :title="isDark ? t('controls.themeDark') : t('controls.themeLight')"
-            @click="toggleTheme"
-          >
-            {{ isDark ? t("controls.themeDark") : t("controls.themeLight") }}
-          </n-button>
+        <button v-if="isSettingsRoute" class="ghost-link" type="button" @click="openRunCenter">返回运行中心</button>
+        <SettingsEntryButton v-if="!isSettingsRoute" />
+      </header>
 
-          <n-button
-            class="app-toolbar__settings"
-            secondary
-            :type="isSettingsRoute ? 'primary' : 'default'"
-            :aria-label="t('nav.settings')"
-            :title="t('nav.settings')"
-            @click="goToSettings"
-          >
-            {{ t("nav.settings") }}
-          </n-button>
-        </n-space>
-      </div>
-    </n-layout-header>
-
-    <n-layout-content class="app-shell__content">
-      <main class="app-content" :class="{ 'app-content--wide': isWideContentRoute }">
+      <main
+        class="app-content"
+        :class="{ 'app-content--wide': isSettingsRoute, 'app-content--settings': isSettingsRoute }"
+      >
         <RouterView />
       </main>
-    </n-layout-content>
-  </n-layout>
+    </section>
+  </div>
 </template>

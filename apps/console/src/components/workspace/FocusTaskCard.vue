@@ -5,7 +5,7 @@ import { useRouter } from "vue-router";
 import { usePreferences } from "../../composables/usePreferences";
 import type { WorkspaceOverviewFocusViewModel } from "../../composables/useWorkspaceOverview";
 
-const props = defineProps<{
+defineProps<{
   focusTask?: WorkspaceOverviewFocusViewModel;
   inspectTo: string;
 }>();
@@ -109,4 +109,3 @@ function riskTagType(riskLevel: WorkspaceOverviewFocusViewModel["riskLevel"]): "
     </n-empty>
   </n-card>
 </template>
-

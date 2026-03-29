@@ -154,7 +154,8 @@ watch(
           <div class="panel-card__header">
             <div>
               <p class="section-eyebrow">{{ "运行摘要" }}</p>
-              <h2>{{ projection.run.goal }}</h2>
+              <h2>{{ projection.run.name }}</h2>
+              <p class="panel-card__body">{{ projection.run.goal }}</p>
             </div>
             <div class="section-actions">
               <span class="flow-pill">run {{ runId || "-" }}</span>

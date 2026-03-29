@@ -52,6 +52,7 @@ interface LegacyTaskHandoffView {
 
 interface LegacyWorkspaceView {
   runId: string;
+  name?: string;
   goal: string;
   runStatus: WorkspaceView["runStatus"];
   stage: string;
@@ -75,6 +76,7 @@ class ApiError extends Error {
 export type { SelectedCli };
 
 export interface CreateRunPayload {
+  name: string;
   goal: string;
   cli: SelectedCli;
   allowOutsideWorkspaceWrites?: boolean;
@@ -149,9 +151,26 @@ function mapApprovalItem(raw: LegacyApprovalItem): ApprovalItem {
   };
 }
 
+function fallbackRunName<T extends { name?: string; goal: string }>(run: T): string {
+  const explicitName = typeof run.name === "string" ? run.name.trim() : "";
+  if (explicitName.length > 0) {
+    return explicitName;
+  }
+
+  const compactGoal = run.goal.replace(/\s+/g, " ").trim();
+  if (compactGoal.length === 0) {
+    return "Untitled run";
+  }
+  if (compactGoal.length <= 48) {
+    return compactGoal;
+  }
+  return `${compactGoal.slice(0, 47).trimEnd()}...`;
+}
+
 function mapWorkspaceView(raw: LegacyWorkspaceView): WorkspaceView {
   return {
     runId: raw.runId,
+    name: fallbackRunName(raw),
     goal: raw.goal,
     runStatus: raw.runStatus,
     stage: raw.stage,
@@ -191,7 +210,12 @@ function mapWorkspaceView(raw: LegacyWorkspaceView): WorkspaceView {
 }
 
 export function listRuns() {
-  return request<RunSummaryView[]>("/api/runs");
+  return request<Array<RunSummaryView & { name?: string }>>("/api/runs").then((runs) =>
+    runs.map((run) => ({
+      ...run,
+      name: fallbackRunName(run),
+    })),
+  );
 }
 
 export async function getWorkspace(runId: string) {
@@ -203,7 +227,13 @@ export async function getWorkspaceProjection(runId: string) {
   const response = await request<UiProjectionEnvelope<WorkspaceProjectionView>>(
     `/api/runs/${encodeURIComponent(runId)}/projections/workspace`,
   );
-  return response.data;
+  return {
+    ...response.data,
+    run: {
+      ...response.data.run,
+      name: fallbackRunName(response.data.run),
+    },
+  };
 }
 
 export async function getTaskDetailProjection(runId: string, taskId: string) {
@@ -268,14 +298,26 @@ export async function getManagerChatProjection(runId: string) {
   const response = await request<UiProjectionEnvelope<ManagerChatProjectionView>>(
     `/api/runs/${encodeURIComponent(runId)}/projections/manager-chat`,
   );
-  return response.data;
+  return {
+    ...response.data,
+    run: {
+      ...response.data.run,
+      name: fallbackRunName(response.data.run),
+    },
+  };
 }
 
 export async function getWorkerpollProjection(runId: string) {
   const response = await request<UiProjectionEnvelope<WorkerpollProjectionView>>(
     `/api/runs/${encodeURIComponent(runId)}/projections/workerpoll`,
   );
-  return response.data;
+  return {
+    ...response.data,
+    run: {
+      ...response.data.run,
+      name: fallbackRunName(response.data.run),
+    },
+  };
 }
 
 export async function listApprovals(runId?: string) {

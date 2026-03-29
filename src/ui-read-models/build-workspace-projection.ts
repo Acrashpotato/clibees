@@ -1,50 +1,47 @@
 ﻿import type {
-  InspectionApprovalItem,
-  InspectionValidationItem,
-  RunEvent,
-  RunInspection,
-  SessionMessageRecord,
-  TaskSpec,
+InspectionValidationItem,
+RunInspection,
+SessionMessageRecord,
+TaskSpec
 } from "../domain/models.js";
-import type {
-  ApprovalQueueItemView,
-  WorkspaceActionQueueItemView,
-  WorkspaceActiveSessionView,
-  WorkspaceControlActionView,
-  WorkspaceDependencySummaryView,
-  WorkspaceFocusSelectionMode,
-  WorkspaceFocusTaskView,
-  WorkspacePendingMessageItemView,
-  WorkspacePendingMessageSummaryView,
-  WorkspaceProjectionView,
-  WorkspaceRiskSummaryView,
-  WorkspaceRunSummaryView,
-} from "./models.js";
+import { resolveRunName } from "../domain/models.js";
 import { buildApprovalQueue } from "./build-views.js";
-import {
-  buildDependencySummaryText,
-  buildPendingMessageItem,
-  buildSelectionResult,
-  buildStageLabel,
-  groupApprovalsByTaskId,
-  isPendingMessageEvent,
-  resolveFocusTask,
-  resolveHighestRiskLevel,
-} from "./workspace-projection-helpers.js";
-import { firstNonEmptyLine } from "./event-view-helpers.js";
+import type {
+ApprovalQueueItemView,
+WorkspaceActionQueueItemView,
+WorkspaceActiveSessionView,
+WorkspaceControlActionView,
+WorkspaceDependencySummaryView,
+WorkspaceFocusSelectionMode,
+WorkspaceFocusTaskView,
+WorkspacePendingMessageItemView,
+WorkspacePendingMessageSummaryView,
+WorkspaceProjectionView,
+WorkspaceRiskSummaryView,
+WorkspaceRunSummaryView,
+} from "./models.js";
 import { buildBackfilledSessionWindows } from "./session-backfill.js";
 import {
-  buildTaskOwnerLabel,
-  buildTaskStatusReason,
-  buildTerminalPreview,
-  isActiveSessionBackfillTaskStatus,
-  isActiveTaskStatus,
-  isDownstreamReadyStatus,
-  mapRunStatus,
-  mapTaskStatus,
-  resolveTaskAgentId,
-  resolveTaskId,
+buildTaskOwnerLabel,
+buildTaskStatusReason,
+buildTerminalPreview,
+isActiveSessionBackfillTaskStatus,
+isActiveTaskStatus,
+isDownstreamReadyStatus,
+mapRunStatus,
+mapTaskStatus,
+resolveTaskAgentId,
+resolveTaskId,
 } from "./task-view-helpers.js";
+import {
+buildDependencySummaryText,
+buildPendingMessageItem,
+buildStageLabel,
+groupApprovalsByTaskId,
+isPendingMessageEvent,
+resolveFocusTask,
+resolveHighestRiskLevel
+} from "./workspace-projection-helpers.js";
 
 export function buildWorkspaceProjection(
   inspection: RunInspection,
@@ -102,6 +99,7 @@ function buildRunSummary(
 
   return {
     runId: inspection.run.runId,
+    name: resolveRunName(inspection.run),
     goal: inspection.run.goal,
     status: mapRunStatus(inspection.run.status),
     stage: buildStageLabel(inspection),
